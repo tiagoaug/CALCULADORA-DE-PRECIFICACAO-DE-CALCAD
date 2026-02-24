@@ -1,0 +1,61 @@
+{
+  "name": "calculadora-de-preco-pro",
+  "version": "1.0.0",
+  "description": "Uma aplicação avançada para formação de preços de produtos, agora como aplicativo desktop (.exe).",
+  "main": "electron-main.js",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "start": "npx serve .",
+    "electron-dev": "electron .",
+    "electron-build": "electron-builder",
+    "capacitor:add:android": "npx cap add android",
+    "capacitor:sync": "npx cap sync",
+    "capacitor:open:android": "npx cap open android"
+  },
+  "keywords": [
+    "react",
+    "electron",
+    "desktop",
+    "precificacao"
+  ],
+  "author": "Your Name",
+  "license": "ISC",
+  "dependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/core": "^6.0.0",
+    "@supabase/supabase-js": "^2.97.0",
+    "jspdf": "^2.5.1",
+    "lucide-react": "^0.395.0",
+    "react": "^19.0.0-rc-01b31a89c9-20240723",
+    "react-dom": "^19.0.0-rc-01b31a89c9-20240723",
+    "tailwindcss": "^3.4.4",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.0.0",
+    "@vitejs/plugin-react": "^5.1.4",
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3",
+    "serve": "^14.2.3",
+    "typescript": "^5.2.2",
+    "vite": "^7.3.1"
+  },
+  "build": {
+    "appId": "com.calculadora.precopro",
+    "productName": "Calculadora de Preço PRO",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "win": {
+      "target": "portable",
+      "icon": "icon.ico"
+    },
+    "files": [
+      "**/*",
+      "!android",
+      "!dist-electron"
+    ]
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "appId": "com.example.calculadoraprecopro",
+  "appName": "CalculadoraPrecoPRO",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "android": {
+    "allowMixedContent": true
+  }
+}
