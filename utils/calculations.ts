@@ -37,24 +37,21 @@ export const calculateSummary = (
   const valorPerdaUnitario = custoBase * ((markup?.perdas || 0) / 100);
   const custoProducaoUnitario = custoBase + valorPerdaUnitario;
 
-  // 7. Preço Sugerido (Baseado na MARGEM ALVO)
+  // 7. Preço Sugerido (Baseado na MARGEM ALVO e IMPOSTOS)
+  // Usando Markup por Dentro: Preco = Custo / (1 - %Imposto - %Margem)
   const percImposto = (markup?.impostos || 0) / 100;
   const percMargemAlvo = (markup?.margemLucro || 0) / 100;
 
-  // Cálculo do preço base com impostos (sem lucro) - Markup por dentro
-  const divisorImposto = 1 - percImposto;
-  const precoSemLucro = (divisorImposto > 0 && custoProducaoUnitario > 0) ? custoProducaoUnitario / divisorImposto : custoProducaoUnitario;
-
-  // Preço sugerido aplicando a margem sobre o preço que já contém impostos
-  const divisorLucro = 1 - percMargemAlvo;
-  const precoSugerido = (divisorLucro > 0) ? precoSemLucro / divisorLucro : precoSemLucro;
+  const divisorMarkup = 1 - percImposto - percMargemAlvo;
+  // Fallback para evitar divisão por zero se a soma de taxas for >= 100%
+  const precoSugerido = (divisorMarkup > 0.01) ? custoProducaoUnitario / divisorMarkup : custoProducaoUnitario * 2;
 
   // 8. Preço Praticado (O que o usuário inseriu ou o sugerido se vazio)
   const precoPraticado = precoManual > 0 ? precoManual : precoSugerido;
 
   // 9. Cálculo do Imposto e Margem Real
-  // O imposto é calculado sobre a base sem lucro, conforme solicitado
-  const valorImpostoUnitario = precoSemLucro * percImposto;
+  // O imposto real é calculado sobre o preço praticado (venda final)
+  const valorImpostoUnitario = precoPraticado * percImposto;
   const lucroRealUnitario = precoPraticado - valorImpostoUnitario - custoProducaoUnitario;
   const margemReal = precoPraticado > 0 ? (lucroRealUnitario / precoPraticado) * 100 : 0;
 
@@ -82,5 +79,5 @@ export const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
-  }).format(value);
+  }).format(value).replace(/\s/g, ' ');
 };
