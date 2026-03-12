@@ -5,12 +5,14 @@ export interface Insumo {
   quantidade: number;
   unidade: string;
   valorUnitario: number;
+  comentario?: string;
 }
 
 export interface CustoFixo {
   id: string;
   nome: string;
   valor: number;
+  comentario?: string;
 }
 
 export interface ProductionSettings {
@@ -37,10 +39,18 @@ export interface ProductData {
   precoVendaManual?: number; // Novo campo para preço inserido pelo usuário
 }
 
+export interface LibraryData {
+  insumos: Insumo[];
+  servicos: Insumo[];
+  custosFixos: CustoFixo[];
+  custosVariaveis: CustoFixo[];
+}
+
 export interface AppDatabase {
   version: string;
   products: ProductData[];
   lastSelectedProductId: string;
+  library: LibraryData;
 }
 
 export interface PriceSummary {
@@ -49,9 +59,9 @@ export interface PriceSummary {
   custoTerceirizados: number;
   custoFixoUnitario: number;
   custoIndiretoUnitario: number;
-  custoFixoPorUnidade: number; 
+  custoFixoPorUnidade: number;
   valorPerdaUnitario: number;
-  custoProducaoUnitario: number; 
+  custoProducaoUnitario: number;
   valorImpostoUnitario: number;
   lucroUnitario: number;
   precoFinal: number; // Preço sugerido pela margem alvo
