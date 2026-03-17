@@ -33,6 +33,7 @@ import { ProductData, AppDatabase, LibraryData } from './types';
 import { calculateSummary, formatCurrency } from './utils/calculations';
 import { downloadPDF, sharePDF, shareFile, copyBackupToClipboard, shareTextReport } from './utils/export';
 import LibraryView from './LibraryView';
+import AutocompleteInput from './AutocompleteInput';
 
 
 const DB_KEY = 'preco_pro_db_v1';
@@ -483,6 +484,31 @@ const App: React.FC = () => {
     }));
   }, []);
 
+  const handleSaveToLibrary = useCallback((type: keyof LibraryData, name: string) => {
+    const existing = db.library[type].find(item => item.nome.toLowerCase() === name.toLowerCase());
+    if (existing) {
+      alert('Este item já existe no banco de dados.');
+      return;
+    }
+
+    const newItem = {
+      id: Math.random().toString(36),
+      nome: name,
+      unidade: type === 'insumos' ? 'un' : 'par',
+      valorUnitario: 0,
+      valor: 0
+    };
+
+    setDb(prev => ({
+      ...prev,
+      library: {
+        ...prev.library,
+        [type]: [...prev.library[type], newItem]
+      }
+    }));
+    alert(`"${name}" salvo com sucesso no banco de dados!`);
+  }, [db.library]);
+
   const handleSelectItem = useCallback((type: string, item: any) => {
     if (activeLibraryTarget && activeLibraryTarget.type === type) {
       // Preencher item existente
@@ -803,14 +829,22 @@ const App: React.FC = () => {
                   <div className="mb-4">
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1.5 block ml-1">Descrição</label>
                     <div className="relative group">
-                      <input
+                      <AutocompleteInput
                         value={insumo.nome}
-                        title="Nome do Material"
-                        onChange={(e) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, nome: e.target.value } : i) })}
-                        className={`${inputBase} w-full pr-16`}
+                        suggestions={db.library.insumos}
                         placeholder="Ex: Couro, Cola, Solado..."
+                        className={`${inputBase} w-full pr-16`}
+                        onChange={(val) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, nome: val } : i) })}
+                        onSelect={(item) => updateCurrentProduct({
+                          insumos: currentProduct.insumos.map(i => i.id === insumo.id ? {
+                            ...i,
+                            nome: item.nome,
+                            unidade: item.unidade || i.unidade,
+                            valorUnitario: item.valor_unitario || item.valorUnitario || i.valorUnitario || i.valor || 0
+                          } : i)
+                        })}
                       />
-                      <div className="absolute right-1 top-1/2 -translate-y-1/2 flex gap-1">
+                      <div className="absolute right-1 top-1/2 -translate-y-1/2 flex gap-1 z-10">
                         <button
                           onClick={() => setCommentingItem({ id: insumo.id, type: 'insumos', comment: insumo.comentario || '' })}
                           title={insumo.comentario ? "Ver Comentário" : "Adicionar Comentário"}
@@ -818,13 +852,24 @@ const App: React.FC = () => {
                         >
                           <MessageSquare className="w-4 h-4" />
                         </button>
-                        <button
-                          onClick={() => { setActiveLibraryTarget({ id: insumo.id, type: 'insumos' }); setShowDatabase(true); }}
-                          title="Buscar na Biblioteca"
-                          className="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded-md text-blue-500 transition-all"
-                        >
-                          <Database className="w-4 h-4" />
-                        </button>
+                        {insumo.nome.trim().length > 2 && !db.library.insumos.find(s => s.nome.toLowerCase() === insumo.nome.toLowerCase()) ? (
+                          <button
+                            onClick={() => handleSaveToLibrary('insumos', insumo.nome)}
+                            title="Salvar no Cadastro"
+                            className="p-1.5 hover:bg-amber-50 dark:hover:bg-amber-900/40 rounded-md text-amber-500 transition-all relative"
+                          >
+                            <Database className="w-4 h-4" />
+                            <Plus className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-amber-500 text-white rounded-full border border-white dark:border-slate-900" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => { setActiveLibraryTarget({ id: insumo.id, type: 'insumos' }); setShowDatabase(true); }}
+                            title="Buscar na Biblioteca"
+                            className="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded-md text-blue-500 transition-all"
+                          >
+                            <Database className="w-4 h-4" />
+                          </button>
+                        )}
                         <button
                           onClick={() => setActiveConsumptionCalc(insumo.id)}
                           title="Calculador de Consumo"
@@ -910,8 +955,22 @@ const App: React.FC = () => {
                   {currentProduct.insumos.map((insumo) => (
                     <div key={insumo.id} className="grid grid-cols-[2fr_1fr_1fr_1.5fr_1.2fr_0.5fr] gap-3 p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl items-center hover:border-blue-400 transition-all shadow-sm group">
                       <div className="relative group">
-                        <input value={insumo.nome} title="Nome do Material" onChange={(e) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, nome: e.target.value } : i) })} className={`${inputBase} !bg-transparent truncate pr-16`} />
-                        <div className="absolute right-1 top-1/2 -translate-y-1/2 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
+                        <AutocompleteInput
+                          value={insumo.nome}
+                          suggestions={db.library.insumos}
+                          placeholder="Ex: Couro..."
+                          className={`${inputBase} !bg-transparent truncate pr-16`}
+                          onChange={(val) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, nome: val } : i) })}
+                          onSelect={(item) => updateCurrentProduct({
+                            insumos: currentProduct.insumos.map(i => i.id === insumo.id ? {
+                              ...i,
+                              nome: item.nome,
+                              unidade: item.unidade || i.unidade,
+                              valorUnitario: item.valor_unitario || item.valorUnitario || i.valorUnitario || i.valor || 0
+                            } : i)
+                          })}
+                        />
+                        <div className="absolute right-1 top-1/2 -translate-y-1/2 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-all z-10">
                           <button
                             onClick={() => setCommentingItem({ id: insumo.id, type: 'insumos', comment: insumo.comentario || '' })}
                             title={insumo.comentario ? "Ver Comentário" : "Adicionar Comentário"}
@@ -919,13 +978,24 @@ const App: React.FC = () => {
                           >
                             <MessageSquare className="w-3.5 h-3.5" />
                           </button>
-                          <button
-                            onClick={() => { setActiveLibraryTarget({ id: insumo.id, type: 'insumos' }); setShowDatabase(true); }}
-                            title="Buscar na Biblioteca"
-                            className="p-1 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded text-blue-500"
-                          >
-                            <Database className="w-3.5 h-3.5" />
-                          </button>
+                          {insumo.nome.trim().length > 2 && !db.library.insumos.find(s => s.nome.toLowerCase() === insumo.nome.toLowerCase()) ? (
+                            <button
+                              onClick={() => handleSaveToLibrary('insumos', insumo.nome)}
+                              title="Salvar no Cadastro"
+                              className="p-1 hover:bg-amber-50 dark:hover:bg-amber-900/40 rounded text-amber-500 transition-all relative"
+                            >
+                              <Database className="w-3.5 h-3.5" />
+                              <Plus className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-500 text-white rounded-full border border-white dark:border-slate-900" />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => { setActiveLibraryTarget({ id: insumo.id, type: 'insumos' }); setShowDatabase(true); }}
+                              title="Buscar na Biblioteca"
+                              className="p-1 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded text-blue-500"
+                            >
+                              <Database className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                           <button
                             onClick={() => setActiveConsumptionCalc(insumo.id)}
                             title="Calculador de Consumo"
@@ -991,28 +1061,47 @@ const App: React.FC = () => {
                 <div key={t.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm relative group">
                   <div className="mb-4">
                     <div className="relative group">
-                      <input
+                      <AutocompleteInput
                         value={t.nome}
-                        title="Nome do Serviço"
-                        onChange={(e) => updateCurrentProduct({ terceirizados: currentProduct.terceirizados.map(i => i.id === t.id ? { ...i, nome: e.target.value } : i) })}
-                        className={`${inputBase} w-full pr-16`}
+                        suggestions={db.library.servicos}
                         placeholder="Ex: Corte, Costura, Montagem..."
+                        className={`${inputBase} w-full pr-16`}
+                        onChange={(val) => updateCurrentProduct({ terceirizados: currentProduct.terceirizados.map(i => i.id === t.id ? { ...i, nome: val } : i) })}
+                        onSelect={(item) => updateCurrentProduct({
+                          terceirizados: currentProduct.terceirizados.map(i => i.id === t.id ? {
+                            ...i,
+                            nome: item.nome,
+                            unidade: item.unidade || i.unidade,
+                            valorUnitario: item.valor_unitario || item.valorUnitario || i.valorUnitario || i.valor || 0
+                          } : i)
+                        })}
                       />
-                      <div className="absolute right-1 top-1/2 -translate-y-1/2 flex gap-1">
+                      <div className="absolute right-1 top-1/2 -translate-y-1/2 flex gap-1 z-10">
                         <button
-                          onClick={() => setCommentingItem({ id: t.id, type: 'terceirizados', comment: t.comentario || '' })}
+                          onClick={() => setCommentingItem({ id: t.id, type: 'terceirizados', comment: t.comment || '' })}
                           title={t.comentario ? "Ver Comentário" : "Adicionar Comentário"}
                           className={`p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-all ${t.comentario ? 'text-blue-500' : 'text-slate-300'}`}
                         >
                           <MessageSquare className="w-4 h-4" />
                         </button>
-                        <button
-                          onClick={() => { setActiveLibraryTarget({ id: t.id, type: 'servicos' }); setShowDatabase(true); }}
-                          title="Buscar na Biblioteca"
-                          className="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded-md text-blue-500 transition-all"
-                        >
-                          <Database className="w-4 h-4" />
-                        </button>
+                        {t.nome.trim().length > 2 && !db.library.servicos.find(s => s.nome.toLowerCase() === t.nome.toLowerCase()) ? (
+                          <button
+                            onClick={() => handleSaveToLibrary('servicos', t.nome)}
+                            title="Salvar no Cadastro"
+                            className="p-1.5 hover:bg-amber-50 dark:hover:bg-amber-900/40 rounded-md text-amber-500 transition-all relative"
+                          >
+                            <Database className="w-4 h-4" />
+                            <Plus className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-amber-500 text-white rounded-full border border-white dark:border-slate-900" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => { setActiveLibraryTarget({ id: t.id, type: 'servicos' }); setShowDatabase(true); }}
+                            title="Buscar na Biblioteca"
+                            className="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded-md text-blue-500 transition-all"
+                          >
+                            <Database className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1090,8 +1179,22 @@ const App: React.FC = () => {
                 {currentProduct.terceirizados.map((t) => (
                   <div key={t.id} className="grid grid-cols-[2fr_1fr_1fr_1.5fr_1.2fr_0.5fr] gap-3 p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl items-center shadow-sm hover:border-orange-400 transition-all">
                     <div className="relative group">
-                      <input value={t.nome} title="Nome do Serviço" onChange={(e) => updateCurrentProduct({ terceirizados: currentProduct.terceirizados.map(i => i.id === t.id ? { ...i, nome: e.target.value } : i) })} className={`${inputBase} !bg-transparent truncate pr-16`} />
-                      <div className="absolute right-1 top-1/2 -translate-y-1/2 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
+                      <AutocompleteInput
+                        value={t.nome}
+                        suggestions={db.library.servicos}
+                        placeholder="Ex: Corte..."
+                        className={`${inputBase} !bg-transparent truncate pr-16`}
+                        onChange={(val) => updateCurrentProduct({ terceirizados: currentProduct.terceirizados.map(i => i.id === t.id ? { ...i, nome: val } : i) })}
+                        onSelect={(item) => updateCurrentProduct({
+                          terceirizados: currentProduct.terceirizados.map(i => i.id === t.id ? {
+                            ...i,
+                            nome: item.nome,
+                            unidade: item.unidade || i.unidade,
+                            valorUnitario: item.valor_unitario || item.valorUnitario || i.valorUnitario || i.valor || 0
+                          } : i)
+                        })}
+                      />
+                      <div className="absolute right-1 top-1/2 -translate-y-1/2 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-all z-10">
                         <button
                           onClick={() => setCommentingItem({ id: t.id, type: 'terceirizados', comment: t.comentario || '' })}
                           title={t.comentario ? "Ver Comentário" : "Adicionar Comentário"}
@@ -1099,13 +1202,24 @@ const App: React.FC = () => {
                         >
                           <MessageSquare className="w-3.5 h-3.5" />
                         </button>
-                        <button
-                          onClick={() => { setActiveLibraryTarget({ id: t.id, type: 'servicos' }); setShowDatabase(true); }}
-                          title="Buscar na Biblioteca"
-                          className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded transition-all"
-                        >
-                          <Database className="w-4 h-4" />
-                        </button>
+                        {t.nome.trim().length > 2 && !db.library.servicos.find(s => s.nome.toLowerCase() === t.nome.toLowerCase()) ? (
+                          <button
+                            onClick={() => handleSaveToLibrary('servicos', t.nome)}
+                            title="Salvar no Cadastro"
+                            className="p-1.5 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/40 rounded transition-all relative"
+                          >
+                            <Database className="w-4 h-4" />
+                            <Plus className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-500 text-white rounded-full border border-white dark:border-slate-900" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => { setActiveLibraryTarget({ id: t.id, type: 'servicos' }); setShowDatabase(true); }}
+                            title="Buscar na Biblioteca"
+                            className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded transition-all"
+                          >
+                            <Database className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </div>
                     <input value={t.unidade} title="Unidade" onChange={(e) => updateCurrentProduct({ terceirizados: currentProduct.terceirizados.map(i => i.id === t.id ? { ...i, unidade: e.target.value } : i) })} className={`${inputBase} text-center uppercase text-[10px]`} />
@@ -1635,8 +1749,18 @@ const App: React.FC = () => {
 const Section: React.FC<{ title: string; icon: React.ReactNode; children: React.ReactNode; expanded: boolean; onToggle: () => void; }> = ({ title, icon, children, expanded, onToggle }) => (
   <div className={`rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all duration-300 overflow-hidden print:border-none print:shadow-none print:bg-transparent ${expanded ? 'bg-slate-200 dark:bg-slate-800 shadow-md border-slate-300 dark:border-slate-700' : 'bg-white dark:bg-slate-900'}`}>
     <button onClick={onToggle} className={`w-full md:px-8 px-4 md:py-6 py-4 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors ${expanded ? 'bg-slate-300/40 dark:bg-slate-800/80' : ''} print:hidden`}>
-      <div className="flex items-center gap-5"><div className={`p-3 rounded-xl shadow-sm transition-colors ${expanded ? 'bg-white dark:bg-slate-900' : 'bg-slate-100 dark:bg-slate-800'}`}>{icon}</div><span className="font-black text-[13px] uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200">{title}</span></div>
-      <ChevronDown className={`w-6 h-6 text-slate-300 transition-all duration-300 ${expanded ? 'rotate-180 text-blue-600' : ''}`} />
+      <div className="flex items-center gap-5">
+        <div className={`p-3 rounded-xl shadow-sm transition-colors ${expanded ? 'bg-white dark:bg-slate-900' : 'bg-slate-100 dark:bg-slate-800'}`}>
+          {icon}
+        </div>
+        <span className="font-black text-[13px] uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200">{title}</span>
+      </div>
+      <div className={`p-2 rounded-full transition-all duration-300 ${expanded ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
+        <ChevronDown 
+          className={`w-6 h-6 transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`} 
+          strokeWidth={3} 
+        />
+      </div>
     </button>
     <div className={`hidden print:flex items-center gap-3 mb-4 mt-6 border-b-2 border-slate-800 pb-2`}>
       {icon}
