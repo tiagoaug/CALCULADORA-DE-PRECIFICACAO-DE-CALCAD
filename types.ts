@@ -22,14 +22,41 @@ export interface ProductionSettings {
 
 export interface MarkupSettings {
   impostos: number;
+  comissao: number;
+  frete: number;
+  freteFixo: number;
   perdas: number;
   margemLucro: number;
+  selectedImpostos?: string[];
+  selectedComissoes?: string[];
+  selectedFretes?: string[];
+}
+
+export interface Comissao {
+  id: string;
+  nome: string;
+  aliquota: number;
+}
+
+export interface Frete {
+  id: string;
+  nome: string;
+  valor: number;
+}
+
+
+export interface Imposto {
+  id: string;
+  nome: string;
+  aliquota: number;
 }
 
 export interface ProductData {
   id: string;
   name: string;
   lastModified: number;
+  type?: 'detailed' | 'ready';
+  purchasePrice?: number;
   insumos: Insumo[];
   terceirizados: Insumo[];
   custosFixos: CustoFixo[];
@@ -39,18 +66,76 @@ export interface ProductData {
   precoVendaManual?: number; // Novo campo para preço inserido pelo usuário
 }
 
+export interface AppSettings {
+  productionDays: number;
+  dailyProduction: number;
+  currency: string;
+  theme: 'light' | 'dark';
+}
+
 export interface LibraryData {
   insumos: Insumo[];
-  servicos: Insumo[];
+  terceirizados: Insumo[];
   custosFixos: CustoFixo[];
-  custosVariaveis: CustoFixo[];
+  custosIndiretos: CustoFixo[];
+  impostos: Imposto[];
+  comissoes: Comissao[];
+  fretes: Frete[];
+  solados?: Sola[];
+}
+
+export interface MaterialPriceRecord {
+  id: string;
+  material: string;
+  fornecedor: string;
+  preco: number;
+  data: number;
+}
+
+export interface SolaGradeItem {
+  id: string;
+  tamanho: string;
+  peso: number;
+}
+
+export interface SolaLaborItem {
+  id: string;
+  nome: string;
+  valor: number;
+}
+
+export interface SolaMaterial {
+  id: string;
+  materialId: string;
+  pesoGrams: number; // Peso deste material no solado em gramas
+  precoAlternativo?: number; // Preço manual que sobrescreve o da biblioteca
+}
+
+export interface Sola {
+  id: string;
+  nome: string;
+  fornecedor: string;
+  materiais: SolaMaterial[]; // Lista de materiais usados
+  grade: SolaGradeItem[];
+  maoDeObra: SolaLaborItem[];
+  lastModified: number;
+}
+
+export interface Supplier {
+  id: string;
+  nome: string;
+  telefone?: string;
+  email?: string;
+  endereco?: string;
 }
 
 export interface AppDatabase {
-  version: string;
   products: ProductData[];
-  lastSelectedProductId: string;
   library: LibraryData;
+  settings: AppSettings;
+  lastSelectedProductId?: string;
+  materialPrices?: MaterialPriceRecord[];
+  suppliers?: Supplier[];
 }
 
 export interface PriceSummary {
@@ -63,6 +148,8 @@ export interface PriceSummary {
   valorPerdaUnitario: number;
   custoProducaoUnitario: number;
   valorImpostoUnitario: number;
+  valorComissaoUnitaria: number;
+  valorFreteUnitario: number;
   lucroUnitario: number;
   precoFinal: number; // Preço sugerido pela margem alvo
   precoPraticado: number; // Preço inserido manualmente

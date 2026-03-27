@@ -27,11 +27,19 @@ import {
   Layout,
   Share,
   ClipboardPaste,
-  MessageSquare
+  MessageSquare,
+  FileSpreadsheet,
+  Search,
+  Edit,
+  Calendar,
+  Phone,
+  Mail,
+  ArrowDownCircle,
+  ArrowUpCircle
 } from 'lucide-react';
-import { ProductData, AppDatabase, LibraryData } from './types';
-import { calculateSummary, formatCurrency } from './utils/calculations';
-import { downloadPDF, sharePDF, shareFile, copyBackupToClipboard, shareTextReport } from './utils/export';
+import { ProductData, AppDatabase, LibraryData, MaterialPriceRecord, Sola, Supplier } from './types';
+import { calculateSummary, formatCurrency, calculateSolaAverageCost } from './utils/calculations';
+import { downloadPDF, sharePDF, shareFile, copyBackupToClipboard, shareTextReport, exportToXLS } from './utils/export';
 import LibraryView from './LibraryView';
 import AutocompleteInput from './AutocompleteInput';
 
@@ -82,7 +90,7 @@ const BACKUP_PRODUCT_320_BOSS: ProductData = {
     { "id": "0.li8817qo54", "nome": "Gasolina ", "valor": 1200 }
   ],
   "production": { "diasTrabalhados": 22, "producaoDiaria": 240 },
-  "markup": { "impostos": 0, "perdas": 0.5, "margemLucro": 25 },
+  "markup": { "impostos": 0, "comissao": 0, "frete": 0, "freteFixo": 0, "perdas": 0.5, "margemLucro": 25, "selectedImpostos": [], "selectedComissoes": [], "selectedFretes": [] },
   "precoVendaManual": 36
 };
 
@@ -90,12 +98,14 @@ const DEFAULT_PRODUCT = (id: string = 'new'): ProductData => ({
   id,
   name: 'Novo Produto',
   lastModified: Date.now(),
+  type: 'detailed',
+  purchasePrice: 0,
   insumos: [{ id: '1', nome: 'Material Exemplo', quantidade: 1, unidade: 'un', valorUnitario: 0 }],
   terceirizados: [],
   custosFixos: [{ id: 'f1', nome: 'Aluguel/Luz', valor: 0 }],
   custosIndiretos: [{ id: 'i1', nome: 'Manutenção', valor: 0 }],
   production: { diasTrabalhados: 22, producaoDiaria: 0 },
-  markup: { impostos: 0, perdas: 0, margemLucro: 30 },
+  markup: { impostos: 0, comissao: 0, frete: 0, freteFixo: 0, perdas: 0, margemLucro: 30, selectedImpostos: [], selectedComissoes: [], selectedFretes: [] },
   precoVendaManual: 0
 });
 
@@ -371,9 +381,13 @@ const ConsumptionCalculator: React.FC<{
 
 const INITIAL_LIBRARY: LibraryData = {
   insumos: BACKUP_PRODUCT_320_BOSS.insumos.map(i => ({ ...i, id: Math.random().toString(36), valorUnitario: 0 })),
-  servicos: BACKUP_PRODUCT_320_BOSS.terceirizados.map(i => ({ ...i, id: Math.random().toString(36), valorUnitario: 0 })),
+  terceirizados: BACKUP_PRODUCT_320_BOSS.terceirizados.map(i => ({ ...i, id: Math.random().toString(36), valorUnitario: 0 })),
   custosFixos: BACKUP_PRODUCT_320_BOSS.custosFixos.map(i => ({ ...i, id: Math.random().toString(36), valor: 0 })),
-  custosVariaveis: BACKUP_PRODUCT_320_BOSS.custosIndiretos.map(i => ({ ...i, id: Math.random().toString(36), valor: 0 }))
+  custosIndiretos: BACKUP_PRODUCT_320_BOSS.custosIndiretos.map(i => ({ ...i, id: Math.random().toString(36), valor: 0 })),
+  impostos: [],
+  comissoes: [],
+  fretes: [],
+  solados: []
 };
 
 const App: React.FC = () => {
@@ -383,18 +397,62 @@ const App: React.FC = () => {
       try {
         const parsed = JSON.parse(saved);
         if (parsed?.products?.length > 0) {
+          // Robust initialization for old data
+          const migratedLibrary = {
+            ...INITIAL_LIBRARY,
+            ...(parsed.library || {}),
+            impostos: parsed.library?.impostos || [],
+            comissoes: parsed.library?.comissoes || [],
+            fretes: parsed.library?.fretes || [],
+            solados: parsed.library?.solados || [],
+            // Mapear campos antigos para novos se necessário
+            terceirizados: parsed.library?.terceirizados || parsed.library?.terceirizados || [],
+            custosIndiretos: parsed.library?.custosIndiretos || parsed.library?.custosIndiretos || [],
+          };
+
+          const migratedProducts = parsed.products.map((p: ProductData) => ({
+            ...p,
+            type: p.type || 'detailed',
+            purchasePrice: p.purchasePrice || 0,
+            markup: {
+              ...p.markup,
+              impostos: p.markup?.impostos || 0,
+              comissao: p.markup?.comissao || 0,
+              frete: p.markup?.frete || 0,
+              selectedImpostos: p.markup?.selectedImpostos || [],
+              selectedComissoes: p.markup?.selectedComissoes || [],
+              selectedFretes: p.markup?.selectedFretes || [],
+            }
+          }));
+
           return {
             ...parsed,
-            library: parsed.library || INITIAL_LIBRARY
+            products: migratedProducts,
+            library: migratedLibrary,
+            materialPrices: parsed.materialPrices || [],
+            suppliers: parsed.suppliers || [],
+            settings: parsed.settings || {
+              productionDays: 22,
+              dailyProduction: 0,
+              currency: 'BRL',
+              theme: 'light'
+            }
           };
         }
       } catch (e) { console.error(e); }
     }
     return {
-      version: '1.0',
       products: [BACKUP_PRODUCT_320_BOSS],
       lastSelectedProductId: BACKUP_PRODUCT_320_BOSS.id,
-      library: INITIAL_LIBRARY
+      library: INITIAL_LIBRARY,
+      materialPrices: [],
+      suppliers: [],
+      settings: {
+        productionDays: 22,
+        dailyProduction: 0,
+        currency: 'BRL',
+        theme: theme
+      }
     };
   });
 
@@ -409,6 +467,7 @@ const App: React.FC = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => localStorage.getItem('theme') === 'dark' ? 'dark' : 'light');
   const [showProjectList, setShowProjectList] = useState(false);
   const [showDatabase, setShowDatabase] = useState(false);
+  const [showMaterialPrices, setShowMaterialPrices] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -448,9 +507,38 @@ const App: React.FC = () => {
   const updateCurrentProduct = useCallback((updates: Partial<ProductData>) => {
     setDb(prev => ({
       ...prev,
-      products: prev.products.map(p =>
-        p.id === prev.lastSelectedProductId ? { ...p, ...updates, lastModified: Date.now() } : p
-      )
+      products: prev.products.map(p => {
+        if (p.id === prev.lastSelectedProductId) {
+          const updated = { ...p, ...updates, lastModified: Date.now() };
+          
+          // Especial handling for nested objects to avoid overwriting them entirely if not intended
+          // but here updates is Partial<ProductData>, so if updates.markup exists, it replaces p.markup.
+          // To be safe against uninitialized state in older data:
+          if (updates.markup) {
+            updated.markup = {
+              impostos: p.markup?.impostos ?? 0,
+              comissao: p.markup?.comissao ?? 0,
+              frete: p.markup?.frete ?? 0,
+              freteFixo: p.markup?.freteFixo ?? 0,
+              perdas: p.markup?.perdas ?? 0,
+              margemLucro: p.markup?.margemLucro ?? 0,
+              selectedImpostos: p.markup?.selectedImpostos || [],
+              selectedComissoes: p.markup?.selectedComissoes || [],
+              selectedFretes: p.markup?.selectedFretes || [],
+              ...updates.markup
+            };
+          }
+          if (updates.production) {
+            updated.production = {
+              diasTrabalhados: p.production?.diasTrabalhados || 0,
+              producaoDiaria: p.production?.producaoDiaria || 0,
+              ...updates.production
+            };
+          }
+          return updated;
+        }
+        return p;
+      })
     }));
   }, [db.lastSelectedProductId]);
 
@@ -524,7 +612,7 @@ const App: React.FC = () => {
             } : i)
           });
           break;
-        case 'servicos':
+        case 'terceirizados':
           updateCurrentProduct({
             terceirizados: currentProduct.terceirizados.map(i => i.id === id ? {
               ...i,
@@ -543,7 +631,7 @@ const App: React.FC = () => {
             } : i)
           });
           break;
-        case 'custosVariaveis':
+        case 'custosIndiretos':
           updateCurrentProduct({
             custosIndiretos: currentProduct.custosIndiretos.map(i => i.id === id ? {
               ...i,
@@ -571,7 +659,7 @@ const App: React.FC = () => {
             ]
           });
           break;
-        case 'servicos':
+        case 'terceirizados':
           updateCurrentProduct({
             terceirizados: [
               ...currentProduct.terceirizados,
@@ -605,6 +693,21 @@ const App: React.FC = () => {
                 id: Math.random().toString(36),
                 nome: item.nome,
                 valor: item.valor || 0
+              }
+            ]
+          });
+          break;
+        case 'solados':
+          const solaCost = calculateSolaAverageCost(item, db.library.insumos);
+          updateCurrentProduct({
+            insumos: [
+              ...currentProduct.insumos,
+              {
+                id: Math.random().toString(36),
+                nome: `Sola: ${item.nome}`,
+                quantidade: 1,
+                unidade: 'par',
+                valorUnitario: solaCost
               }
             ]
           });
@@ -666,7 +769,9 @@ const App: React.FC = () => {
       currentProduct.production || { diasTrabalhados: 0, producaoDiaria: 0 },
       currentProduct.markup || { impostos: 0, perdas: 0, margemLucro: 0 },
       currentProduct.terceirizados || [],
-      currentProduct.precoVendaManual || 0
+      currentProduct.precoVendaManual || 0,
+      currentProduct.type || 'detailed',
+      currentProduct.purchasePrice || 0
     ),
     [currentProduct]
   );
@@ -739,6 +844,14 @@ const App: React.FC = () => {
           <button onClick={() => setShowDatabase(true)} title="Abrir Biblioteca de Itens" aria-label="Biblioteca" className="p-1.5 shrink-0 bg-slate-50 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors">
             <Database className="w-5 h-5 text-emerald-600" />
           </button>
+          <button 
+            onClick={() => setShowMaterialPrices(true)} 
+            title="Comparação de Preços" 
+            aria-label="Preços" 
+            className="p-1.5 shrink-0 bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors"
+          >
+            <TrendingUp className="w-5 h-5 text-blue-600" />
+          </button>
           <div className="flex flex-col flex-1 min-w-0">
             <input value={currentProduct.name} title="Nome do Produto" aria-label="Nome do Produto" onChange={(e) => updateCurrentProduct({ name: e.target.value })} className="bg-transparent border-none font-black text-sm sm:text-base focus:ring-0 w-full min-w-0 truncate leading-tight p-0 text-slate-800 dark:text-white" placeholder="Nome do Produto" />
             <div className="flex items-center gap-1.5">
@@ -754,7 +867,17 @@ const App: React.FC = () => {
 
           <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
             <button
-              onClick={() => shareTextReport(currentProduct.insumos || [], summary, currentProduct.name, currentProduct.terceirizados || [])}
+              onClick={() => shareTextReport(
+                summary, 
+                currentProduct.name, 
+                currentProduct.type, 
+                currentProduct.markup?.selectedImpostos || [], 
+                db.library.impostos || [],
+                currentProduct.markup?.selectedComissoes || [],
+                db.library.comissoes || [],
+                currentProduct.markup?.selectedFretes || [],
+                db.library.fretes || []
+              )}
               title="Compartilhar Resumo (Texto)"
               className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-lg text-blue-600 transition-all active:scale-95 flex items-center gap-2"
             >
@@ -762,18 +885,61 @@ const App: React.FC = () => {
               <Share className="w-4 h-4" />
             </button>
             <button
-              onClick={() => downloadPDF(currentProduct.insumos || [], summary, currentProduct.name, currentProduct.terceirizados || [])}
+              onClick={() => downloadPDF(
+                currentProduct.insumos || [], 
+                summary, 
+                currentProduct.name, 
+                currentProduct.terceirizados || [], 
+                currentProduct.type, 
+                currentProduct.markup?.selectedImpostos || [], 
+                db.library.impostos || [],
+                currentProduct.markup?.selectedComissoes || [],
+                db.library.comissoes || [],
+                currentProduct.markup?.selectedFretes || [],
+                db.library.fretes || []
+              )}
               title="Baixar PDF"
               className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-lg text-blue-600 transition-all active:scale-95"
             >
               <Download className="w-4 h-4" />
             </button>
             <button
-              onClick={() => sharePDF(currentProduct.insumos || [], summary, currentProduct.name, currentProduct.terceirizados || [])}
+              onClick={() => sharePDF(
+                currentProduct.insumos || [], 
+                summary, 
+                currentProduct.name, 
+                currentProduct.terceirizados || [], 
+                currentProduct.type, 
+                currentProduct.markup?.selectedImpostos || [], 
+                db.library.impostos || [],
+                currentProduct.markup?.selectedComissoes || [],
+                db.library.comissoes || [],
+                currentProduct.markup?.selectedFretes || [],
+                db.library.fretes || []
+              )}
               title="Exportar/Compartilhar PDF"
               className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-lg text-emerald-600 transition-all active:scale-95"
             >
               <Upload className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => exportToXLS(
+                currentProduct.insumos || [], 
+                summary, 
+                currentProduct.name, 
+                currentProduct.terceirizados || [],
+                currentProduct.type, 
+                currentProduct.markup?.selectedImpostos || [], 
+                db.library.impostos || [],
+                currentProduct.markup?.selectedComissoes || [],
+                db.library.comissoes || [],
+                currentProduct.markup?.selectedFretes || [],
+                db.library.fretes || []
+              )}
+              title="Baixar Excel (XLSX)"
+              className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-lg text-emerald-700 transition-all active:scale-95"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -795,8 +961,46 @@ const App: React.FC = () => {
       <main className="max-w-[1440px] mx-auto md:px-6 px-0 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 print:p-0 print:gap-4">
         <div className="lg:col-span-8 space-y-6 print:space-y-4">
 
-          <Section title="1. Detalhamento de Peças" icon={<Package className="text-emerald-500 w-5 h-5" />} expanded={expandedSection === 'insumos'} onToggle={() => toggleSection('insumos')}>
+          <Section title="1. Materiais e Peças" icon={<Package className="text-emerald-500 w-5 h-5" />} expanded={expandedSection === 'insumos'} onToggle={() => toggleSection('insumos')}>
+            
+            <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-xl mb-6 border border-slate-200 dark:border-slate-800">
+              <button
+                onClick={() => updateCurrentProduct({ type: 'detailed' })}
+                className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest transition-all rounded-lg ${currentProduct.type !== 'ready' ? 'bg-white dark:bg-slate-900 text-emerald-600 shadow-sm border border-slate-100 dark:border-slate-800' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                Materiais e Peças
+              </button>
+              <button
+                onClick={() => updateCurrentProduct({ type: 'ready' })}
+                className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest transition-all rounded-lg ${currentProduct.type === 'ready' ? 'bg-white dark:bg-slate-900 text-emerald-600 shadow-sm border border-slate-100 dark:border-slate-800' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                Modelo Pronto
+              </button>
+            </div>
 
+            {currentProduct.type === 'ready' ? (
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm mb-4">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Preço de Compra do Produto</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-black text-emerald-600 pointer-events-none">R$</span>
+                  <input
+                    type="text"
+                    value={getDisplayValue(currentProduct.purchasePrice || 0, 'product', 'purchase')}
+                    onChange={(e) => handleNumericChange('product', 'purchase', e.target.value, (v) => updateCurrentProduct({ purchasePrice: v }))}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl pl-12 pr-12 py-4 text-2xl font-black text-slate-800 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                    placeholder="0,00"
+                  />
+                  <button onClick={() => setActiveCalc({ id: 'product', field: 'purchase' })} title="Abrir Calculadora" className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 hover:text-emerald-500">
+                    <Calculator className="w-6 h-6" />
+                  </button>
+                </div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase mt-4 flex items-center gap-2">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                  Custos adicionais (serviços, fixos e impostos) serão somados a este valor.
+                </p>
+              </div>
+            ) : (
+              <>
             {/* Toolbar Copiar/Colar */}
             <div className="flex justify-end gap-2 mb-4 print:hidden">
               <button onClick={() => setCopiedSection({ type: 'insumos', data: currentProduct.insumos })} className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-500 rounded-md transition-colors">
@@ -817,7 +1021,7 @@ const App: React.FC = () => {
                   const newItem = { ...copiedItem.data, id: Math.random().toString(36) };
                   updateCurrentProduct({ insumos: [...currentProduct.insumos, newItem] });
                 }} className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 rounded-md transition-colors border border-emerald-200 dark:border-emerald-800">
-                  <ClipboardPaste className="w-3.5 h-3.5" /> Colar Peça Copiada
+                  <ClipboardPaste className="w-3.5 h-3.5" /> Colar Material Copiado
                 </button>
               )}
             </div>
@@ -1016,8 +1220,8 @@ const App: React.FC = () => {
                       </div>
                       <div className="text-right text-[12px] font-black text-blue-600 font-mono">{formatCurrency(insumo.quantidade * insumo.valorUnitario)}</div>
                       <div className="flex justify-center gap-2 items-center print:hidden">
-                        <button onClick={() => setCopiedItem({ type: 'insumos', data: insumo })} title="Copiar Peça" className="text-slate-300 hover:text-blue-500"><Copy className="w-4 h-4" /></button>
-                        <button onClick={() => updateCurrentProduct({ insumos: currentProduct.insumos.filter(i => i.id !== insumo.id) })} title="Excluir Peça" aria-label="Excluir Peça" className="text-slate-300 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                        <button onClick={() => setCopiedItem({ type: 'insumos', data: insumo })} title="Copiar Material" className="text-slate-300 hover:text-blue-500"><Copy className="w-4 h-4" /></button>
+                        <button onClick={() => updateCurrentProduct({ insumos: currentProduct.insumos.filter(i => i.id !== insumo.id) })} title="Excluir Material" aria-label="Excluir Material" className="text-slate-300 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     </div>
                   ))}
@@ -1025,7 +1229,9 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            <button onClick={() => updateCurrentProduct({ insumos: [...currentProduct.insumos, { id: Math.random().toString(36), nome: '', quantidade: 1, unidade: 'un', valorUnitario: 0 }] })} className="w-full mt-4 py-3 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-slate-400 hover:text-blue-600 text-[11px] font-black uppercase flex items-center justify-center gap-2 print:hidden"><Plus className="w-4 h-4" /> NOVA PEÇA</button>
+            <button onClick={() => updateCurrentProduct({ insumos: [...currentProduct.insumos, { id: Math.random().toString(36), nome: '', quantidade: 1, unidade: 'un', valorUnitario: 0 }] })} className="w-full mt-4 py-3 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-slate-400 hover:text-blue-600 text-[11px] font-black uppercase flex items-center justify-center gap-2 print:hidden"><Plus className="w-4 h-4" /> NOVO MATERIAL</button>
+            </>
+          )}
           </Section>
 
           <Section title="2. Mão de Obra e Serviços" icon={<Users className="text-orange-500 w-5 h-5" />} expanded={expandedSection === 'terceirizados'} onToggle={() => toggleSection('terceirizados')}>
@@ -1063,7 +1269,7 @@ const App: React.FC = () => {
                     <div className="relative group">
                       <AutocompleteInput
                         value={t.nome}
-                        suggestions={db.library.servicos}
+                        suggestions={db.library.terceirizados}
                         placeholder="Ex: Corte, Costura, Montagem..."
                         className={`${inputBase} w-full pr-16`}
                         onChange={(val) => updateCurrentProduct({ terceirizados: currentProduct.terceirizados.map(i => i.id === t.id ? { ...i, nome: val } : i) })}
@@ -1084,9 +1290,9 @@ const App: React.FC = () => {
                         >
                           <MessageSquare className="w-4 h-4" />
                         </button>
-                        {t.nome.trim().length > 2 && !db.library.servicos.find(s => s.nome.toLowerCase() === t.nome.toLowerCase()) ? (
+                        {t.nome.trim().length > 2 && !db.library.terceirizados.find(s => s.nome.toLowerCase() === t.nome.toLowerCase()) ? (
                           <button
-                            onClick={() => handleSaveToLibrary('servicos', t.nome)}
+                            onClick={() => handleSaveToLibrary('terceirizados', t.nome)}
                             title="Salvar no Cadastro"
                             className="p-1.5 hover:bg-amber-50 dark:hover:bg-amber-900/40 rounded-md text-amber-500 transition-all relative"
                           >
@@ -1095,7 +1301,7 @@ const App: React.FC = () => {
                           </button>
                         ) : (
                           <button
-                            onClick={() => { setActiveLibraryTarget({ id: t.id, type: 'servicos' }); setShowDatabase(true); }}
+                            onClick={() => { setActiveLibraryTarget({ id: t.id, type: 'terceirizados' }); setShowDatabase(true); }}
                             title="Buscar na Biblioteca"
                             className="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded-md text-blue-500 transition-all"
                           >
@@ -1181,7 +1387,7 @@ const App: React.FC = () => {
                     <div className="relative group">
                       <AutocompleteInput
                         value={t.nome}
-                        suggestions={db.library.servicos}
+                        suggestions={db.library.terceirizados}
                         placeholder="Ex: Corte..."
                         className={`${inputBase} !bg-transparent truncate pr-16`}
                         onChange={(val) => updateCurrentProduct({ terceirizados: currentProduct.terceirizados.map(i => i.id === t.id ? { ...i, nome: val } : i) })}
@@ -1202,9 +1408,9 @@ const App: React.FC = () => {
                         >
                           <MessageSquare className="w-3.5 h-3.5" />
                         </button>
-                        {t.nome.trim().length > 2 && !db.library.servicos.find(s => s.nome.toLowerCase() === t.nome.toLowerCase()) ? (
+                        {t.nome.trim().length > 2 && !db.library.terceirizados.find(s => s.nome.toLowerCase() === t.nome.toLowerCase()) ? (
                           <button
-                            onClick={() => handleSaveToLibrary('servicos', t.nome)}
+                            onClick={() => handleSaveToLibrary('terceirizados', t.nome)}
                             title="Salvar no Cadastro"
                             className="p-1.5 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/40 rounded transition-all relative"
                           >
@@ -1213,7 +1419,7 @@ const App: React.FC = () => {
                           </button>
                         ) : (
                           <button
-                            onClick={() => { setActiveLibraryTarget({ id: t.id, type: 'servicos' }); setShowDatabase(true); }}
+                            onClick={() => { setActiveLibraryTarget({ id: t.id, type: 'terceirizados' }); setShowDatabase(true); }}
                             title="Buscar na Biblioteca"
                             className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded transition-all"
                           >
@@ -1386,7 +1592,7 @@ const App: React.FC = () => {
                             <MessageSquare className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => { setActiveLibraryTarget({ id: ci.id, type: 'custosVariaveis' }); setShowDatabase(true); }}
+                            onClick={() => { setActiveLibraryTarget({ id: ci.id, type: 'custosIndiretos' }); setShowDatabase(true); }}
                             title="Buscar na Biblioteca"
                             className="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded-md text-blue-500 transition-all"
                           >
@@ -1440,7 +1646,7 @@ const App: React.FC = () => {
           </Section>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Section title="4. Escala de Produção" icon={<Settings className="text-blue-500 w-5 h-5" />} expanded={expandedSection === 'producao'} onToggle={() => toggleSection('producao')}>
+            <Section title="4. (Capacidade de Produção/Expectativa de Vendas)" icon={<Settings className="text-blue-500 w-5 h-5" />} expanded={expandedSection === 'producao'} onToggle={() => toggleSection('producao')}>
               <div className="grid grid-cols-2 gap-4">
                 <div className="text-center">
                   <label className="text-[10px] font-black text-slate-400 uppercase block mb-2">Dias Trabalhados</label>
@@ -1457,17 +1663,118 @@ const App: React.FC = () => {
               <div className="grid grid-cols-3 gap-2">
                 <div className="text-center">
                   <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Imp %</label>
-                  <input type="text" value={getDisplayValue(currentProduct.markup?.impostos || 0, 'm', 'i')} title="Impostos %" onBlur={() => setEditingValue(null)} onChange={(e) => handleNumericChange('m', 'i', e.target.value, (v) => updateCurrentProduct({ markup: { ...(currentProduct.markup || { impostos: 0, perdas: 0, margemLucro: 0 }), impostos: v } }))} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 text-[14px] font-black text-center font-mono focus:ring-2 focus:ring-blue-500 outline-none" />
+                  <input type="text" value={getDisplayValue(currentProduct.markup?.impostos || 0, 'm', 'i')} title="Impostos %" onBlur={() => setEditingValue(null)} onChange={(e) => handleNumericChange('m', 'i', e.target.value, (v) => updateCurrentProduct({ markup: { ...(currentProduct.markup || { impostos: 0, comissao: 0, frete: 0, perdas: 0, margemLucro: 0 }), impostos: v } }))} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 text-[14px] font-black text-center font-mono focus:ring-2 focus:ring-blue-500 outline-none" />
+                </div>
+                <div className="text-center">
+                  <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Com %</label>
+                  <input type="text" value={getDisplayValue(currentProduct.markup?.comissao || 0, 'm', 'c')} title="Comissão %" onBlur={() => setEditingValue(null)} onChange={(e) => handleNumericChange('m', 'c', e.target.value, (v) => updateCurrentProduct({ markup: { ...(currentProduct.markup || { impostos: 0, comissao: 0, frete: 0, perdas: 0, margemLucro: 0 }), comissao: v } }))} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 text-[14px] font-black text-center font-mono focus:ring-2 focus:ring-blue-500 outline-none" />
+                </div>
+                <div className="text-center">
+                  <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Frete R$</label>
+                  <input type="text" value={getDisplayValue(currentProduct.markup?.freteFixo || 0, 'm', 'ff')} title="Frete Fixo R$" onBlur={() => setEditingValue(null)} onChange={(e) => handleNumericChange('m', 'ff', e.target.value, (v) => updateCurrentProduct({ markup: { ...(currentProduct.markup || { impostos: 0, comissao: 0, frete: 0, freteFixo: 0, perdas: 0, margemLucro: 0 }), freteFixo: v } }))} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 text-[14px] font-black text-center font-mono focus:ring-2 focus:ring-blue-500 outline-none" />
                 </div>
                 <div className="text-center">
                   <label className="text-[9px] font-black text-blue-500 uppercase block mb-1">Meta %</label>
-                  <input type="text" value={getDisplayValue(currentProduct.markup?.margemLucro || 0, 'm', 'l')} title="Margem de Lucro %" onBlur={() => setEditingValue(null)} onChange={(e) => handleNumericChange('m', 'l', e.target.value, (v) => updateCurrentProduct({ markup: { ...(currentProduct.markup || { impostos: 0, perdas: 0, margemLucro: 0 }), margemLucro: v } }))} className="w-full bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-xl py-2.5 text-[14px] font-black text-center text-blue-700 dark:text-blue-400 font-mono focus:ring-2 focus:ring-blue-500 outline-none" />
+                  <input type="text" value={getDisplayValue(currentProduct.markup?.margemLucro || 0, 'm', 'l')} title="Margem de Lucro %" onBlur={() => setEditingValue(null)} onChange={(e) => handleNumericChange('m', 'l', e.target.value, (v) => updateCurrentProduct({ markup: { ...(currentProduct.markup || { impostos: 0, comissao: 0, frete: 0, perdas: 0, margemLucro: 0 }), margemLucro: v } }))} className="w-full bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-xl py-2.5 text-[14px] font-black text-center text-blue-700 dark:text-blue-400 font-mono focus:ring-2 focus:ring-blue-500 outline-none" />
                 </div>
                 <div className="text-center">
                   <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Perda %</label>
-                  <input type="text" value={getDisplayValue(currentProduct.markup?.perdas || 0, 'm', 'p')} title="Perdas %" onBlur={() => setEditingValue(null)} onChange={(e) => handleNumericChange('m', 'p', e.target.value, (v) => updateCurrentProduct({ markup: { ...(currentProduct.markup || { impostos: 0, perdas: 0, margemLucro: 0 }), perdas: v } }))} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 text-[14px] font-black text-center font-mono focus:ring-2 focus:ring-blue-500 outline-none" />
+                  <input type="text" value={getDisplayValue(currentProduct.markup?.perdas || 0, 'm', 'p')} title="Perdas %" onBlur={() => setEditingValue(null)} onChange={(e) => handleNumericChange('m', 'p', e.target.value, (v) => updateCurrentProduct({ markup: { ...(currentProduct.markup || { impostos: 0, comissao: 0, frete: 0, perdas: 0, margemLucro: 0 }), perdas: v } }))} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 text-[14px] font-black text-center font-mono focus:ring-2 focus:ring-blue-500 outline-none" />
                 </div>
               </div>
+
+              {(db.library.impostos?.length > 0 || db.library.comissoes?.length > 0 || db.library.fretes?.length > 0) && (
+                <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 space-y-4">
+                  {db.library.impostos && db.library.impostos.length > 0 && (
+                    <div>
+                      <label className="text-[10px] font-black text-slate-400 uppercase block mb-2">Impostos da Biblioteca</label>
+                      <div className="flex flex-wrap gap-2">
+                        {db.library.impostos.map(imp => {
+                          const isSelected = (currentProduct.markup?.selectedImpostos || []).includes(imp.id);
+                          return (
+                            <button
+                              key={imp.id}
+                              onClick={() => {
+                                const selected = currentProduct.markup?.selectedImpostos || [];
+                                const newSelected = isSelected 
+                                  ? selected.filter(id => id !== imp.id)
+                                  : [...selected, imp.id];
+                                
+                                const totalTax = db.library.impostos
+                                  .filter(i => newSelected.includes(i.id))
+                                  .reduce((sum, i) => sum + i.aliquota, 0);
+
+                                updateCurrentProduct({
+                                  markup: {
+                                    ...(currentProduct.markup || { impostos: 0, perdas: 0, margemLucro: 0 }),
+                                    selectedImpostos: newSelected,
+                                    impostos: totalTax
+                                  }
+                                });
+                              }}
+                              className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all border ${isSelected ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-500/20' : 'bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 hover:border-indigo-300'}`}
+                            >
+                              {imp.nome} ({imp.aliquota}%)
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {db.library.comissoes && db.library.comissoes.length > 0 && (
+                    <div>
+                      <label className="text-[10px] font-black text-slate-400 uppercase block mb-2">Comissões da Biblioteca</label>
+                      <div className="flex flex-wrap gap-2">
+                        {db.library.comissoes.map(com => {
+                          const isSelected = (currentProduct.markup?.selectedComissoes || []).includes(com.id);
+                          return (
+                            <button
+                              key={com.id}
+                              onClick={() => {
+                                const selected = currentProduct.markup?.selectedComissoes || [];
+                                const newSelected = isSelected ? selected.filter(id => id !== com.id) : [...selected, com.id];
+                                const total = db.library.comissoes.filter(i => newSelected.includes(i.id)).reduce((sum, i) => sum + i.aliquota, 0);
+                                updateCurrentProduct({ markup: { ...(currentProduct.markup || { impostos: 0, perdas: 0, margemLucro: 0 }), selectedComissoes: newSelected, comissao: total } });
+                              }}
+                              className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all border ${isSelected ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/20' : 'bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 hover:border-blue-300'}`}
+                            >
+                              {com.nome} ({com.aliquota}%)
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {db.library.fretes && db.library.fretes.length > 0 && (
+                    <div>
+                      <label className="text-[10px] font-black text-slate-400 uppercase block mb-2">Fretes da Biblioteca</label>
+                      <div className="flex flex-wrap gap-2">
+                        {db.library.fretes.map(f => {
+                          const isSelected = (currentProduct.markup?.selectedFretes || []).includes(f.id);
+                          return (
+                            <button
+                              key={f.id}
+                              onClick={() => {
+                                const selected = currentProduct.markup?.selectedFretes || [];
+                                const newSelected = isSelected ? selected.filter(id => id !== f.id) : [...selected, f.id];
+                                const total = db.library.fretes.filter(i => newSelected.includes(i.id)).reduce((sum, i) => sum + i.valor, 0);
+                                updateCurrentProduct({ markup: { ...(currentProduct.markup || { impostos: 0, perdas: 0, margemLucro: 0 }), selectedFretes: newSelected, freteFixo: total } });
+                              }}
+                              className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all border ${isSelected ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-500/20' : 'bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 hover:border-emerald-300'}`}
+                            >
+                              {f.nome} (R$ {f.valor})
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+
+                </div>
+              )}
             </Section>
 
             <Section title="6. Preço da Sua Venda" icon={<CheckCircle2 className="text-emerald-500 w-5 h-5" />} expanded={expandedSection === 'price'} onToggle={() => toggleSection('price')}>
@@ -1559,22 +1866,114 @@ const App: React.FC = () => {
           <div className="bg-white dark:bg-slate-900 rounded-md p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
             <h4 className="font-black text-[10px] uppercase tracking-[0.2em] text-slate-400 mb-6">Resumo de Custos</h4>
             <div className="space-y-4">
-              <div className="flex justify-between text-xs font-medium text-slate-600 dark:text-slate-400"><span>Materiais</span><span className="font-mono">{formatCurrency(summary.custoMaterial)}</span></div>
-              <div className="flex justify-between text-xs font-medium text-slate-600 dark:text-slate-400"><span>Serviços</span><span className="font-mono">{formatCurrency(summary.custoTerceirizados)}</span></div>
+              {currentProduct.type === 'ready' ? (
+                <div className="flex justify-between text-xs font-medium text-slate-600 dark:text-slate-400"><span>Preço de Compra</span><span className="font-mono">{formatCurrency(summary.custoMaterial)}</span></div>
+              ) : (
+                <>
+                  <div className="flex justify-between text-xs font-medium text-slate-600 dark:text-slate-400"><span>Materiais</span><span className="font-mono">{formatCurrency(summary.custoMaterial)}</span></div>
+                  <div className="flex justify-between text-xs font-medium text-slate-600 dark:text-slate-400"><span>Serviços</span><span className="font-mono">{formatCurrency(summary.custoTerceirizados)}</span></div>
+                </>
+              )}
               <div className="flex justify-between text-xs font-medium text-slate-600 dark:text-slate-400"><span>Operacional</span><span className="font-mono">{formatCurrency(summary.custoFixoPorUnidade)}</span></div>
               <div className="flex justify-between text-xs font-medium text-red-400"><span>Perdas de Produção</span><span className="font-mono">+{formatCurrency(summary.valorPerdaUnitario)}</span></div>
               <div className="flex justify-between text-xs font-medium text-amber-500"><span>Impostos sobre Venda</span><span className="font-mono">+{formatCurrency(summary.valorImpostoUnitario)}</span></div>
+               <div className="flex justify-between text-xs font-medium text-blue-500"><span>Comissões de Venda</span><span className="font-mono">+{formatCurrency(summary.valorComissaoUnitaria)}</span></div>
+              <div className="flex justify-between text-xs font-medium text-emerald-500"><span>Fretes de Venda</span><span className="font-mono">+{formatCurrency(summary.valorFreteUnitario)}</span></div>
+
+              
+              {/* Detalhamento de Impostos da Biblioteca */}
+              {currentProduct.markup?.selectedImpostos && currentProduct.markup.selectedImpostos.length > 0 && (
+                <div className="space-y-1 ml-4 border-l-2 border-slate-100 dark:border-slate-800 pl-3 mb-2">
+                  {currentProduct.markup.selectedImpostos.map(id => {
+                    const tax = db.library.impostos?.find(t => t.id === id);
+                    if (!tax) return null;
+                    const val = summary.precoPraticado * (tax.aliquota / 100);
+                    return (
+                      <div key={id} className="flex justify-between text-[10px] text-slate-500 dark:text-slate-500 italic">
+                        <span>{tax.nome} ({tax.aliquota}%)</span>
+                        <span className="font-mono">+{formatCurrency(val)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Detalhamento de Comissões da Biblioteca */}
+              {currentProduct.markup?.selectedComissoes && currentProduct.markup.selectedComissoes.length > 0 && (
+                <div className="space-y-1 ml-4 border-l-2 border-slate-100 dark:border-slate-800 pl-3 mb-2">
+                  {currentProduct.markup.selectedComissoes.map(id => {
+                    const item = db.library.comissoes?.find(t => t.id === id);
+                    if (!item) return null;
+                    const val = summary.precoPraticado * (item.aliquota / 100);
+                    return (
+                      <div key={id} className="flex justify-between text-[10px] text-slate-500 dark:text-slate-500 italic">
+                        <span>{item.nome} ({item.aliquota}%)</span>
+                        <span className="font-mono">+{formatCurrency(val)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Detalhamento de Fretes da Biblioteca */}
+              {currentProduct.markup?.selectedFretes && currentProduct.markup.selectedFretes.length > 0 && (
+                <div className="space-y-1 ml-4 border-l-2 border-slate-100 dark:border-slate-800 pl-3 mb-2">
+                  {currentProduct.markup.selectedFretes.map(id => {
+                    const item = db.library.fretes?.find(t => t.id === id);
+                    if (!item) return null;
+                    return (
+                      <div key={id} className="flex justify-between text-[10px] text-slate-500 dark:text-slate-500 italic">
+                        <span>{item.nome}</span>
+                        <span className="font-mono">+{formatCurrency(item.valor)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Detalhamento de Corretagens da Biblioteca */}
+              {currentProduct.markup?.selectedCorretagens && currentProduct.markup.selectedCorretagens.length > 0 && (
+                <div className="space-y-1 ml-4 border-l-2 border-slate-100 dark:border-slate-800 pl-3 mb-2">
+                  {currentProduct.markup.selectedCorretagens.map(id => {
+                    const item = db.library.corretagens?.find(t => t.id === id);
+                    if (!item) return null;
+                    const val = summary.precoPraticado * (item.aliquota / 100);
+                    return (
+                      <div key={id} className="flex justify-between text-[10px] text-slate-500 dark:text-slate-500 italic">
+                        <span>{item.nome} ({item.aliquota}%)</span>
+                        <span className="font-mono">+{formatCurrency(val)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
               <div className="py-3 px-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                <span className="text-[9px] font-black uppercase text-slate-400">Total de Encargos (Perda + Imp)</span>
-                <span className="text-xs font-black font-mono text-slate-600 dark:text-slate-300">{formatCurrency(summary.valorPerdaUnitario + summary.valorImpostoUnitario)}</span>
+                <span className="text-[9px] font-black uppercase text-slate-400">Total de Encargos (Perda + Taxas)</span>
+                <span className="text-xs font-black font-mono text-slate-600 dark:text-slate-300">
+                  {formatCurrency(
+                    summary.valorPerdaUnitario + 
+                    summary.valorImpostoUnitario + 
+                    summary.valorComissaoUnitaria + 
+                    summary.valorFreteUnitario + 
+                    0
+                  )}
+                </span>
               </div>
 
               <div className="pt-5 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
                 <span className="font-black text-[11px] uppercase text-slate-500">Custo Total Real</span>
                 <div className="text-right">
-                  <span className="text-2xl font-black font-mono tracking-tighter block">{formatCurrency(summary.custoProducaoUnitario + summary.valorImpostoUnitario)}</span>
-                  <span className="text-[9px] text-slate-400 uppercase font-black">(Custo + Perda + Imposto)</span>
+                  <span className="text-2xl font-black font-mono tracking-tighter block">
+                    {formatCurrency(
+                      summary.custoProducaoUnitario + 
+                      summary.valorImpostoUnitario + 
+                      summary.valorComissaoUnitaria + 
+                      summary.valorFreteUnitario + 
+                      0
+                    )}
+                  </span>
+                  <span className="text-[9px] text-slate-400 uppercase font-black">(Custo + Perda + Imp + Com + Fre + Cor)</span>
                 </div>
               </div>
             </div>
@@ -1589,7 +1988,11 @@ const App: React.FC = () => {
               ? (currentProduct.insumos.find(i => i.id === activeCalc.id)?.valorUnitario || 0)
               : activeCalc.field === 'q'
                 ? (currentProduct.insumos.find(i => i.id === activeCalc.id)?.quantidade || 0)
-                : (currentProduct.terceirizados.find(i => i.id === activeCalc.id)?.valorUnitario || 0)
+                : activeCalc.field === 'tv'
+                  ? (currentProduct.terceirizados.find(i => i.id === activeCalc.id)?.valorUnitario || 0)
+                  : activeCalc.field === 'purchase'
+                    ? (currentProduct.purchasePrice || 0)
+                    : 0
           }
           onApply={(val) => {
             const roundedVal = ['q', 'tq', 'u', 'd'].includes(activeCalc.field) ? Math.round(val * 10000) / 10000 : val;
@@ -1599,6 +2002,8 @@ const App: React.FC = () => {
               updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === activeCalc.id ? { ...i, quantidade: roundedVal } : i) });
             } else if (activeCalc.field === 'tv') {
               updateCurrentProduct({ terceirizados: currentProduct.terceirizados.map(i => i.id === activeCalc.id ? { ...i, valorUnitario: roundedVal } : i) });
+            } else if (activeCalc.field === 'purchase') {
+              updateCurrentProduct({ purchasePrice: roundedVal });
             }
             setActiveCalc(null);
           }}
@@ -1646,7 +2051,8 @@ const App: React.FC = () => {
               <button onClick={() => setShowProjectList(false)} title="Fechar" aria-label="Fechar" className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400"><X className="w-5 h-5" /></button>
             </div>
 
-            <button onClick={() => { const p = DEFAULT_PRODUCT(Math.random().toString(36)); setDb(prev => ({ ...prev, products: [...prev.products, p], lastSelectedProductId: p.id })); setShowProjectList(false); }} className="w-full py-4 mb-8 bg-blue-600 text-white rounded-md font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-blue-700 shadow-xl active:scale-95 transition-all"><Plus className="w-4 h-4" /> NOVO PRODUTO</button>
+            <button onClick={() => { const p = DEFAULT_PRODUCT(Math.random().toString(36)); setDb(prev => ({ ...prev, products: [...prev.products, p], lastSelectedProductId: p.id })); setShowProjectList(false); }} className="w-full py-4 mb-3 bg-blue-600 text-white rounded-md font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-blue-700 shadow-xl active:scale-95 transition-all"><Plus className="w-4 h-4" /> NOVO PRODUTO</button>
+            <button onClick={() => { setShowMaterialPrices(true); setShowProjectList(false); }} className="w-full py-4 mb-8 bg-slate-800 text-white rounded-md font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-slate-700 shadow-xl active:scale-95 transition-all"><TrendingUp className="w-4 h-4" /> COMPARAÇÃO DE PREÇOS</button>
 
             <div className="flex-1 space-y-3 overflow-y-auto pr-2 custom-scrollbar">
               {db.products.map(p => (
@@ -1704,6 +2110,7 @@ const App: React.FC = () => {
         ref={fileInputRef}
         onChange={handleImportBackup}
         accept=".json"
+        title="Selecionar arquivo de backup"
         className="hidden"
       />
       {commentingItem && (
@@ -1742,6 +2149,25 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
+      {showMaterialPrices && (
+        <MaterialPriceComparison
+          prices={db.materialPrices || []}
+          suppliers={db.suppliers || []}
+          onAddPrice={(p) => {
+            const newPriceRecord = { ...p, id: Math.random().toString(36), data: Date.now() };
+            setDb(prev => ({ ...prev, materialPrices: [...(prev.materialPrices || []), newPriceRecord] }));
+          }}
+          onUpdatePrice={(p) => setDb(prev => ({ ...prev, materialPrices: (prev.materialPrices || []).map(item => item.id === p.id ? p : item) }))}
+          onDeletePrice={(id) => setDb(prev => ({ ...prev, materialPrices: (prev.materialPrices || []).filter(p => p.id !== id) }))}
+          onAddSupplier={(s) => {
+            const newSupplierRecord = { ...s, id: Math.random().toString(36) };
+            setDb(prev => ({ ...prev, suppliers: [...(prev.suppliers || []), newSupplierRecord] }));
+          }}
+          onUpdateSupplier={(s) => setDb(prev => ({ ...prev, suppliers: (prev.suppliers || []).map(item => item.id === s.id ? s : item) }))}
+          onDeleteSupplier={(id) => setDb(prev => ({ ...prev, suppliers: (prev.suppliers || []).filter(s => s.id !== id) }))}
+          onClose={() => setShowMaterialPrices(false)}
+        />
+      )}
     </div>
   );
 };
@@ -1771,5 +2197,479 @@ const Section: React.FC<{ title: string; icon: React.ReactNode; children: React.
     </div>
   </div>
 );
+
+const MaterialPriceComparison: React.FC<{
+  prices: MaterialPriceRecord[];
+  suppliers: Supplier[];
+  onAddPrice: (price: Omit<MaterialPriceRecord, 'id' | 'data'>) => void;
+  onUpdatePrice: (price: MaterialPriceRecord) => void;
+  onDeletePrice: (id: string) => void;
+  onAddSupplier: (supplier: Omit<Supplier, 'id'>) => void;
+  onUpdateSupplier: (supplier: Supplier) => void;
+  onDeleteSupplier: (id: string) => void;
+  onClose: () => void;
+}> = ({ prices, suppliers, onAddPrice, onUpdatePrice, onDeletePrice, onAddSupplier, onUpdateSupplier, onDeleteSupplier, onClose }) => {
+  const [activeTab, setActiveTab] = useState<'prices' | 'suppliers' | 'analysis'>('prices');
+  const [filter, setFilter] = useState('');
+  
+  // States for Price CRUD
+  const [editingPrice, setEditingPrice] = useState<MaterialPriceRecord | null>(null);
+  const [newPrice, setNewPrice] = useState({ material: '', fornecedor: '', preco: '' });
+  
+  // States for Supplier CRUD
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [newSupplier, setNewSupplier] = useState({ nome: '', telefone: '', email: '' });
+
+  // Filtered Data
+  const filteredPrices = useMemo(() => {
+    return (prices || []).filter(p => 
+      (p.material || '').toLowerCase().includes(filter.toLowerCase()) ||
+      (p.fornecedor || '').toLowerCase().includes(filter.toLowerCase())
+    ).sort((a, b) => b.data - a.data);
+  }, [prices, filter]);
+
+  const filteredSuppliers = useMemo(() => {
+    return (suppliers || []).filter(s => 
+      (s.nome || '').toLowerCase().includes(filter.toLowerCase())
+    );
+  }, [suppliers, filter]);
+
+  // Analysis State
+  const [analysisMaterial, setAnalysisMaterial] = useState('');
+  const uniqueMaterials = useMemo(() => {
+    const set = new Set((prices || []).map(p => p.material));
+    return Array.from(set).sort();
+  }, [prices]);
+
+  const analysisData = useMemo(() => {
+    if (!analysisMaterial) return [];
+    return prices
+      .filter(p => p.material === analysisMaterial)
+      .sort((a, b) => a.data - b.data);
+  }, [prices, analysisMaterial]);
+
+  return (
+    <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-slate-950/60 backdrop-blur-md">
+      <div className="bg-white dark:bg-slate-900 w-full h-full sm:h-[90vh] sm:max-w-5xl sm:rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden border-t sm:border border-slate-200 dark:border-slate-800 animate-in slide-in-from-bottom-5 duration-300">
+        {/* Header */}
+        <div className="p-4 md:p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-500 rounded-xl shadow-lg shadow-blue-500/20">
+              <TrendingUp className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-base md:text-xl font-black uppercase tracking-tight">Comparação de Preços</h2>
+              <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase mt-0.5 tracking-widest pl-0.5">Histórico & Fornecedores</p>
+            </div>
+          </div>
+          <button onClick={onClose} title="Fechar" className="p-2 md:p-3 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-all text-slate-400">
+            <X className="w-5 h-5 md:w-6 md:h-6" />
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="grid grid-cols-3 bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 shrink-0">
+          {[
+            { id: 'prices', label: 'Histórico', fullLabel: 'Histórico de Preços', icon: <TrendingUp className="w-3.5 h-3.5" /> },
+            { id: 'suppliers', label: 'Fornecedores', fullLabel: 'Fornecedores', icon: <Users className="w-3.5 h-3.5" /> },
+            { id: 'analysis', label: 'Análise', fullLabel: 'Análise de Variação', icon: <Layout className="w-3.5 h-3.5" /> }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => { setActiveTab(tab.id as any); setFilter(''); }}
+              className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-4 text-[9px] sm:text-[10px] font-black uppercase tracking-tight sm:tracking-widest transition-all border-b-2 ${
+                activeTab === tab.id 
+                  ? 'border-blue-500 text-blue-600 bg-blue-50/30 dark:bg-blue-900/10' 
+                  : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+              }`}
+            >
+              {tab.icon}
+              <span className="hidden sm:inline">{tab.fullLabel}</span>
+              <span className="sm:hidden">{tab.label}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="flex-1 overflow-hidden flex flex-col bg-slate-50/50 dark:bg-slate-950/20">
+          {activeTab === 'prices' && (
+            <>
+              {/* Form Preços */}
+              <div className="p-4 md:p-8 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 shrink-0">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-end">
+                  <div className="col-span-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5 px-1">Material</label>
+                    <input 
+                      type="text" 
+                      value={editingPrice ? editingPrice.material : newPrice.material} 
+                      onChange={e => editingPrice ? setEditingPrice({...editingPrice, material: e.target.value}) : setNewPrice({...newPrice, material: e.target.value})}
+                      placeholder="Ex: Couro Bovino"
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5 px-1">Fornecedor</label>
+                    <select
+                      value={editingPrice ? editingPrice.fornecedor : newPrice.fornecedor}
+                      onChange={e => editingPrice ? setEditingPrice({...editingPrice, fornecedor: e.target.value}) : setNewPrice({...newPrice, fornecedor: e.target.value})}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      title="Selecionar fornecedor"
+                    >
+                      <option value="">Selecione...</option>
+                      {suppliers.map(s => (
+                        <option key={s.id} value={s.nome}>{s.nome}</option>
+                      ))}
+                      {!suppliers.find(s => s.nome === (editingPrice?.fornecedor || newPrice.fornecedor)) && (editingPrice?.fornecedor || newPrice.fornecedor) && (
+                        <option value={editingPrice?.fornecedor || newPrice.fornecedor}>{editingPrice?.fornecedor || newPrice.fornecedor} (Não Cadastrado)</option>
+                      )}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5 px-1">Preço (R$/Kg)</label>
+                    <input 
+                      type="number" 
+                      value={editingPrice ? editingPrice.preco : newPrice.preco} 
+                      onChange={e => editingPrice ? setEditingPrice({...editingPrice, preco: parseFloat(e.target.value)}) : setNewPrice({...newPrice, preco: e.target.value})}
+                      placeholder="0,00"
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    {editingPrice ? (
+                      <>
+                        <button 
+                          onClick={() => {
+                            if (editingPrice.material && editingPrice.preco) {
+                              onUpdatePrice(editingPrice);
+                              setEditingPrice(null);
+                            }
+                          }}
+                          className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase tracking-widest py-3 rounded-xl shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                        >
+                          <Check className="w-4 h-4" /> Salvar
+                        </button>
+                        <button 
+                          onClick={() => setEditingPrice(null)}
+                          className="px-4 bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-300 rounded-xl hover:bg-slate-300 transition-all"
+                          title="Cancelar edição"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </>
+                    ) : (
+                      <button 
+                        onClick={() => {
+                          if (newPrice.material && newPrice.preco) {
+                            onAddPrice({ material: newPrice.material, fornecedor: newPrice.fornecedor, preco: parseFloat(newPrice.preco) });
+                            setNewPrice({ material: '', fornecedor: '', preco: '' });
+                          }
+                        }}
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] uppercase tracking-widest py-3 rounded-xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                      >
+                        <Plus className="w-4 h-4" /> Cadastrar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Lista Preços */}
+              <div className="p-4 md:p-8 md:pb-4 shrink-0 bg-slate-50/50 dark:bg-slate-900/50">
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input 
+                    type="text" 
+                    value={filter} 
+                    onChange={e => setFilter(e.target.value)}
+                    placeholder="Filtrar por material ou fornecedor..."
+                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl pl-11 pr-4 py-3.5 text-sm md:text-base font-bold focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-8 custom-scrollbar">
+                <div className="hidden md:block">
+                  <table className="w-full text-left border-separate border-spacing-y-3">
+                    <thead>
+                      <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        <th className="px-6 py-2">Material</th>
+                        <th className="px-6 py-2">Fornecedor</th>
+                        <th className="px-6 py-2">Preço</th>
+                        <th className="px-6 py-2">Data</th>
+                        <th className="px-6 py-2 text-right">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredPrices.map(p => (
+                        <tr key={p.id} className="bg-white dark:bg-slate-800 shadow-sm rounded-2xl group border border-slate-100 dark:border-slate-700/50">
+                          <td className="px-6 py-4 rounded-l-2xl font-bold text-sm">{p.material}</td>
+                          <td className="px-6 py-4 text-slate-500 dark:text-slate-400 text-sm">{p.fornecedor || '---'}</td>
+                          <td className="px-6 py-4 font-mono font-black text-blue-600 dark:text-blue-400">{formatCurrency(p.preco)}</td>
+                          <td className="px-6 py-4 text-[10px] text-slate-400 font-bold uppercase">{new Date(p.data).toLocaleDateString()}</td>
+                          <td className="px-6 py-4 rounded-r-2xl text-right">
+                            <div className="flex justify-end gap-1">
+                              <button onClick={() => { setNewPrice({ material: p.material, fornecedor: p.fornecedor, preco: p.preco.toString() }); setActiveTab('prices'); }} title="Copiar Dados" className="p-2 text-slate-300 hover:text-blue-500 transition-colors"><Copy className="w-4 h-4" /></button>
+                              <button onClick={() => setEditingPrice(p)} title="Editar Registro" className="p-2 text-slate-300 hover:text-amber-500 transition-colors"><Edit className="w-4 h-4" /></button>
+                              <button onClick={() => onDeletePrice(p.id)} title="Excluir Registro" className="p-2 text-slate-300 hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="md:hidden space-y-3">
+                  {filteredPrices.map(p => (
+                    <div key={p.id} className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500/5 -mr-8 -mt-8 rounded-full" />
+                      
+                      <div className="flex justify-between items-start mb-3 relative z-10">
+                        <div className="flex-1 pr-12">
+                          <h4 className="text-sm font-black text-slate-800 dark:text-white uppercase leading-tight tracking-tight">{p.material}</h4>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{p.fornecedor || 'Geral'}</span>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                           <button onClick={() => { setNewPrice({ material: p.material, fornecedor: p.fornecedor, preco: p.preco.toString() }); }} title="Copiar" className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 active:scale-90 transition-all"><Copy className="w-4 h-4" /></button>
+                           <button onClick={() => setEditingPrice(p)} title="Editar" className="p-2.5 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-100 active:scale-90 transition-all"><Edit className="w-4 h-4" /></button>
+                           <button onClick={() => onDeletePrice(p.id)} title="Excluir" className="p-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 active:scale-90 transition-all"><Trash2 className="w-4 h-4" /></button>
+                        </div>
+                      </div>
+                      
+                      <div className="flex justify-between items-end mt-4 pt-4 border-t border-slate-50 dark:border-slate-700/50 relative z-10">
+                        <div>
+                          <p className="text-[8px] font-black text-slate-300 uppercase tracking-[0.2em] mb-0.5">Valor Unitário</p>
+                          <div className="font-mono font-black text-xl text-blue-600 dark:text-blue-400 flex items-baseline gap-1">
+                            {formatCurrency(p.preco)}
+                            <span className="text-[10px] text-slate-400 uppercase font-black">/kg</span>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-slate-50 dark:bg-slate-900 rounded-lg">
+                            <Calendar className="w-3 h-3 text-slate-400" />
+                            <span className="text-[9px] font-black text-slate-500 uppercase">{new Date(p.data).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {filteredPrices.length === 0 && (
+                    <div className="text-center py-20 opacity-30">
+                      <Database className="w-12 h-12 mx-auto mb-4" />
+                      <p className="text-[10px] font-black uppercase tracking-widest">Nenhum registro encontrado</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'suppliers' && (
+            <>
+              {/* Form Fornecedores */}
+              <div className="p-4 md:p-8 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 shrink-0">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-end">
+                  <div className="md:col-span-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5 px-1">Nome do Fornecedor</label>
+                    <input 
+                      type="text" 
+                      value={editingSupplier ? editingSupplier.nome : newSupplier.nome} 
+                      onChange={e => editingSupplier ? setEditingSupplier({...editingSupplier, nome: e.target.value}) : setNewSupplier({...newSupplier, nome: e.target.value})}
+                      placeholder="Ex: Curtume Silva"
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5 px-1">Telefone</label>
+                    <input 
+                      type="text" 
+                      value={editingSupplier ? editingSupplier.telefone || '' : newSupplier.telefone} 
+                      onChange={e => editingSupplier ? setEditingSupplier({...editingSupplier, telefone: e.target.value}) : setNewSupplier({...newSupplier, telefone: e.target.value})}
+                      placeholder="(00) 00000-0000"
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5 px-1">Email</label>
+                    <input 
+                      type="email" 
+                      value={editingSupplier ? editingSupplier.email || '' : newSupplier.email} 
+                      onChange={e => editingSupplier ? setEditingSupplier({...editingSupplier, email: e.target.value}) : setNewSupplier({...newSupplier, email: e.target.value})}
+                      placeholder="contato@empresa.com"
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    {editingSupplier ? (
+                      <>
+                        <button 
+                          onClick={() => {
+                            if (editingSupplier.nome) {
+                              onUpdateSupplier(editingSupplier);
+                              setEditingSupplier(null);
+                            }
+                          }}
+                          className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase tracking-widest py-3 rounded-xl shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                        >
+                          <Check className="w-4 h-4" /> Salvar
+                        </button>
+                        <button onClick={() => setEditingSupplier(null)} title="Cancelar edição" className="px-4 bg-slate-200 rounded-xl"><X className="w-4 h-4" /></button>
+                      </>
+                    ) : (
+                      <button 
+                        onClick={() => {
+                          if (newSupplier.nome) {
+                            onAddSupplier(newSupplier);
+                            setNewSupplier({ nome: '', telefone: '', email: '' });
+                          }
+                        }}
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] uppercase tracking-widest py-3 rounded-xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                      >
+                        <Plus className="w-4 h-4" /> Cadastrar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Lista Fornecedores */}
+              <div className="p-4 md:p-8 md:pb-4 shrink-0">
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input 
+                    type="text" 
+                    value={filter} 
+                    onChange={e => setFilter(e.target.value)}
+                    placeholder="Filtrar fornecedores..."
+                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl pl-11 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-8 custom-scrollbar">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredSuppliers.map(s => (
+                    <div key={s.id} className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-md group relative overflow-hidden transition-all active:scale-[0.98]">
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 -mr-12 -mt-12 rounded-full" />
+                      
+                      <div className="flex justify-between items-start mb-5 relative z-10">
+                        <div className="p-3.5 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-500/20">
+                          <Users className="w-5 h-5" />
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={() => setEditingSupplier(s)} title="Editar fornecedor" className="p-2.5 bg-slate-50 dark:bg-slate-700 text-slate-400 hover:text-amber-500 rounded-xl transition-colors"><Edit className="w-4 h-4" /></button>
+                          <button onClick={() => onDeleteSupplier(s.id)} title="Excluir fornecedor" className="p-2.5 bg-slate-50 dark:bg-slate-700 text-slate-400 hover:text-red-500 rounded-xl transition-colors"><Trash2 className="w-4 h-4" /></button>
+                        </div>
+                      </div>
+                      
+                      <div className="relative z-10">
+                        <h3 className="text-lg font-black uppercase tracking-tight text-slate-800 dark:text-white mb-3 leading-tight">{s.nome}</h3>
+                        <div className="space-y-2">
+                          {s.telefone && (
+                            <div className="flex items-center gap-3">
+                              <div className="w-7 h-7 flex items-center justify-center bg-slate-50 dark:bg-slate-900 rounded-full text-blue-500">
+                                <Phone className="w-3.5 h-3.5" />
+                              </div>
+                              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">{s.telefone}</span>
+                            </div>
+                          )}
+                          {s.email && (
+                            <div className="flex items-center gap-3">
+                              <div className="w-7 h-7 flex items-center justify-center bg-slate-50 dark:bg-slate-900 rounded-full text-blue-500">
+                                <Mail className="w-3.5 h-3.5" />
+                              </div>
+                              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide truncate">{s.email}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'analysis' && (
+            <div className="p-4 md:p-8 h-full flex flex-col">
+              <div className="max-w-md mb-8">
+                <label className="text-[10px] font-black text-slate-400 uppercase block mb-2 px-1">Selecione o Material para Análise</label>
+                <select 
+                  value={analysisMaterial}
+                  onChange={e => setAnalysisMaterial(e.target.value)}
+                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 text-sm font-bold shadow-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  title="Selecionar material para análise"
+                >
+                  <option value="">Escolha um material...</option>
+                  {uniqueMaterials.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+
+              <div className="flex-1 overflow-y-auto custom-scrollbar">
+                {analysisMaterial ? (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
+                      <div className="bg-blue-600 p-6 rounded-[2rem] text-white shadow-xl shadow-blue-500/20 relative overflow-hidden">
+                        <TrendingUp className="absolute right-[-10px] top-[-10px] w-24 h-24 opacity-10 rotate-12" />
+                        <p className="text-[10px] font-black uppercase opacity-60 mb-1 relative z-10">Último Preço</p>
+                        <h4 className="text-3xl font-black relative z-10">{analysisData.length > 0 ? formatCurrency(analysisData[analysisData.length - 1].preco) : '---'}</h4>
+                      </div>
+                      <div className="bg-white dark:bg-slate-800 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
+                        <ArrowDownCircle className="absolute right-[-10px] top-[-10px] w-24 h-24 text-emerald-500/10 rotate-12" />
+                        <p className="text-[10px] font-black text-slate-400 uppercase mb-1 relative z-10">Mínimo</p>
+                        <h4 className="text-3xl font-black text-emerald-600 relative z-10">{analysisData.length > 0 ? formatCurrency(Math.min(...analysisData.map(d => d.preco))) : '---'}</h4>
+                      </div>
+                      <div className="bg-white dark:bg-slate-800 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
+                        <ArrowUpCircle className="absolute right-[-10px] top-[-10px] w-24 h-24 text-red-500/10 rotate-12" />
+                        <p className="text-[10px] font-black text-slate-400 uppercase mb-1 relative z-10">Máximo</p>
+                        <h4 className="text-3xl font-black text-red-600 relative z-10">{analysisData.length > 0 ? formatCurrency(Math.max(...analysisData.map(d => d.preco))) : '---'}</h4>
+                      </div>
+                    </div>
+
+                    <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 p-8 shadow-sm">
+                      <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-6">Evolução de Preços / Fornecedor</h3>
+                      <div className="space-y-4">
+                        {analysisData.slice().reverse().map((d, idx, arr) => {
+                          const diff = idx < arr.length - 1 ? d.preco - arr[idx + 1].preco : 0;
+                          return (
+                            <div key={d.id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl relative overflow-hidden group">
+                              <div className="flex items-center gap-4">
+                                <div className="p-2 bg-white dark:bg-slate-800 rounded-xl shadow-sm text-slate-400">
+                                  <Calendar className="w-4 h-4" />
+                                </div>
+                                <div>
+                                  <p className="text-[10px] font-black text-slate-400 uppercase">{new Date(d.data).toLocaleDateString()}</p>
+                                  <p className="font-black text-slate-800 dark:text-white">{d.fornecedor || 'Geral'}</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-mono font-black text-lg text-blue-600 dark:text-blue-400">{formatCurrency(d.preco)}</p>
+                                {diff !== 0 && (
+                                  <p className={`text-[9px] font-black uppercase flex items-center justify-end gap-1 ${diff > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                                    {diff > 0 ? '▲' : '▼'} {formatCurrency(Math.abs(diff))}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center opacity-30 py-20">
+                    <TrendingUp className="w-16 h-16 mb-4" />
+                    <p className="text-[10px] font-black uppercase tracking-widest">Selecione um material para ver a análise histórica</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default App;

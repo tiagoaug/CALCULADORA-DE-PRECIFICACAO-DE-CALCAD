@@ -14,14 +14,43 @@ const sanitizeFilename = (name: string) => {
 export const exportToXLS = async (
   insumos: Insumo[],
   summary: PriceSummary,
-  productName: string
+  productName: string,
+  terceirizados: Insumo[],
+  type: 'ready' | 'production',
+  selectedImpostos: string[] = [],
+  libraryImpostos: any[] = [],
+  selectedComissoes: string[] = [],
+  libraryComissoes: any[] = [],
+  selectedFretes: string[] = [],
+  libraryFretes: any[] = []
 ) => {
+  const taxDetailRows = selectedImpostos.map(id => {
+    const tax = libraryImpostos.find(t => t.id === id);
+    if (!tax) return null;
+    const val = summary.precoPraticado * (tax.aliquota / 100);
+    return [`   - Imposto: ${tax.nome} (${tax.aliquota}%)`, val];
+  }).filter(Boolean) as any[][];
+
+  const comissaoDetailRows = selectedComissoes.map(id => {
+    const item = libraryComissoes.find(t => t.id === id);
+    if (!item) return null;
+    const val = summary.precoPraticado * (item.aliquota / 100);
+    return [`   - Comissão: ${item.nome} (${item.aliquota}%)`, val];
+  }).filter(Boolean) as any[][];
+
+  const freteDetailRows = selectedFretes.map(id => {
+    const item = libraryFretes.find(t => t.id === id);
+    if (!item) return null;
+    const val = summary.precoPraticado * (item.aliquota / 100);
+    return [`   - Frete: ${item.nome} (${item.aliquota}%)`, val];
+  }).filter(Boolean) as any[][];
+
   const wsData = [
     ['Relatório de Precificação - ' + productName],
     [''],
     ['Resumo Financeiro'],
     ['Produção Mensal', summary.producaoMensal],
-    ['Custo de Materiais (por Par/Unid.)', formatCurrency(summary.custoMaterial)],
+    [type === 'ready' ? 'Preço de Compra (Produto)' : 'Custo de Materiais (por Par/Unid.)', formatCurrency(summary.custoMaterial)],
     ['Custo de Terceirizados (por Par/Unid.)', formatCurrency(summary.custoTerceirizados)],
     ['Custo Fixo/Indireto (por Par/Unid.)', formatCurrency(summary.custoFixoPorUnidade)],
     ['Custo de Produção Total (por Par/Unid.)', formatCurrency(summary.custoProducaoUnitario)],
@@ -29,6 +58,13 @@ export const exportToXLS = async (
     ['Margem Real Alcançada', `${summary.margemReal.toFixed(2)}%`],
     ['Lucro Real (por Par/Unid.)', formatCurrency(summary.lucroRealUnitario)],
     ['Lucro Mensal Estimado', formatCurrency(summary.lucroRealUnitario * summary.producaoMensal)],
+    [''],
+    ['Impostos sobre Venda', summary.valorImpostoUnitario],
+    ...taxDetailRows,
+    ['Comissões de Venda', summary.valorComissaoUnitaria],
+    ...comissaoDetailRows,
+    ['Fretes de Venda', summary.valorFreteUnitario],
+    ...freteDetailRows,
     [''],
     ['Composição de Insumos'],
     ['Nome', 'Quantidade', 'Unidade', 'Valor Unit.', 'Subtotal'],
@@ -63,11 +99,18 @@ const formatDecimal = (val: number) => {
   return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 4 }).format(val).replace(/\s/g, ' ');
 };
 
-const generatePDFBlob = (
+export const generatePDFBlob = (
   insumos: Insumo[],
   summary: PriceSummary,
   productName: string,
-  terceirizados: Insumo[] = []
+  terceirizados: Insumo[],
+  type: 'ready' | 'production',
+  selectedImpostos: string[] = [],
+  libraryImpostos: any[] = [],
+  selectedComissoes: string[] = [],
+  libraryComissoes: any[] = [],
+  selectedFretes: string[] = [],
+  libraryFretes: any[] = []
 ): jsPDF => {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -148,15 +191,41 @@ const generatePDFBlob = (
   doc.text('Resumo Operacional Mensal', 15, currentY);
 
   currentY += 10;
+  const taxBreakdownRows = selectedImpostos.map(id => {
+    const tax = libraryImpostos.find(t => t.id === id);
+    if (!tax) return null;
+    const val = summary.precoPraticado * (tax.aliquota / 100);
+    return [`   - Imposto: ${tax.nome} (${tax.aliquota}%):`, `+ ${formatCurrency(val)}`];
+  }).filter(Boolean) as string[][];
+
+  const comBreakdownRows = selectedComissoes.map(id => {
+    const item = libraryComissoes.find(t => t.id === id);
+    if (!item) return null;
+    const val = summary.precoPraticado * (item.aliquota / 100);
+    return [`   - Comis: ${item.nome} (${item.aliquota}%):`, `+ ${formatCurrency(val)}`];
+  }).filter(Boolean) as string[][];
+
+  const freBreakdownRows = selectedFretes.map(id => {
+    const item = libraryFretes.find(t => t.id === id);
+    if (!item) return null;
+    const val = summary.precoPraticado * (item.aliquota / 100);
+    return [`   - Frete: ${item.nome} (${item.aliquota}%):`, `+ ${formatCurrency(val)}`];
+  }).filter(Boolean) as string[][];
+
   const gridData = [
     ['Produção Mensal Estimada:', `${formatDecimal(summary.producaoMensal)} unidades`],
-    ['Custo de Matéria-Prima (Unit.):', formatCurrency(summary.custoMaterial)],
+    [type === 'ready' ? 'Preço de Compra (Produto):' : 'Custo de Matéria-Prima (Unit.):', formatCurrency(summary.custoMaterial)],
     ['Custo de Terceirizados (Unit.):', formatCurrency(summary.custoTerceirizados)],
     ['Custos Operacionais Diluídos (Unit.):', formatCurrency(summary.custoFixoPorUnidade)],
     ['Projeção de Perdas de Produção:', `+ ${formatCurrency(summary.valorPerdaUnitario)}`],
     ['Impostos sobre Venda:', `+ ${formatCurrency(summary.valorImpostoUnitario)}`],
-    ['Total de Encargos (Perda + Imposto):', `+ ${formatCurrency(summary.valorPerdaUnitario + summary.valorImpostoUnitario)}`],
-    ['Custo Total Real (Fábrica + Impostos):', formatCurrency(summary.custoProducaoUnitario + summary.valorImpostoUnitario)],
+    ...taxBreakdownRows,
+    ['Comissões de Venda:', `+ ${formatCurrency(summary.valorComissaoUnitaria)}`],
+    ...comBreakdownRows,
+    ['Fretes de Venda:', `+ ${formatCurrency(summary.valorFreteUnitario)}`],
+    ...freBreakdownRows,
+    ['Total de Encargos (Perda + Taxas):', `+ ${formatCurrency(summary.valorPerdaUnitario + summary.valorImpostoUnitario + summary.valorComissaoUnitaria + summary.valorFreteUnitario)}`],
+    ['Custo Total Real (Fábrica + Taxas):', formatCurrency(summary.custoProducaoUnitario + summary.valorImpostoUnitario + summary.valorComissaoUnitaria + summary.valorFreteUnitario)],
     ['Faturamento Mensal Estimado:', formatCurrency(summary.faturamentoMensal)],
     ['Lucro Mensal Estimado:', formatCurrency(summary.lucroRealUnitario * summary.producaoMensal)],
   ];
@@ -166,7 +235,6 @@ const generatePDFBlob = (
     const y = currentY + (index * 8);
     doc.setFont('helvetica', 'normal');
 
-    // Highlight specific rows
     if (row[0].includes('Total') || row[0].includes('Venda')) {
       doc.setTextColor(primary[0], primary[1], primary[2]);
       doc.setFont('helvetica', 'bold');
@@ -231,7 +299,6 @@ const generatePDFBlob = (
       }
 
       doc.text((i.nome || '-').replace(/\u00A0/g, ' '), 18, currentY + 5.5);
-      // Format quantity using the helper
       doc.text(formatDecimal(i.quantidade || 0), 100, currentY + 5.5, { align: 'center' });
       doc.text((i.unidade || '-').replace(/\u00A0/g, ' '), 115, currentY + 5.5, { align: 'center' });
       doc.text(formatCurrency(i.valorUnitario || 0), 140, currentY + 5.5, { align: 'right' });
@@ -242,7 +309,9 @@ const generatePDFBlob = (
     currentY += 10;
   };
 
-  renderTable('Detalhamento de Materiais', insumos);
+  if (type !== 'ready') {
+    renderTable('Detalhamento de Materiais', insumos);
+  }
   renderTable('Detalhamento de Terceirizados', terceirizados);
 
   const totalPages = doc.internal.pages.length - 1;
@@ -260,10 +329,29 @@ export const downloadPDF = async (
   insumos: Insumo[],
   summary: PriceSummary,
   productName: string,
-  terceirizados: Insumo[] = []
+  terceirizados: Insumo[],
+  type: 'ready' | 'production',
+  selectedImpostos: string[] = [],
+  libraryImpostos: any[] = [],
+  selectedComissoes: string[] = [],
+  libraryComissoes: any[] = [],
+  selectedFretes: string[] = [],
+  libraryFretes: any[] = []
 ) => {
   try {
-    const doc = generatePDFBlob(insumos, summary, productName, terceirizados);
+    const doc = generatePDFBlob(
+      insumos, 
+      summary, 
+      productName, 
+      terceirizados, 
+      type, 
+      selectedImpostos, 
+      libraryImpostos,
+      selectedComissoes,
+      libraryComissoes,
+      selectedFretes,
+      libraryFretes
+    );
     const fileName = `Relatorio_Precificacao_${sanitizeFilename(productName)}.pdf`;
 
     if (Capacitor.isNativePlatform()) {
@@ -300,10 +388,29 @@ export const sharePDF = async (
   insumos: Insumo[],
   summary: PriceSummary,
   productName: string,
-  terceirizados: Insumo[] = []
+  terceirizados: Insumo[],
+  type: 'ready' | 'production',
+  selectedImpostos: string[] = [],
+  libraryImpostos: any[] = [],
+  selectedComissoes: string[] = [],
+  libraryComissoes: any[] = [],
+  selectedFretes: string[] = [],
+  libraryFretes: any[] = []
 ) => {
   try {
-    const doc = generatePDFBlob(insumos, summary, productName, terceirizados);
+    const doc = generatePDFBlob(
+      insumos, 
+      summary, 
+      productName, 
+      terceirizados, 
+      type, 
+      selectedImpostos, 
+      libraryImpostos,
+      selectedComissoes,
+      libraryComissoes,
+      selectedFretes,
+      libraryFretes
+    );
     const fileName = `Relatorio_Precificacao_${sanitizeFilename(productName)}.pdf`;
 
     if (Capacitor.isNativePlatform()) {
@@ -336,7 +443,6 @@ export const sharePDF = async (
           text: `Confira a formação de preço de: ${productName}`,
         });
       } else {
-        // Fallback to individual download if share is not supported
         doc.save(fileName);
         alert('Compartilhamento não suportável neste dispositivo. O arquivo foi baixado manualmente.');
       }
@@ -374,7 +480,6 @@ export const shareFile = async (data: string, fileName: string, title: string) =
           text: `Backup de dados: ${fileName}`,
         });
       } else {
-        // Fallback to download
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -393,10 +498,15 @@ export const shareFile = async (data: string, fileName: string, title: string) =
 };
 
 export const shareTextReport = async (
-  insumos: Insumo[],
   summary: PriceSummary,
   productName: string,
-  terceirizados: Insumo[] = []
+  type: 'ready' | 'production',
+  selectedImpostos: string[] = [],
+  libraryImpostos: any[] = [],
+  selectedComissoes: string[] = [],
+  libraryComissoes: any[] = [],
+  selectedFretes: string[] = [],
+  libraryFretes: any[] = []
 ) => {
   try {
     const textReport = `
@@ -413,10 +523,37 @@ export const shareTextReport = async (
 
 *CUSTOS UNITÁRIOS*
 ----------------------------------------
-Materiais:      ${formatCurrency(summary.custoMaterial)}
-Terceirizados:  ${formatCurrency(summary.custoTerceirizados)}
-Fixo/Indireto:  ${formatCurrency(summary.custoFixoPorUnidade)}
-Imp/Perdas:     ${formatCurrency(summary.valorImpostoUnitario + summary.valorPerdaUnitario)}
+${type === 'ready' ? 'Preço Produto: ' : 'Materiais:     '}${formatCurrency(summary.custoMaterial)}
+Terceirizados: ${formatCurrency(summary.custoTerceirizados)}
+Fixo/Indireto: ${formatCurrency(summary.custoFixoPorUnidade)}
+Perdas:        ${formatCurrency(summary.valorPerdaUnitario)}
+Impostos:      ${formatCurrency(summary.valorImpostoUnitario)}
+Comissões:     ${formatCurrency(summary.valorComissaoUnitaria)}
+Fretes:        ${formatCurrency(summary.valorFreteUnitario)}
+
+${selectedImpostos.length > 0 ? '\n*DETALHE IMPOSTOS*' : ''}
+${selectedImpostos.map(id => {
+  const tax = libraryImpostos.find(t => t.id === id);
+  if (!tax) return '';
+  const val = summary.precoPraticado * (tax.aliquota / 100);
+  return `• ${tax.nome} (${tax.aliquota}%): ${formatCurrency(val)}`;
+}).filter(s => s !== '').join('\n')}
+
+${selectedComissoes.length > 0 ? '\n*DETALHE COMISSÕES*' : ''}
+${selectedComissoes.map(id => {
+  const item = libraryComissoes.find(t => t.id === id);
+  if (!item) return '';
+  const val = summary.precoPraticado * (item.aliquota / 100);
+  return `• ${item.nome} (${item.aliquota}%): ${formatCurrency(val)}`;
+}).filter(s => s !== '').join('\n')}
+
+${selectedFretes.length > 0 ? '\n*DETALHE FRETES*' : ''}
+${selectedFretes.map(id => {
+  const item = libraryFretes.find(t => t.id === id);
+  if (!item) return '';
+  const val = summary.precoPraticado * (item.aliquota / 100);
+  return `• ${item.nome} (${item.aliquota}%): ${formatCurrency(val)}`;
+}).filter(s => s !== '').join('\n')}
 
 Gerado por: Preço PRO - ${new Date().toLocaleDateString('pt-BR')}
 `;
@@ -457,7 +594,6 @@ export const copyToClipboard = async (text: string, successMessage: string = 'Co
         await navigator.clipboard.writeText(text);
         alert(successMessage);
       } else {
-        // Fallback for older browsers
         const textArea = document.createElement("textarea");
         textArea.value = text;
         document.body.appendChild(textArea);

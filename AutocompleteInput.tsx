@@ -83,6 +83,7 @@ const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
         }}
         onFocus={() => setIsOpen(true)}
         placeholder={placeholder}
+        title={placeholder || "Buscar item"}
         className={`${className} w-full`}
       />
       
