@@ -71,6 +71,7 @@ export interface AppSettings {
   dailyProduction: number;
   currency: string;
   theme: 'light' | 'dark';
+  unidadesMedida?: string[]; // Adicionado para unidades personalizáveis
 }
 
 export interface LibraryData {
@@ -90,6 +91,8 @@ export interface MaterialPriceRecord {
   fornecedor: string;
   preco: number;
   data: number;
+  unidade?: string;
+  largura?: number;
 }
 
 export interface SolaGradeItem {

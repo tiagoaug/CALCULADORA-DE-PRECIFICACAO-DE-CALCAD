@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
     X, Plus, Trash2, Search, Package, Users,
     TrendingUp, Calculator, Ruler, Download, Upload, Database, RefreshCw, Edit2, Check, XCircle,
-    DollarSign, Percent, Maximize
+    DollarSign, Percent, Maximize, Settings
 } from 'lucide-react';
 import { formatCurrency, calculateSolaAverageCost } from './utils/calculations';
 import { LibraryData, Sola, SolaMaterial, SolaLaborItem, SolaGradeItem } from './types';
@@ -21,14 +21,16 @@ interface LibraryItem {
 interface LibraryViewProps {
     library: LibraryData;
     existingItemsNames?: string[];
+    units: string[];
     onClose: () => void;
     onSelectItem: (type: string, item: any) => void;
     onAddItem: (type: keyof LibraryData, item: any) => void;
     onDeleteItem: (type: keyof LibraryData, id: string) => void;
     onUpdateItem: (type: keyof LibraryData, id: string, item: any) => void;
+    onUpdateUnits: (units: string[]) => void;
 }
 
-const LibraryView: React.FC<LibraryViewProps> = ({ library, existingItemsNames = [], onClose, onSelectItem, onAddItem, onDeleteItem, onUpdateItem }) => {
+const LibraryView: React.FC<LibraryViewProps> = ({ library, existingItemsNames = [], units, onClose, onSelectItem, onAddItem, onDeleteItem, onUpdateItem, onUpdateUnits }) => {
     const [activeTab, setActiveTab] = useState<keyof LibraryData>('insumos');
     const [showDetails, setShowDetails] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -42,9 +44,20 @@ const LibraryView: React.FC<LibraryViewProps> = ({ library, existingItemsNames =
     const [solaLabor, setSolaLabor] = useState<SolaLaborItem[]>([]);
     const [solaFornecedor, setSolaFornecedor] = useState('');
 
+    // Units Management State
+    const [showUnitManager, setShowUnitManager] = useState(false);
+    const [newUnitName, setNewUnitName] = useState('');
+
     const handleAddItem = () => {
         if (!newItem.nome) return;
-        onAddItem(activeTab, newItem);
+        
+        // Ensure a unit is assigned for categories that need it
+        const itemWithDefaults = { ...newItem };
+        if ((activeTab === 'insumos' || activeTab === 'terceirizados') && !itemWithDefaults.unidade) {
+            itemWithDefaults.unidade = units[0] || 'Un';
+        }
+        
+        onAddItem(activeTab, itemWithDefaults);
         setNewItem({});
     };
 
@@ -148,7 +161,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({ library, existingItemsNames =
                     <div className="flex items-center gap-4">
                         {showDetails && (
                             <button 
-                                onClick={() => setShowDetails(false)}
+                                onClick={() => { setShowDetails(false); setShowUnitManager(false); }}
                                 className="p-2 -ml-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400 transition-colors"
                                 title="Voltar para categorias"
                             >
@@ -167,9 +180,18 @@ const LibraryView: React.FC<LibraryViewProps> = ({ library, existingItemsNames =
                             </p>
                         </div>
                     </div>
-                    <button onClick={onClose} title="Fechar Biblioteca" className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400">
-                        <X className="w-6 h-6" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button 
+                            onClick={() => setShowUnitManager(!showUnitManager)}
+                            className={`p-2.5 rounded-xl transition-all ${showUnitManager ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-blue-500'}`}
+                            title="Gerenciar Unidades de Medida"
+                        >
+                            <Settings className="w-6 h-6" />
+                        </button>
+                        <button onClick={onClose} title="Fechar Biblioteca" className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400">
+                            <X className="w-6 h-6" />
+                        </button>
+                    </div>
                 </div>
 
                 {!showDetails ? (
@@ -210,6 +232,44 @@ const LibraryView: React.FC<LibraryViewProps> = ({ library, existingItemsNames =
                                     placeholder="Ex: Cabedal, Forro, Sola..."
                                     className={`w-full bg-white dark:bg-slate-800 border-none rounded-xl px-4 py-2.5 text-sm font-bold shadow-sm focus:ring-2 focus:ring-${getThemeColor(activeTab)}-500`}
                                 />
+                            </div>
+
+                            {(activeTab === 'insumos' || activeTab === 'terceirizados') && (
+                                <div className="w-32">
+                                    <label className={`text-[9px] font-black text-${getThemeColor(activeTab)}-600 uppercase mb-1.5 block`}>Unidade</label>
+                                    <select
+                                        value={newItem.unidade || units[0]}
+                                        onChange={e => setNewItem({ ...newItem, unidade: e.target.value })}
+                                        className={`w-full bg-white dark:bg-slate-800 border-none rounded-xl px-4 py-2.5 text-sm font-bold shadow-sm focus:ring-2 focus:ring-${getThemeColor(activeTab)}-500`}
+                                        title="Selecionar unidade"
+                                    >
+                                        {units.map(u => <option key={u} value={u}>{u}</option>)}
+                                    </select>
+                                </div>
+                            )}
+
+                            <div>
+                                <label className={`text-[9px] font-black text-${getThemeColor(activeTab)}-600 uppercase mb-1.5 block`}>
+                                    {(activeTab === 'impostos' || activeTab === 'comissoes') ? 'Alíquota (%)' : 'Valor'}
+                                </label>
+                                <div className="relative">
+                                    {(activeTab === 'impostos' || activeTab === 'comissoes') ? (
+                                        <Percent className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-${getThemeColor(activeTab)}-400`} />
+                                    ) : (
+                                        <DollarSign className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-${getThemeColor(activeTab)}-400`} />
+                                    )}
+                                    <input
+                                        type="number"
+                                        value={newItem.aliquota || newItem.valorUnitario || newItem.valor || ''}
+                                        onChange={e => {
+                                            const val = Number(e.target.value);
+                                            const key = (activeTab === 'impostos' || activeTab === 'comissoes') ? 'aliquota' : (activeTab === 'custosFixos' || activeTab === 'custosIndiretos' || activeTab === 'fretes') ? 'valor' : 'valorUnitario';
+                                            setNewItem({ ...newItem, [key]: val });
+                                        }}
+                                        placeholder="0,00"
+                                        className={`w-full bg-white dark:bg-slate-800 border-none rounded-xl pl-10 pr-4 py-2.5 text-sm font-bold shadow-sm focus:ring-2 focus:ring-${getThemeColor(activeTab)}-500`}
+                                    />
+                                </div>
                             </div>
 
                         {activeTab === 'solados' && (
@@ -559,6 +619,56 @@ const LibraryView: React.FC<LibraryViewProps> = ({ library, existingItemsNames =
                         )}
                     </div>
 
+                    {/* Units Manager UI */}
+                    {showUnitManager && (
+                        <div className="mb-6 p-5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-800 animate-in fade-in slide-in-from-top-2 duration-300">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                                    <Settings className="w-3.5 h-3.5" /> Gerenciar Unidades de Medida
+                                </h3>
+                                <button onClick={() => setShowUnitManager(false)} title="Fechar" className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-all">
+                                    <X className="w-4 h-4 text-slate-400" />
+                                </button>
+                            </div>
+                            
+                            <div className="flex gap-2 mb-4">
+                                <input 
+                                    type="text" 
+                                    value={newUnitName}
+                                    onChange={e => setNewUnitName(e.target.value)}
+                                    placeholder="Nova unidade (Ex: Galão)"
+                                    className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <button 
+                                    onClick={() => {
+                                        if (newUnitName && !units.includes(newUnitName)) {
+                                            onUpdateUnits([...units, newUnitName]);
+                                            setNewUnitName('');
+                                        }
+                                    }}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all flex items-center gap-2"
+                                >
+                                    <Plus className="w-3.5 h-3.5" /> Adicionar
+                                </button>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2">
+                                {units.map(u => (
+                                    <div key={u} className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 pl-3 pr-1 py-1 rounded-lg shadow-sm">
+                                        <span className="text-[10px] font-bold uppercase">{u}</span>
+                                        <button 
+                                            onClick={() => onUpdateUnits(units.filter(unit => unit !== u))}
+                                            className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-500 rounded-md transition-all"
+                                            title="Remover unidade"
+                                        >
+                                            <Trash2 className="w-3 h-3" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     <div className="relative mb-6">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <input
@@ -592,12 +702,14 @@ const LibraryView: React.FC<LibraryViewProps> = ({ library, existingItemsNames =
                                                 />
                                                 <div className="flex gap-2">
                                                     {(activeTab === 'insumos' || activeTab === 'terceirizados') && (
-                                                        <input
-                                                            className="w-20 bg-slate-100 dark:bg-slate-950 border-none rounded-xl px-3 py-2.5 text-sm font-bold text-center"
+                                                        <select
+                                                            className="w-24 bg-slate-100 dark:bg-slate-950 border-none rounded-xl px-2 py-2.5 text-[10px] font-black uppercase text-slate-600 dark:text-slate-300 outline-none"
                                                             value={editForm.unidade || ''}
                                                             onChange={e => setEditForm({ ...editForm, unidade: e.target.value })}
-                                                            placeholder="und"
-                                                        />
+                                                            title="Unidade"
+                                                        >
+                                                            {units.map(u => <option key={u} value={u}>{u}</option>)}
+                                                        </select>
                                                     )}
                                                             <div className="flex-1 relative">
                                                                 {(activeTab === 'impostos' || activeTab === 'comissoes') ? (

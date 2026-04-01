@@ -35,16 +35,24 @@ import {
   Phone,
   Mail,
   ArrowDownCircle,
-  ArrowUpCircle
+  ArrowUpCircle,
+  AlertCircle,
+  ArrowRight
 } from 'lucide-react';
 import { ProductData, AppDatabase, LibraryData, MaterialPriceRecord, Sola, Supplier } from './types';
 import { calculateSummary, formatCurrency, calculateSolaAverageCost } from './utils/calculations';
 import { downloadPDF, sharePDF, shareFile, copyBackupToClipboard, shareTextReport, exportToXLS } from './utils/export';
 import LibraryView from './LibraryView';
 import AutocompleteInput from './AutocompleteInput';
+import { auth } from './firebase';
+import { onAuthStateChanged, signOut, User } from 'firebase/auth';
+import { firebaseService } from './firebaseService';
+import AuthScreen from './AuthScreen';
 
 
 const DB_KEY = 'preco_pro_db_v1';
+
+const DEFAULT_UNITS = ['Kg', 'Un', 'Par', 'M', 'M²', 'ML', 'Rolo', 'Lata'];
 
 // Dados do Backup fornecidos pelo usuário
 const BACKUP_PRODUCT_320_BOSS: ProductData = {
@@ -391,6 +399,46 @@ const INITIAL_LIBRARY: LibraryData = {
 };
 
 const App: React.FC = () => {
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error'>('synced');
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  // Monitor Auth State
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setIsLoadingAuth(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Load cloud data upon login
+  useEffect(() => {
+    if (user && isInitialLoad) {
+      const loadCloudData = async () => {
+        try {
+          const cloudData = await firebaseService.loadFullDatabase(user.uid);
+          if (cloudData) {
+            setDb(cloudData);
+          } else {
+            // If cloud is empty but we have local data, migrate
+            const localData = localStorage.getItem(DB_KEY);
+            if (localData) {
+              const parsed = JSON.parse(localData);
+              await firebaseService.syncLocalToFirebase(user.uid, parsed);
+            }
+          }
+          setIsInitialLoad(false);
+        } catch (error) {
+          console.error("Error syncing cloud data:", error);
+          setSyncStatus('error');
+        }
+      };
+      loadCloudData();
+    }
+  }, [user, isInitialLoad]);
+
   const [db, setDb] = useState<AppDatabase>(() => {
     const saved = localStorage.getItem(DB_KEY);
     if (saved) {
@@ -431,11 +479,15 @@ const App: React.FC = () => {
             library: migratedLibrary,
             materialPrices: parsed.materialPrices || [],
             suppliers: parsed.suppliers || [],
-            settings: parsed.settings || {
+            settings: parsed.settings ? {
+              ...parsed.settings,
+              unidadesMedida: parsed.settings.unidadesMedida || DEFAULT_UNITS
+            } : {
               productionDays: 22,
               dailyProduction: 0,
               currency: 'BRL',
-              theme: 'light'
+              theme: 'light',
+              unidadesMedida: DEFAULT_UNITS
             }
           };
         }
@@ -451,7 +503,8 @@ const App: React.FC = () => {
         productionDays: 22,
         dailyProduction: 0,
         currency: 'BRL',
-        theme: theme
+        theme: theme,
+        unidadesMedida: DEFAULT_UNITS
       }
     };
   });
@@ -469,6 +522,8 @@ const App: React.FC = () => {
   const [showDatabase, setShowDatabase] = useState(false);
   const [showMaterialPrices, setShowMaterialPrices] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const currentProduct = useMemo(() => {
@@ -476,27 +531,34 @@ const App: React.FC = () => {
     return found || db.products[0] || BACKUP_PRODUCT_320_BOSS;
   }, [db]);
 
-  const persistData = useCallback(() => {
+  const persistData = useCallback(async () => {
     setSaveStatus('saving');
+    setSyncStatus('syncing');
+    
+    // Local backup
     localStorage.setItem(DB_KEY, JSON.stringify(db));
     localStorage.setItem(DB_KEY + '_lastId', db.lastSelectedProductId);
+
+    // Sync to Cloud if authenticated
+    if (user) {
+      try {
+        await firebaseService.syncLocalToFirebase(user.uid, db);
+        setSyncStatus('synced');
+      } catch (error) {
+        console.error("Cloud sync fail:", error);
+        setSyncStatus('error');
+      }
+    }
 
     setTimeout(() => {
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 1500);
     }, 200);
-  }, [db]);
+  }, [db, user]);
 
   useEffect(() => {
-    const debounceTimer = setTimeout(persistData, 1000);
-    const periodicTimer = setInterval(persistData, 60000);
-    const handleBeforeUnload = () => { localStorage.setItem(DB_KEY, JSON.stringify(db)); };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => {
-      clearTimeout(debounceTimer);
-      clearInterval(periodicTimer);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
+    const debounceTimer = setTimeout(persistData, 2000); // 2s debounce for cloud sync
+    return () => clearTimeout(debounceTimer);
   }, [db, persistData]);
 
   useEffect(() => {
@@ -833,13 +895,28 @@ const App: React.FC = () => {
 
   const inputBase = "w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-2.5 text-[12px] font-bold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-slate-800 dark:text-slate-100";
 
+  if (isLoadingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          <p className="text-slate-500 font-black animate-pulse uppercase tracking-[2px] text-[10px]">PREÇO PRO: Sincronizando Cloud</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthScreen onAuthSuccess={(u) => setUser(u)} />;
+  }
+
   return (
     <div className="min-h-screen pt-[0.4cm] pb-10 bg-slate-200 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors font-sans overflow-x-hidden md:px-0 px-[0.4cm]">
 
       <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-[0.4cm] z-50 px-3 sm:px-6 h-14 flex items-center justify-between shadow-sm print:hidden">
         <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0 pr-2">
           <button onClick={() => setShowProjectList(true)} title="Abrir Lista de Projetos" aria-label="Projetos" className="p-1.5 shrink-0 bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors">
-            <FolderOpen className="w-5 h-5 text-blue-600" />
+            <FolderOpen className="w-5 h-5 text-amber-500" />
           </button>
           <button onClick={() => setShowDatabase(true)} title="Abrir Biblioteca de Itens" aria-label="Biblioteca" className="p-1.5 shrink-0 bg-slate-50 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors">
             <Database className="w-5 h-5 text-emerald-600" />
@@ -854,15 +931,36 @@ const App: React.FC = () => {
           </button>
           <div className="flex flex-col flex-1 min-w-0">
             <input value={currentProduct.name} title="Nome do Produto" aria-label="Nome do Produto" onChange={(e) => updateCurrentProduct({ name: e.target.value })} className="bg-transparent border-none font-black text-sm sm:text-base focus:ring-0 w-full min-w-0 truncate leading-tight p-0 text-slate-800 dark:text-white" placeholder="Nome do Produto" />
-            <div className="flex items-center gap-1.5">
-              <span className={`w-1.5 h-1.5 shrink-0 rounded-full ${saveStatus === 'saving' ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`}></span>
-              <span className="text-[9px] font-bold uppercase text-slate-400 tracking-tight truncate">
-                {saveStatus === 'saving' ? 'Salvando...' : 'Salvo Localmente'}
-              </span>
-            </div>
+              <div className="flex items-center gap-2">
+                <div className={`flex items-center gap-1.5 px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider ${
+                  syncStatus === 'synced' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600' : 
+                  syncStatus === 'syncing' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600' : 
+                  'bg-red-100 dark:bg-red-900/30 text-red-600'
+                }`}>
+                  {syncStatus === 'synced' ? <><Cloud className="w-2.5 h-2.5" /> Nuvem</> : 
+                   syncStatus === 'syncing' ? <><RefreshCw className="w-2.5 h-2.5 animate-spin" /> Sinc</> : 
+                   <><AlertCircle className="w-2.5 h-2.5" /> Erro</>}
+                </div>
+                <span className="text-[9px] font-bold uppercase text-slate-400 tracking-tight truncate">
+                  {saveStatus === 'saving' ? 'Gravando...' : 'Seguro'}
+                </span>
+              </div>
           </div>
         </div>
         <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+          <div className="hidden sm:flex flex-col items-end mr-1">
+            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">Conta ativa</span>
+            <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 max-w-[120px] truncate">{user.email}</span>
+          </div>
+          
+          <button 
+            onClick={() => signOut(auth)}
+            className="p-1.5 sm:p-2 bg-slate-50 dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-500 rounded-lg transition-all active:scale-95 border border-transparent hover:border-red-100"
+            title="Sair (Logout)"
+          >
+            <ArrowRight className="w-4 h-4 rotate-180" />
+          </button>
+
           <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="p-1 sm:p-2 text-slate-500 hover:text-blue-500 transition-colors">{theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}</button>
 
           <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
@@ -1230,6 +1328,24 @@ const App: React.FC = () => {
             </div>
 
             <button onClick={() => updateCurrentProduct({ insumos: [...currentProduct.insumos, { id: Math.random().toString(36), nome: '', quantidade: 1, unidade: 'un', valorUnitario: 0 }] })} className="w-full mt-4 py-3 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-slate-400 hover:text-blue-600 text-[11px] font-black uppercase flex items-center justify-center gap-2 print:hidden"><Plus className="w-4 h-4" /> NOVO MATERIAL</button>
+
+            {/* Subtotal da Seção 1 */}
+            <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800">
+              <div className="bg-blue-50/30 dark:bg-blue-900/10 rounded-2xl p-5 border border-blue-100 dark:border-blue-800/50">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div>
+                    <h4 className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1">Total de Materiais</h4>
+                    <p className="text-[9px] text-slate-500 dark:text-slate-400 font-medium italic">Soma total de todos os insumos aplicados por par.</p>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className="text-xl font-black font-mono text-blue-600 dark:text-blue-400">
+                      {formatCurrency(currentProduct.insumos.reduce((acc, curr) => acc + (curr.quantidade * curr.valorUnitario), 0))}
+                    </span>
+                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter mt-0.5">Total Acumulado (Item 1)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
             </>
           )}
           </Section>
@@ -1444,6 +1560,24 @@ const App: React.FC = () => {
               </div>
             </div>
             <button onClick={() => updateCurrentProduct({ terceirizados: [...currentProduct.terceirizados, { id: Math.random().toString(36), nome: '', quantidade: 1, unidade: 'par', valorUnitario: 0 }] })} className="w-full mt-4 py-3 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-slate-400 hover:text-orange-600 text-[11px] font-black uppercase flex items-center justify-center gap-2"><Plus className="w-4 h-4" /> NOVO SERVIÇO</button>
+
+            {/* Subtotal da Seção 2 */}
+            <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800">
+              <div className="bg-orange-50/30 dark:bg-orange-900/10 rounded-2xl p-5 border border-orange-100 dark:border-orange-800/50">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div>
+                    <h4 className="text-[10px] font-black text-orange-600 dark:text-orange-400 uppercase tracking-widest mb-1">Total de Mão de Obra e Serviços</h4>
+                    <p className="text-[9px] text-slate-500 dark:text-slate-400 font-medium italic">Soma total de mão de obra e serviços terceirizados por par.</p>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className="text-xl font-black font-mono text-orange-600 dark:text-orange-400">
+                      {formatCurrency(currentProduct.terceirizados.reduce((acc, curr) => acc + (curr.quantidade * curr.valorUnitario), 0))}
+                    </span>
+                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter mt-0.5">Total Acumulado (Item 2)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </Section>
 
           <Section title="3. Operacional e Fixos" icon={<TrendingUp className="text-purple-500 w-5 h-5" />} expanded={expandedSection === 'operacional'} onToggle={() => toggleSection('operacional')}>
@@ -1643,6 +1777,33 @@ const App: React.FC = () => {
                 <button onClick={() => updateCurrentProduct({ custosIndiretos: [...currentProduct.custosIndiretos, { id: Math.random().toString(36), nome: '', valor: 0 }] })} className="w-full py-2.5 text-[9px] font-black text-blue-500 uppercase border border-dashed border-blue-200 rounded-xl hover:bg-blue-50/50 transition-all">+ Novo Variável</button>
               </div>
             </div>
+
+            {/* Subtotal da Seção 3 */}
+            <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800">
+              <div className="bg-slate-50 dark:bg-slate-800/40 rounded-2xl p-5 border border-slate-100 dark:border-slate-800">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div>
+                    <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Resumo Operacional Mensal</h4>
+                    <p className="text-[9px] text-slate-400 font-medium italic">Soma total dos custos fixos e variáveis antes da diluição por peça.</p>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className="text-xl font-black font-mono text-purple-600 dark:text-purple-400">
+                      {formatCurrency(
+                        currentProduct.custosFixos.reduce((acc, curr) => acc + (curr.valor || 0), 0) + 
+                        currentProduct.custosIndiretos.reduce((acc, curr) => acc + (curr.valor || 0), 0)
+                      )}
+                    </span>
+                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter mt-0.5">Total Mensal (Fixos + Variáveis)</span>
+                  </div>
+                </div>
+                {(!currentProduct.production?.producaoDiaria || !currentProduct.production?.diasTrabalhados) && (
+                  <div className="mt-4 flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/50 rounded-lg">
+                    <TrendingUp className="w-3.5 h-3.5 text-amber-500" />
+                    <p className="text-[9px] text-amber-700 dark:text-amber-400 font-bold">Configure a Produção (Item 4) para calcular o custo diluído por par.</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </Section>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1653,7 +1814,7 @@ const App: React.FC = () => {
                   <input type="text" value={getDisplayValue(currentProduct.production?.diasTrabalhados || 0, 'p', 'd')} title="Dias Trabalhados" onBlur={() => setEditingValue(null)} onChange={(e) => handleNumericChange('p', 'd', e.target.value, (v) => updateCurrentProduct({ production: { ...(currentProduct.production || { diasTrabalhados: 22, producaoDiaria: 0 }), diasTrabalhados: v } }))} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-3 text-2xl font-black text-center font-mono focus:ring-2 focus:ring-blue-500 outline-none" />
                 </div>
                 <div className="text-center">
-                  <label className="text-[10px] font-black text-slate-400 uppercase block mb-2">Pçs/Dia</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase block mb-2">Produção / Vendas por Dia</label>
                   <input type="text" value={getDisplayValue(currentProduct.production?.producaoDiaria || 0, 'p', 'u')} title="Produção Diária" onBlur={() => setEditingValue(null)} onChange={(e) => handleNumericChange('p', 'u', e.target.value, (v) => updateCurrentProduct({ production: { ...(currentProduct.production || { diasTrabalhados: 22, producaoDiaria: 0 }), producaoDiaria: v } }))} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-3 text-2xl font-black text-center font-mono focus:ring-2 focus:ring-blue-500 outline-none" />
                 </div>
               </div>
@@ -1990,9 +2151,15 @@ const App: React.FC = () => {
                 ? (currentProduct.insumos.find(i => i.id === activeCalc.id)?.quantidade || 0)
                 : activeCalc.field === 'tv'
                   ? (currentProduct.terceirizados.find(i => i.id === activeCalc.id)?.valorUnitario || 0)
-                  : activeCalc.field === 'purchase'
-                    ? (currentProduct.purchasePrice || 0)
-                    : 0
+                  : activeCalc.field === 'tq'
+                    ? (currentProduct.terceirizados.find(i => i.id === activeCalc.id)?.quantidade || 0)
+                    : activeCalc.field === 'f'
+                      ? (currentProduct.custosFixos.find(i => i.id === activeCalc.id)?.valor || 0)
+                      : activeCalc.field === 'i'
+                        ? (currentProduct.custosIndiretos.find(i => i.id === activeCalc.id)?.valor || 0)
+                        : activeCalc.field === 'purchase'
+                          ? (currentProduct.purchasePrice || 0)
+                          : 0
           }
           onApply={(val) => {
             const roundedVal = ['q', 'tq', 'u', 'd'].includes(activeCalc.field) ? Math.round(val * 10000) / 10000 : val;
@@ -2002,6 +2169,12 @@ const App: React.FC = () => {
               updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === activeCalc.id ? { ...i, quantidade: roundedVal } : i) });
             } else if (activeCalc.field === 'tv') {
               updateCurrentProduct({ terceirizados: currentProduct.terceirizados.map(i => i.id === activeCalc.id ? { ...i, valorUnitario: roundedVal } : i) });
+            } else if (activeCalc.field === 'tq') {
+              updateCurrentProduct({ terceirizados: currentProduct.terceirizados.map(i => i.id === activeCalc.id ? { ...i, quantidade: roundedVal } : i) });
+            } else if (activeCalc.field === 'f') {
+              updateCurrentProduct({ custosFixos: currentProduct.custosFixos.map(i => i.id === activeCalc.id ? { ...i, valor: roundedVal } : i) });
+            } else if (activeCalc.field === 'i') {
+              updateCurrentProduct({ custosIndiretos: currentProduct.custosIndiretos.map(i => i.id === activeCalc.id ? { ...i, valor: roundedVal } : i) });
             } else if (activeCalc.field === 'purchase') {
               updateCurrentProduct({ purchasePrice: roundedVal });
             }
@@ -2028,6 +2201,7 @@ const App: React.FC = () => {
       {showDatabase && (
         <LibraryView
           library={db.library}
+          units={db.settings.unidadesMedida || DEFAULT_UNITS}
           existingItemsNames={[
             ...currentProduct.insumos.map(i => i.nome),
             ...currentProduct.terceirizados.map(i => i.nome),
@@ -2039,6 +2213,7 @@ const App: React.FC = () => {
           onAddItem={handleAddItemToLibrary}
           onDeleteItem={handleDeleteItemFromLibrary}
           onUpdateItem={handleUpdateItemInLibrary}
+          onUpdateUnits={(newUnits) => setDb(prev => ({ ...prev, settings: { ...prev.settings, unidadesMedida: newUnits } }))}
         />
       )}
 
@@ -2047,7 +2222,7 @@ const App: React.FC = () => {
           <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={() => setShowProjectList(false)} />
           <div className="relative w-80 h-full bg-white dark:bg-slate-950 p-8 shadow-2xl animate-in slide-in-from-left duration-300 border-r border-slate-200 dark:border-slate-800 flex flex-col">
             <div className="flex justify-between items-center mb-10">
-              <h2 className="text-sm font-black uppercase flex items-center gap-3"><FolderOpen className="text-blue-600 w-5 h-5" /> PROJETOS</h2>
+              <h2 className="text-sm font-black uppercase flex items-center gap-3"><FolderOpen className="text-amber-500 w-5 h-5" /> PROJETOS</h2>
               <button onClick={() => setShowProjectList(false)} title="Fechar" aria-label="Fechar" className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400"><X className="w-5 h-5" /></button>
             </div>
 
@@ -2057,11 +2232,60 @@ const App: React.FC = () => {
             <div className="flex-1 space-y-3 overflow-y-auto pr-2 custom-scrollbar">
               {db.products.map(p => (
                 <div key={p.id} className="group flex gap-2 animate-in fade-in duration-500">
-                  <div onClick={() => { setDb(prev => ({ ...prev, lastSelectedProductId: p.id })); setShowProjectList(false); }} className={`flex-1 p-5 rounded-2xl cursor-pointer transition-all border-2 ${p.id === db.lastSelectedProductId ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30 shadow-lg shadow-blue-500/10' : 'border-slate-100 dark:border-slate-800 hover:border-slate-200'}`}>
-                    <p className="font-black text-xs truncate uppercase tracking-tight">{p.name || 'Sem Nome'}</p>
-                    <p className="text-[9px] text-slate-400 font-bold uppercase mt-2">{new Date(p.lastModified).toLocaleDateString()}</p>
+                  <div 
+                    onClick={() => { 
+                      if (editingProjectId !== p.id) {
+                        setDb(prev => ({ ...prev, lastSelectedProductId: p.id })); 
+                        setShowProjectList(false); 
+                      }
+                    }} 
+                    className={`flex-1 p-5 rounded-2xl cursor-pointer transition-all border-2 ${p.id === db.lastSelectedProductId ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30 shadow-lg shadow-blue-500/10' : 'border-slate-100 dark:border-slate-800 hover:border-slate-200'}`}
+                  >
+                    {editingProjectId === p.id ? (
+                      <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                        <input
+                          autoFocus
+                          value={editingName}
+                          title="Nome do Projeto"
+                          aria-label="Editar Nome do Projeto"
+                          onChange={(e) => setEditingName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              setDb(prev => ({
+                                ...prev,
+                                products: prev.products.map(prod => prod.id === p.id ? { ...prod, name: editingName, lastModified: Date.now() } : prod)
+                              }));
+                              setEditingProjectId(null);
+                            } else if (e.key === 'Escape') {
+                              setEditingProjectId(null);
+                            }
+                          }}
+                          className="flex-1 bg-white dark:bg-slate-800 border border-blue-500 rounded px-2 py-1 text-xs font-black uppercase outline-none"
+                        />
+                        <button 
+                          onClick={() => {
+                            setDb(prev => ({
+                              ...prev,
+                              products: prev.products.map(prod => prod.id === p.id ? { ...prod, name: editingName, lastModified: Date.now() } : prod)
+                            }));
+                            setEditingProjectId(null);
+                          }}
+                          title="Salvar"
+                          aria-label="Salvar Nome"
+                          className="p-1 text-emerald-500 hover:bg-emerald-50 rounded"
+                        >
+                          <Check className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="font-black text-xs truncate uppercase tracking-tight">{p.name || 'Sem Nome'}</p>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase mt-2">{new Date(p.lastModified).toLocaleDateString()}</p>
+                      </>
+                    )}
                   </div>
                   <div className="flex flex-col gap-1 justify-center">
+                    <button onClick={() => { setEditingProjectId(p.id); setEditingName(p.name); }} title="Editar Nome" aria-label="Editar Nome" className="p-2 text-slate-300 hover:text-amber-500 transition-colors"><Edit className="w-4 h-4" /></button>
                     <button onClick={() => {
                       const duplicatedProduct = JSON.parse(JSON.stringify(p));
                       duplicatedProduct.id = Math.random().toString(36);
@@ -2153,6 +2377,7 @@ const App: React.FC = () => {
         <MaterialPriceComparison
           prices={db.materialPrices || []}
           suppliers={db.suppliers || []}
+          units={db.settings.unidadesMedida || DEFAULT_UNITS}
           onAddPrice={(p) => {
             const newPriceRecord = { ...p, id: Math.random().toString(36), data: Date.now() };
             setDb(prev => ({ ...prev, materialPrices: [...(prev.materialPrices || []), newPriceRecord] }));
@@ -2165,6 +2390,7 @@ const App: React.FC = () => {
           }}
           onUpdateSupplier={(s) => setDb(prev => ({ ...prev, suppliers: (prev.suppliers || []).map(item => item.id === s.id ? s : item) }))}
           onDeleteSupplier={(id) => setDb(prev => ({ ...prev, suppliers: (prev.suppliers || []).filter(s => s.id !== id) }))}
+          onUpdateUnits={(newUnits) => setDb(prev => ({ ...prev, settings: { ...prev.settings, unidadesMedida: newUnits } }))}
           onClose={() => setShowMaterialPrices(false)}
         />
       )}
@@ -2201,20 +2427,31 @@ const Section: React.FC<{ title: string; icon: React.ReactNode; children: React.
 const MaterialPriceComparison: React.FC<{
   prices: MaterialPriceRecord[];
   suppliers: Supplier[];
+  units: string[];
   onAddPrice: (price: Omit<MaterialPriceRecord, 'id' | 'data'>) => void;
   onUpdatePrice: (price: MaterialPriceRecord) => void;
   onDeletePrice: (id: string) => void;
   onAddSupplier: (supplier: Omit<Supplier, 'id'>) => void;
   onUpdateSupplier: (supplier: Supplier) => void;
   onDeleteSupplier: (id: string) => void;
+  onUpdateUnits: (units: string[]) => void;
   onClose: () => void;
-}> = ({ prices, suppliers, onAddPrice, onUpdatePrice, onDeletePrice, onAddSupplier, onUpdateSupplier, onDeleteSupplier, onClose }) => {
+}> = ({ prices, suppliers, units, onAddPrice, onUpdatePrice, onDeletePrice, onAddSupplier, onUpdateSupplier, onDeleteSupplier, onUpdateUnits, onClose }) => {
   const [activeTab, setActiveTab] = useState<'prices' | 'suppliers' | 'analysis'>('prices');
   const [filter, setFilter] = useState('');
   
   // States for Price CRUD
   const [editingPrice, setEditingPrice] = useState<MaterialPriceRecord | null>(null);
-  const [newPrice, setNewPrice] = useState({ material: '', fornecedor: '', preco: '' });
+  const [newPrice, setNewPrice] = useState({ material: '', fornecedor: '', preco: '', unidade: 'Kg', largura: '' });
+  
+  // Converter State
+  const [showConverter, setShowConverter] = useState(false);
+  const [convM2Price, setConvM2Price] = useState('');
+  const [convWidth, setConvWidth] = useState('');
+  
+  // Units Management State
+  const [showUnitManager, setShowUnitManager] = useState(false);
+  const [newUnitName, setNewUnitName] = useState('');
   
   // States for Supplier CRUD
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
@@ -2295,8 +2532,8 @@ const MaterialPriceComparison: React.FC<{
             <>
               {/* Form Preços */}
               <div className="p-4 md:p-8 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 shrink-0">
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-end">
-                  <div className="col-span-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 items-end">
+                  <div className="col-span-1 sm:col-span-2 lg:col-span-3">
                     <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5 px-1">Material</label>
                     <input 
                       type="text" 
@@ -2306,7 +2543,7 @@ const MaterialPriceComparison: React.FC<{
                       className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
                     />
                   </div>
-                  <div>
+                  <div className="lg:col-span-2">
                     <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5 px-1">Fornecedor</label>
                     <select
                       value={editingPrice ? editingPrice.fornecedor : newPrice.fornecedor}
@@ -2323,52 +2560,216 @@ const MaterialPriceComparison: React.FC<{
                       )}
                     </select>
                   </div>
-                  <div>
-                    <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5 px-1">Preço (R$/Kg)</label>
-                    <input 
-                      type="number" 
-                      value={editingPrice ? editingPrice.preco : newPrice.preco} 
-                      onChange={e => editingPrice ? setEditingPrice({...editingPrice, preco: parseFloat(e.target.value)}) : setNewPrice({...newPrice, preco: e.target.value})}
-                      placeholder="0,00"
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
-                    />
+                  <div className="lg:col-span-3">
+                    <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5 px-1">Preço</label>
+                    <div className="flex gap-1.5 items-center">
+                      <div className="flex-1 flex gap-2">
+                        <input 
+                          type="number" 
+                          value={editingPrice ? editingPrice.preco : newPrice.preco} 
+                          onChange={e => editingPrice ? setEditingPrice({...editingPrice, preco: parseFloat(e.target.value)}) : setNewPrice({...newPrice, preco: e.target.value})}
+                          placeholder="0,00"
+                          className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none min-w-0" 
+                        />
+                        <select
+                          value={editingPrice ? editingPrice.unidade || units[0] : newPrice.unidade}
+                          onChange={e => editingPrice ? setEditingPrice({...editingPrice, unidade: e.target.value}) : setNewPrice({...newPrice, unidade: e.target.value})}
+                          className="w-20 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2 py-2.5 text-[10px] font-black uppercase outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                          title="Unidade"
+                        >
+                          {units.map(u => (
+                            <option key={u} value={u}>{u}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <button 
+                        onClick={() => setShowUnitManager(!showUnitManager)}
+                        className={`p-2.5 rounded-xl transition-all ${showUnitManager ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+                        title="Gerenciar Unidades"
+                      >
+                        <Settings className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    {editingPrice ? (
-                      <>
+                  <div className="lg:col-span-2">
+                    <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5 px-1">Largura (m)</label>
+                    <div className="flex gap-2">
+                      <input 
+                        type="number" 
+                        step="0.01"
+                        value={editingPrice ? editingPrice.largura || '' : newPrice.largura} 
+                        onChange={e => editingPrice ? setEditingPrice({...editingPrice, largura: parseFloat(e.target.value)}) : setNewPrice({...newPrice, largura: e.target.value})}
+                        placeholder="Ex: 1.40"
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                      />
+                      <button 
+                        onClick={() => setShowConverter(!showConverter)}
+                        className={`p-2.5 rounded-xl transition-all ${showConverter ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+                        title="Conversor M² ➜ ML"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2 lg:col-span-2">
+                    <label className="text-[9px] font-black text-slate-400 uppercase block px-1">Ações</label>
+                    <div className="flex gap-2">
+                      {editingPrice ? (
+                        <>
+                          <button 
+                            onClick={() => {
+                              if (editingPrice.material && editingPrice.preco) {
+                                onUpdatePrice(editingPrice);
+                                setEditingPrice(null);
+                              }
+                            }}
+                            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase tracking-widest py-3 rounded-xl shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                          >
+                            <Check className="w-4 h-4" /> Salvar
+                          </button>
+                          <button 
+                            onClick={() => setEditingPrice(null)}
+                            className="px-4 bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-300 rounded-xl hover:bg-slate-300 transition-all font-black text-[10px]"
+                            title="Cancelar"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </>
+                      ) : (
                         <button 
                           onClick={() => {
-                            if (editingPrice.material && editingPrice.preco) {
-                              onUpdatePrice(editingPrice);
-                              setEditingPrice(null);
+                            if (newPrice.material && newPrice.preco) {
+                              onAddPrice({ 
+                                material: newPrice.material, 
+                                fornecedor: newPrice.fornecedor, 
+                                preco: parseFloat(newPrice.preco),
+                                unidade: newPrice.unidade,
+                                largura: newPrice.largura ? parseFloat(newPrice.largura) : undefined
+                              });
+                              setNewPrice({ material: '', fornecedor: '', preco: '', unidade: 'Kg', largura: '' });
                             }
                           }}
-                          className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase tracking-widest py-3 rounded-xl shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] uppercase tracking-widest py-3 rounded-xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
                         >
-                          <Check className="w-4 h-4" /> Salvar
+                          <Plus className="w-4 h-4" /> Cadastrar
                         </button>
-                        <button 
-                          onClick={() => setEditingPrice(null)}
-                          className="px-4 bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-300 rounded-xl hover:bg-slate-300 transition-all"
-                          title="Cancelar edição"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </>
-                    ) : (
-                      <button 
-                        onClick={() => {
-                          if (newPrice.material && newPrice.preco) {
-                            onAddPrice({ material: newPrice.material, fornecedor: newPrice.fornecedor, preco: parseFloat(newPrice.preco) });
-                            setNewPrice({ material: '', fornecedor: '', preco: '' });
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Gerenciador de Unidades */}
+                {showUnitManager && (
+                  <div className="mt-4 p-5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                        <Settings className="w-3.5 h-3.5" /> Gerenciar Unidades de Medida
+                      </h3>
+                      <button onClick={() => setShowUnitManager(false)} className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-all">
+                        <X className="w-4 h-4 text-slate-400" />
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {units.map(unit => (
+                        <div key={unit} className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 pl-3 pr-1 py-1 rounded-lg shadow-sm">
+                          <span className="text-[10px] font-bold uppercase">{unit}</span>
+                          <button 
+                            onClick={() => onUpdateUnits(units.filter(u => u !== unit))}
+                            className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-500 rounded-md transition-all"
+                            title="Remover unidade"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-2 max-w-sm">
+                      <input 
+                        type="text" 
+                        value={newUnitName}
+                        onChange={e => setNewUnitName(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && newUnitName.trim()) {
+                            if (!units.includes(newUnitName.trim())) {
+                              onUpdateUnits([...units, newUnitName.trim()]);
+                              setNewUnitName('');
+                            }
                           }
                         }}
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] uppercase tracking-widest py-3 rounded-xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                        placeholder="Nova unidade (Ex: Pacote)"
+                        className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <button 
+                        onClick={() => {
+                          if (newUnitName.trim() && !units.includes(newUnitName.trim())) {
+                            onUpdateUnits([...units, newUnitName.trim()]);
+                            setNewUnitName('');
+                          }
+                        }}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-tight shadow-md active:scale-95 transition-all"
                       >
-                        <Plus className="w-4 h-4" /> Cadastrar
+                        Adicionar
                       </button>
-                    )}
+                    </div>
                   </div>
+                )}
+
+                {/* Conversor de M2 para ML */}
+                <div className="mt-4 pt-4 border-t border-slate-50 dark:border-slate-800">
+                  <button 
+                    onClick={() => setShowConverter(!showConverter)} 
+                    className="flex items-center gap-2 text-[10px] font-black uppercase text-blue-500 hover:text-blue-600 transition-colors"
+                  >
+                    <Calculator className="w-3.5 h-3.5" /> 
+                    {showConverter ? 'Fechar Conversor' : 'Conversor M² para Linear'}
+                  </button>
+                  
+                  {showConverter && (
+                    <div className="mt-4 p-5 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-900/30 animate-in fade-in slide-in-from-top-2 duration-300">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+                        <div>
+                          <label className="text-[8px] font-black text-blue-400 uppercase block mb-1.5 px-1">Preço por M² (R$)</label>
+                          <input 
+                            type="number" 
+                            value={convM2Price} 
+                            onChange={e => setConvM2Price(e.target.value)}
+                            placeholder="0,00"
+                            className="w-full bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-800 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[8px] font-black text-blue-400 uppercase block mb-1.5 px-1">Largura (Metros)</label>
+                          <input 
+                            type="number" 
+                            step="0.01"
+                            value={convWidth} 
+                            onChange={e => setConvWidth(e.target.value)}
+                            placeholder="Ex: 1.40"
+                            className="w-full bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-800 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <button 
+                          onClick={() => {
+                            const m2 = parseFloat(convM2Price);
+                            const w = parseFloat(convWidth);
+                            if (!isNaN(m2) && !isNaN(w)) {
+                              const linearPrice = m2 * w;
+                              if (editingPrice) {
+                                setEditingPrice({ ...editingPrice, preco: linearPrice, unidade: 'ML', largura: w });
+                              } else {
+                                setNewPrice({ ...newPrice, preco: linearPrice.toString(), unidade: 'ML', largura: w.toString() });
+                              }
+                              setShowConverter(false);
+                            }
+                          }}
+                          className="bg-blue-600 text-white font-black text-[9px] uppercase tracking-widest py-2.5 rounded-xl hover:bg-blue-700 shadow-md transition-all active:scale-95"
+                        >
+                          Calcular e Aplicar
+                        </button>
+                      </div>
+                      <p className="text-[8px] text-blue-400 font-bold mt-3 uppercase tracking-wider italic">* Cálculo: Preço M² × Largura = Preço por Metro Linear (ML)</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -2403,11 +2804,14 @@ const MaterialPriceComparison: React.FC<{
                         <tr key={p.id} className="bg-white dark:bg-slate-800 shadow-sm rounded-2xl group border border-slate-100 dark:border-slate-700/50">
                           <td className="px-6 py-4 rounded-l-2xl font-bold text-sm">{p.material}</td>
                           <td className="px-6 py-4 text-slate-500 dark:text-slate-400 text-sm">{p.fornecedor || '---'}</td>
-                          <td className="px-6 py-4 font-mono font-black text-blue-600 dark:text-blue-400">{formatCurrency(p.preco)}</td>
+                          <td className="px-6 py-4 font-mono font-black text-blue-600 dark:text-blue-400">
+                            {formatCurrency(p.preco)}
+                            <span className="text-[10px] text-slate-400 ml-1">/{p.unidade || 'Kg'}</span>
+                          </td>
                           <td className="px-6 py-4 text-[10px] text-slate-400 font-bold uppercase">{new Date(p.data).toLocaleDateString()}</td>
                           <td className="px-6 py-4 rounded-r-2xl text-right">
                             <div className="flex justify-end gap-1">
-                              <button onClick={() => { setNewPrice({ material: p.material, fornecedor: p.fornecedor, preco: p.preco.toString() }); setActiveTab('prices'); }} title="Copiar Dados" className="p-2 text-slate-300 hover:text-blue-500 transition-colors"><Copy className="w-4 h-4" /></button>
+                              <button onClick={() => { setNewPrice({ material: p.material, fornecedor: p.fornecedor, preco: p.preco.toString(), unidade: p.unidade || 'Kg', largura: p.largura?.toString() || '' }); setActiveTab('prices'); }} title="Copiar Dados" className="p-2 text-slate-300 hover:text-blue-500 transition-colors"><Copy className="w-4 h-4" /></button>
                               <button onClick={() => setEditingPrice(p)} title="Editar Registro" className="p-2 text-slate-300 hover:text-amber-500 transition-colors"><Edit className="w-4 h-4" /></button>
                               <button onClick={() => onDeletePrice(p.id)} title="Excluir Registro" className="p-2 text-slate-300 hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
                             </div>
@@ -2431,7 +2835,7 @@ const MaterialPriceComparison: React.FC<{
                           </div>
                         </div>
                         <div className="flex gap-2">
-                           <button onClick={() => { setNewPrice({ material: p.material, fornecedor: p.fornecedor, preco: p.preco.toString() }); }} title="Copiar" className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 active:scale-90 transition-all"><Copy className="w-4 h-4" /></button>
+                           <button onClick={() => { setNewPrice({ material: p.material, fornecedor: p.fornecedor, preco: p.preco.toString(), unidade: p.unidade || 'Kg', largura: p.largura?.toString() || '' }); }} title="Copiar" className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 active:scale-90 transition-all"><Copy className="w-4 h-4" /></button>
                            <button onClick={() => setEditingPrice(p)} title="Editar" className="p-2.5 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-100 active:scale-90 transition-all"><Edit className="w-4 h-4" /></button>
                            <button onClick={() => onDeletePrice(p.id)} title="Excluir" className="p-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 active:scale-90 transition-all"><Trash2 className="w-4 h-4" /></button>
                         </div>
@@ -2442,7 +2846,7 @@ const MaterialPriceComparison: React.FC<{
                           <p className="text-[8px] font-black text-slate-300 uppercase tracking-[0.2em] mb-0.5">Valor Unitário</p>
                           <div className="font-mono font-black text-xl text-blue-600 dark:text-blue-400 flex items-baseline gap-1">
                             {formatCurrency(p.preco)}
-                            <span className="text-[10px] text-slate-400 uppercase font-black">/kg</span>
+                            <span className="text-[10px] text-slate-400 uppercase font-black">/{p.unidade || 'kg'}</span>
                           </div>
                         </div>
                         <div className="text-right">
