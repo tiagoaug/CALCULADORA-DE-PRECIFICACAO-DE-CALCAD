@@ -23,6 +23,7 @@
   "author": "Your Name",
   "license": "ISC",
   "dependencies": {
+    "@capacitor-firebase/authentication": "^6.3.1",
     "@capacitor/android": "^6.0.0",
     "@capacitor/clipboard": "^6.0.3",
     "@capacitor/core": "^6.0.0",

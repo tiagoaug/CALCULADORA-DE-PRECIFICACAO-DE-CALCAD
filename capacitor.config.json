@@ -5,5 +5,14 @@
   "bundledWebRuntime": false,
   "android": {
     "allowMixedContent": true
+  },
+  "plugins": {
+    "FirebaseAuthentication": {
+      "skipNativeAuth": false,
+      "providers": [
+        "google.com"
+      ],
+      "webClientId": "182719093690-7b1ftrvh3v00vrrd2lah4kf0okgh01pm.apps.googleusercontent.com"
+    }
   }
 }

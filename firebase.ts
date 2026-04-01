@@ -5,7 +5,7 @@ import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCK9TyzHzBS6VidZgBT9nzWeuX7HkocyzQ",
+  apiKey: "AIzaSyDX2WtO0d4frtX8_wEXe8j5gsJYRACFE7Q",
   authDomain: "calc-custos-sapatos.firebaseapp.com",
   projectId: "calc-custos-sapatos",
   storageBucket: "calc-custos-sapatos.firebasestorage.app",

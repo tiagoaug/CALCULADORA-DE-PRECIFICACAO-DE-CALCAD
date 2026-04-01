@@ -406,11 +406,31 @@ const App: React.FC = () => {
 
   // Monitor Auth State
   useEffect(() => {
+    console.log("App: Initializing Firebase Authentication listener...");
+    
+    // Timeout fallback to prevent forever-loading
+    const timer = setTimeout(() => {
+      if (isLoadingAuth) {
+        console.warn("App: Auth initialization taking too long. Forcing loader off.");
+        setIsLoadingAuth(false);
+      }
+    }, 10000);
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      console.log("App: Auth state changed:", currentUser ? "User logged in" : "No user");
+      clearTimeout(timer);
       setUser(currentUser);
       setIsLoadingAuth(false);
+    }, (error) => {
+      console.error("App: Auth state change error:", error);
+      clearTimeout(timer);
+      setIsLoadingAuth(false);
     });
-    return () => unsubscribe();
+    
+    return () => {
+      unsubscribe();
+      clearTimeout(timer);
+    };
   }, []);
 
   // Load cloud data upon login
@@ -503,7 +523,7 @@ const App: React.FC = () => {
         productionDays: 22,
         dailyProduction: 0,
         currency: 'BRL',
-        theme: theme,
+        theme: 'light',
         unidadesMedida: DEFAULT_UNITS
       }
     };
@@ -519,6 +539,7 @@ const App: React.FC = () => {
   const [commentingItem, setCommentingItem] = useState<{ id: string, type: string, comment: string } | null>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => localStorage.getItem('theme') === 'dark' ? 'dark' : 'light');
   const [showProjectList, setShowProjectList] = useState(false);
+  const [showExportOptions, setShowExportOptions] = useState(false);
   const [showDatabase, setShowDatabase] = useState(false);
   const [showMaterialPrices, setShowMaterialPrices] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
@@ -911,134 +932,54 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen pt-[0.4cm] pb-10 bg-slate-200 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors font-sans overflow-x-hidden md:px-0 px-[0.4cm]">
+    <div className="min-h-screen pb-10 bg-slate-200 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors font-sans overflow-x-hidden md:px-0 px-2 lg:px-4">
 
-      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-[0.4cm] z-50 px-3 sm:px-6 h-14 flex items-center justify-between shadow-sm print:hidden">
-        <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0 pr-2">
-          <button onClick={() => setShowProjectList(true)} title="Abrir Lista de Projetos" aria-label="Projetos" className="p-1.5 shrink-0 bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors">
-            <FolderOpen className="w-5 h-5 text-amber-500" />
-          </button>
-          <button onClick={() => setShowDatabase(true)} title="Abrir Biblioteca de Itens" aria-label="Biblioteca" className="p-1.5 shrink-0 bg-slate-50 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors">
-            <Database className="w-5 h-5 text-emerald-600" />
-          </button>
-          <button 
-            onClick={() => setShowMaterialPrices(true)} 
-            title="Comparação de Preços" 
-            aria-label="Preços" 
-            className="p-1.5 shrink-0 bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors"
-          >
-            <TrendingUp className="w-5 h-5 text-blue-600" />
-          </button>
-          <div className="flex flex-col flex-1 min-w-0">
-            <input value={currentProduct.name} title="Nome do Produto" aria-label="Nome do Produto" onChange={(e) => updateCurrentProduct({ name: e.target.value })} className="bg-transparent border-none font-black text-sm sm:text-base focus:ring-0 w-full min-w-0 truncate leading-tight p-0 text-slate-800 dark:text-white" placeholder="Nome do Produto" />
-              <div className="flex items-center gap-2">
-                <div className={`flex items-center gap-1.5 px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider ${
-                  syncStatus === 'synced' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600' : 
-                  syncStatus === 'syncing' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600' : 
-                  'bg-red-100 dark:bg-red-900/30 text-red-600'
-                }`}>
-                  {syncStatus === 'synced' ? <><Cloud className="w-2.5 h-2.5" /> Nuvem</> : 
-                   syncStatus === 'syncing' ? <><RefreshCw className="w-2.5 h-2.5 animate-spin" /> Sinc</> : 
-                   <><AlertCircle className="w-2.5 h-2.5" /> Erro</>}
-                </div>
-                <span className="text-[9px] font-bold uppercase text-slate-400 tracking-tight truncate">
-                  {saveStatus === 'saving' ? 'Gravando...' : 'Seguro'}
-                </span>
-              </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-          <div className="hidden sm:flex flex-col items-end mr-1">
-            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">Conta ativa</span>
-            <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 max-w-[120px] truncate">{user.email}</span>
+      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 md:top-2 z-50 px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md rounded-b-xl md:rounded-xl mx-[-8px] md:mx-0 print:hidden mt-0 md:mt-2" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
+        <div className="flex items-center gap-3 w-full sm:flex-1 min-w-0">
+          <div className="flex items-center gap-2 shrink-0">
+            <button onClick={() => setShowProjectList(true)} title="Abrir Lista de Projetos" aria-label="Projetos" className="p-2 sm:p-2.5 shrink-0 bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl border border-slate-200 dark:border-slate-700 transition-all active:scale-95 shadow-sm">
+              <FolderOpen className="w-5 h-5 text-amber-500" />
+            </button>
+            <button onClick={() => setShowDatabase(true)} title="Abrir Biblioteca de Itens" aria-label="Biblioteca" className="p-2 sm:p-2.5 shrink-0 bg-slate-50 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-xl border border-slate-200 dark:border-slate-700 transition-all active:scale-95 shadow-sm">
+              <Database className="w-5 h-5 text-emerald-600" />
+            </button>
+            <button 
+              onClick={() => setShowMaterialPrices(true)} 
+              title="Comparação de Preços" 
+              aria-label="Preços" 
+              className="p-2 sm:p-2.5 shrink-0 bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl border border-slate-200 dark:border-slate-700 transition-all active:scale-95 shadow-sm"
+            >
+              <TrendingUp className="w-5 h-5 text-blue-600" />
+            </button>
           </div>
           
-          <button 
-            onClick={() => signOut(auth)}
-            className="p-1.5 sm:p-2 bg-slate-50 dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-500 rounded-lg transition-all active:scale-95 border border-transparent hover:border-red-100"
-            title="Sair (Logout)"
-          >
-            <ArrowRight className="w-4 h-4 rotate-180" />
-          </button>
+          <div className="flex flex-col flex-1 min-w-0 border-l border-slate-200 dark:border-slate-700 pl-3">
+            <input value={currentProduct.name} title="Nome do Produto" aria-label="Nome do Produto" onChange={(e) => updateCurrentProduct({ name: e.target.value })} className="bg-transparent border-none font-black text-base sm:text-lg focus:ring-0 w-full min-w-0 truncate leading-tight p-0 text-slate-800 dark:text-white" placeholder="Nome do Produto" />
+            <div className="flex items-center gap-2 mt-1.5">
+              <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${
+                syncStatus === 'synced' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : 
+                syncStatus === 'syncing' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 
+                'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+              }`}>
+                {syncStatus === 'synced' ? <><Cloud className="w-3 h-3" /> Nuvem Ativa</> : 
+                 syncStatus === 'syncing' ? <><RefreshCw className="w-3 h-3 animate-spin" /> Sincronizando</> : 
+                 <><AlertCircle className="w-3 h-3" /> Erro Cloud</>}
+              </div>
+              <span className="text-[10px] font-bold uppercase text-slate-400 tracking-tight truncate hidden sm:inline-block">
+                {saveStatus === 'saving' ? 'Gravando...' : 'Seguro'}
+              </span>
+            </div>
+          </div>
+        </div>
 
-          <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="p-1 sm:p-2 text-slate-500 hover:text-blue-500 transition-colors">{theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}</button>
+        <div className="flex items-center w-full sm:w-auto justify-between sm:justify-end gap-2 shrink-0 pt-3 sm:pt-0 border-t border-slate-100 sm:border-0 dark:border-slate-800 overflow-x-auto">
+          <div className="hidden lg:flex flex-col items-end mr-2">
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Conta ativa</span>
+            <span className="text-xs font-bold text-slate-600 dark:text-slate-300 max-w-[150px] truncate">{user.email}</span>
+          </div>
+          
+          <div className="flex items-center gap-2">
 
-          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
-            <button
-              onClick={() => shareTextReport(
-                summary, 
-                currentProduct.name, 
-                currentProduct.type, 
-                currentProduct.markup?.selectedImpostos || [], 
-                db.library.impostos || [],
-                currentProduct.markup?.selectedComissoes || [],
-                db.library.comissoes || [],
-                currentProduct.markup?.selectedFretes || [],
-                db.library.fretes || []
-              )}
-              title="Compartilhar Resumo (Texto)"
-              className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-lg text-blue-600 transition-all active:scale-95 flex items-center gap-2"
-            >
-              <span className="hidden sm:inline text-[10px] font-black uppercase">Resumo</span>
-              <Share className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => downloadPDF(
-                currentProduct.insumos || [], 
-                summary, 
-                currentProduct.name, 
-                currentProduct.terceirizados || [], 
-                currentProduct.type, 
-                currentProduct.markup?.selectedImpostos || [], 
-                db.library.impostos || [],
-                currentProduct.markup?.selectedComissoes || [],
-                db.library.comissoes || [],
-                currentProduct.markup?.selectedFretes || [],
-                db.library.fretes || []
-              )}
-              title="Baixar PDF"
-              className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-lg text-blue-600 transition-all active:scale-95"
-            >
-              <Download className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => sharePDF(
-                currentProduct.insumos || [], 
-                summary, 
-                currentProduct.name, 
-                currentProduct.terceirizados || [], 
-                currentProduct.type, 
-                currentProduct.markup?.selectedImpostos || [], 
-                db.library.impostos || [],
-                currentProduct.markup?.selectedComissoes || [],
-                db.library.comissoes || [],
-                currentProduct.markup?.selectedFretes || [],
-                db.library.fretes || []
-              )}
-              title="Exportar/Compartilhar PDF"
-              className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-lg text-emerald-600 transition-all active:scale-95"
-            >
-              <Upload className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => exportToXLS(
-                currentProduct.insumos || [], 
-                summary, 
-                currentProduct.name, 
-                currentProduct.terceirizados || [],
-                currentProduct.type, 
-                currentProduct.markup?.selectedImpostos || [], 
-                db.library.impostos || [],
-                currentProduct.markup?.selectedComissoes || [],
-                db.library.comissoes || [],
-                currentProduct.markup?.selectedFretes || [],
-                db.library.fretes || []
-              )}
-              title="Baixar Excel (XLSX)"
-              className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-lg text-emerald-700 transition-all active:scale-95"
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-            </button>
           </div>
         </div>
       </header>
@@ -2300,29 +2241,99 @@ const App: React.FC = () => {
               ))}
             </div>
 
-            <div className="mt-8 pt-8 border-t border-slate-100 dark:border-slate-800">
-              <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Backup e Segurança</h3>
+            <div className="mt-8 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col">
+              <button 
+                onClick={() => setShowExportOptions(!showExportOptions)}
+                className="flex items-center justify-between w-full p-4 bg-slate-50 dark:bg-slate-800/80 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shadow-sm border border-slate-200 dark:border-slate-700 active:scale-[0.98]"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
+                    <Share className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div className="flex flex-col items-start">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
+                      Salvar & Compartilhar
+                    </span>
+                    <span className="text-[9px] font-bold text-slate-400">
+                      PDF, Excel, Backups
+                    </span>
+                  </div>
+                </div>
+                <ChevronDown 
+                  className={`w-5 h-5 text-slate-400 transition-transform duration-300 ease-in-out ${showExportOptions ? 'rotate-180 text-blue-500' : ''}`} 
+                />
+              </button>
 
-              <div className="grid grid-cols-3 gap-2 mb-3">
-                <button onClick={handleExportBackup} title="Exportar Arquivo (JSON)" className="flex flex-col items-center justify-center p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all group">
-                  <Download className="w-4 h-4 text-blue-500 mb-1" />
-                  <span className="text-[8px] font-black uppercase text-slate-500 group-hover:text-blue-600">Exportar</span>
-                </button>
-                <button onClick={handleShareBackup} title="Compartilhar Arquivo (JSON)" className="flex flex-col items-center justify-center p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all group">
-                  <Share className="w-4 h-4 text-blue-500 mb-1" />
-                  <span className="text-[8px] font-black uppercase text-slate-500 group-hover:text-blue-600">Partilhar</span>
-                </button>
-                <button onClick={handleCopyBackup} title="Copiar Código de Backup (Texto)" className="flex flex-col items-center justify-center p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all group">
-                  <ClipboardPaste className="w-4 h-4 text-blue-500 mb-1" />
-                  <span className="text-[8px] font-black uppercase text-slate-500 group-hover:text-blue-600">Copiar</span>
-                </button>
-              </div>
+              <div 
+                className={`overflow-hidden transition-all duration-300 ease-in-out flex flex-col ${showExportOptions ? 'max-h-[800px] opacity-100 mt-6' : 'max-h-0 opacity-0'}`}
+              >
+                <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Exportar Atual: <span className="text-blue-500 truncate inline-block align-bottom max-w-[150px]">{currentProduct.name || 'Produto'}</span></h3>
+                <div className="grid grid-cols-4 gap-2 mb-8">
+                   <button
+                    onClick={() => shareTextReport(
+                      summary, currentProduct.name, currentProduct.type, currentProduct.markup?.selectedImpostos || [], db.library.impostos || [], currentProduct.markup?.selectedComissoes || [], db.library.comissoes || [], currentProduct.markup?.selectedFretes || [], db.library.fretes || []
+                    )}
+                    title="Copiar/Partilhar Resumo"
+                    className="flex flex-col items-center justify-center p-2.5 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all group shadow-sm border border-slate-100 dark:border-slate-700"
+                  >
+                    <Share className="w-4 h-4 text-blue-500 mb-1" />
+                    <span className="text-[7px] font-black uppercase text-slate-500 group-hover:text-blue-600 text-center leading-none mt-1">Resumo</span>
+                  </button>
+                  <button
+                    onClick={() => downloadPDF(
+                      currentProduct.insumos || [], summary, currentProduct.name, currentProduct.terceirizados || [], currentProduct.type, currentProduct.markup?.selectedImpostos || [], db.library.impostos || [], currentProduct.markup?.selectedComissoes || [], db.library.comissoes || [], currentProduct.markup?.selectedFretes || [], db.library.fretes || []
+                    )}
+                    title="Baixar PDF"
+                    className="flex flex-col items-center justify-center p-2.5 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-red-50 dark:hover:bg-red-900/30 transition-all group shadow-sm border border-slate-100 dark:border-slate-700"
+                  >
+                    <Download className="w-4 h-4 text-red-500 mb-1" />
+                    <span className="text-[7px] font-black uppercase text-slate-500 group-hover:text-red-600 text-center leading-none mt-1">Baixar PDF</span>
+                  </button>
+                  <button
+                    onClick={() => sharePDF(
+                      currentProduct.insumos || [], summary, currentProduct.name, currentProduct.terceirizados || [], currentProduct.type, currentProduct.markup?.selectedImpostos || [], db.library.impostos || [], currentProduct.markup?.selectedComissoes || [], db.library.comissoes || [], currentProduct.markup?.selectedFretes || [], db.library.fretes || []
+                    )}
+                    title="Partilhar PDF"
+                    className="flex flex-col items-center justify-center p-2.5 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-all group shadow-sm border border-slate-100 dark:border-slate-700"
+                  >
+                    <Upload className="w-4 h-4 text-amber-500 mb-1" />
+                    <span className="text-[7px] font-black uppercase text-slate-500 group-hover:text-amber-600 text-center leading-none mt-1">Enviar PDF</span>
+                  </button>
+                  <button
+                    onClick={() => exportToXLS(
+                      currentProduct.insumos || [], summary, currentProduct.name, currentProduct.terceirizados || [], currentProduct.type, currentProduct.markup?.selectedImpostos || [], db.library.impostos || [], currentProduct.markup?.selectedComissoes || [], db.library.comissoes || [], currentProduct.markup?.selectedFretes || [], db.library.fretes || []
+                    )}
+                    title="Baixar Excel/XLSX"
+                    className="flex flex-col items-center justify-center p-2.5 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all group shadow-sm border border-slate-100 dark:border-slate-700"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-500 mb-1" />
+                    <span className="text-[7px] font-black uppercase text-slate-500 group-hover:text-emerald-600 text-center leading-none mt-1">Planilha</span>
+                  </button>
+                </div>
 
-              <div className="space-y-2">
-                <button onClick={() => fileInputRef.current?.click()} className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all flex items-center justify-center gap-2">
-                  <Upload className="w-4 h-4 text-blue-500" />
-                  <span className="text-[8px] font-black uppercase text-slate-500">Restaurar do Arquivo</span>
-                </button>
+                <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Backup e Segurança</h3>
+
+                <div className="grid grid-cols-3 gap-2 mb-3">
+                  <button onClick={handleExportBackup} title="Exportar Arquivo (JSON)" className="flex flex-col items-center justify-center p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all group">
+                    <Download className="w-4 h-4 text-blue-500 mb-1" />
+                    <span className="text-[8px] font-black uppercase text-slate-500 group-hover:text-blue-600">Exportar</span>
+                  </button>
+                  <button onClick={handleShareBackup} title="Compartilhar Arquivo (JSON)" className="flex flex-col items-center justify-center p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all group">
+                    <Share className="w-4 h-4 text-blue-500 mb-1" />
+                    <span className="text-[8px] font-black uppercase text-slate-500 group-hover:text-blue-600">Partilhar</span>
+                  </button>
+                  <button onClick={handleCopyBackup} title="Copiar Código de Backup (Texto)" className="flex flex-col items-center justify-center p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all group">
+                    <ClipboardPaste className="w-4 h-4 text-blue-500 mb-1" />
+                    <span className="text-[8px] font-black uppercase text-slate-500 group-hover:text-blue-600">Copiar</span>
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  <button onClick={() => fileInputRef.current?.click()} className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all flex items-center justify-center gap-2">
+                    <Upload className="w-4 h-4 text-blue-500" />
+                    <span className="text-[8px] font-black uppercase text-slate-500">Restaurar do Arquivo</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>

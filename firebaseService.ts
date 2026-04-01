@@ -26,7 +26,7 @@ import {
 } from './types';
 
 // Helper to get user data path
-const getUserDataPath = (uid: string) => `users/${uid}/data`;
+const getUserDataPath = (uid: string) => `users/${uid}`;
 
 export const firebaseService = {
   // --- DATABASE OPERATIONS ---

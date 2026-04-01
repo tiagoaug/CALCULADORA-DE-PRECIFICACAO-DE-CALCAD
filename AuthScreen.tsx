@@ -8,8 +8,12 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   signInWithPopup, 
-  sendPasswordResetEmail 
+  sendPasswordResetEmail,
+  GoogleAuthProvider,
+  signInWithCredential
 } from 'firebase/auth';
+import { Capacitor } from '@capacitor/core';
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 import { 
   Mail, 
   Lock, 
@@ -64,10 +68,23 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
     setLoading(true);
     setError(null);
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      onAuthSuccess(result.user);
+      if (Capacitor.isNativePlatform()) {
+        const result = await FirebaseAuthentication.signInWithGoogle();
+        
+        if (result.credential?.idToken) {
+          const credential = GoogleAuthProvider.credential(result.credential.idToken);
+          const userCredential = await signInWithCredential(auth, credential);
+          onAuthSuccess(userCredential.user);
+        } else {
+          setError('Erro: Token do Google não recebido.');
+        }
+      } else {
+        const result = await signInWithPopup(auth, googleProvider);
+        onAuthSuccess(result.user);
+      }
     } catch (err: any) {
-      setError('Erro ao entrar com Google: ' + err.message);
+      console.error('Google Sign In Error:', err);
+      setError('Erro ao entrar com Google: ' + (err.message || 'Erro desconhecido no dispositivo.'));
     } finally {
       setLoading(false);
     }

@@ -1,0 +1,1079 @@
+﻿Initialized native services in: C:\Users\SISTEMAS-PC\.gradle\native
+Initialized jansi services in: C:\Users\SISTEMAS-PC\.gradle\native
+The client will now receive all logging from the daemon (pid: 21984). The daemon log file: C:\Users\SISTEMAS-PC\.gradle\daemon\8.13\daemon-21984.out.log
+Starting 18th build in daemon [uptime: 1 hrs 49 mins 24.128 secs, performance: 98%, GC rate: 0.00/s, heap usage: 8% of 1.5 GiB]
+Using 16 worker leases.
+Now considering [C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android] as hierarchies to watch
+Watching the file system is configured to be enabled if available
+File system watching is active
+Starting Build
+Resolved plugin [id: 'org.gradle.toolchains.foojay-resolver-convention', version: '1.0.0']
+Settings evaluated using settings file 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\settings.gradle'.
+Projects loaded. Root project using build file 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\build.gradle'.
+Included projects: [root project 'android', project ':app', project ':capacitor-android', project ':capacitor-clipboard', project ':capacitor-cordova-android-plugins', project ':capacitor-filesystem', project ':capacitor-firebase-authentication', project ':capacitor-share']
+
+> Configure project :
+Evaluating root project 'android' using build file 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\build.gradle'.
+
+> Configure project :app
+Evaluating project ':app' using build file 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\build.gradle'.
+Using default execution profile
+WARNING: Using flatDir should be avoided because it doesn't support any meta-data formats.
+
+> Configure project :capacitor-android
+Evaluating project ':capacitor-android' using build file 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\android\capacitor\build.gradle'.
+Using default execution profile
+
+> Configure project :capacitor-clipboard
+Evaluating project ':capacitor-clipboard' using build file 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\clipboard\android\build.gradle'.
+Using default execution profile
+
+> Configure project :capacitor-cordova-android-plugins
+Evaluating project ':capacitor-cordova-android-plugins' using build file 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\capacitor-cordova-android-plugins\build.gradle'.
+Using default execution profile
+WARNING: Using flatDir should be avoided because it doesn't support any meta-data formats.
+
+> Configure project :capacitor-filesystem
+Evaluating project ':capacitor-filesystem' using build file 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\filesystem\android\build.gradle'.
+Using default execution profile
+
+> Configure project :capacitor-firebase-authentication
+Evaluating project ':capacitor-firebase-authentication' using build file 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor-firebase\authentication\android\build.gradle'.
+Using default execution profile
+
+> Configure project :capacitor-share
+Evaluating project ':capacitor-share' using build file 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\share\android\build.gradle'.
+Using default execution profile
+All projects evaluated.
+Task name matched 'assembleDebug'
+Selected primary task 'assembleDebug' from project :
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\android\capacitor\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\android\capacitor\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\android\capacitor\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\android\capacitor\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\clipboard\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\clipboard\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\clipboard\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\clipboard\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\capacitor-cordova-android-plugins\src\main\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\capacitor-cordova-android-plugins\src\main\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\capacitor-cordova-android-plugins\src\main\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\capacitor-cordova-android-plugins\src\main\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\filesystem\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\filesystem\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\filesystem\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\filesystem\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor-firebase\authentication\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor-firebase\authentication\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor-firebase\authentication\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor-firebase\authentication\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\share\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\share\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\share\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\share\android\libs', not found
+Tasks to be executed: [task ':app:preBuild', task ':app:preDebugBuild', task ':app:mergeDebugNativeDebugMetadata', task ':app:javaPreCompileDebug', task ':capacitor-android:preBuild', task ':capacitor-android:preDebugBuild', task ':capacitor-android:writeDebugAarMetadata', task ':capacitor-clipboard:preBuild', task ':capacitor-clipboard:preDebugBuild', task ':capacitor-clipboard:writeDebugAarMetadata', task ':capacitor-cordova-android-plugins:preBuild', task ':capacitor-cordova-android-plugins:preDebugBuild', task ':capacitor-cordova-android-plugins:writeDebugAarMetadata', task ':capacitor-filesystem:preBuild', task ':capacitor-filesystem:preDebugBuild', task ':capacitor-filesystem:writeDebugAarMetadata', task ':capacitor-firebase-authentication:preBuild', task ':capacitor-firebase-authentication:preDebugBuild', task ':capacitor-firebase-authentication:writeDebugAarMetadata', task ':capacitor-share:preBuild', task ':capacitor-share:preDebugBuild', task ':capacitor-share:writeDebugAarMetadata', task ':app:checkDebugAarMetadata', task ':capacitor-android:processDebugNavigationResources', task ':capacitor-clipboard:processDebugNavigationResources', task ':capacitor-cordova-android-plugins:processDebugNavigationResources', task ':capacitor-filesystem:processDebugNavigationResources', task ':capacitor-firebase-authentication:processDebugNavigationResources', task ':capacitor-share:processDebugNavigationResources', task ':app:processDebugNavigationResources', task ':app:compileDebugNavigationResources', task ':app:generateDebugResValues', task ':app:processDebugGoogleServices', task ':capacitor-android:generateDebugResValues', task ':capacitor-android:generateDebugResources', task ':capacitor-android:packageDebugResources', task ':capacitor-clipboard:generateDebugResValues', task ':capacitor-clipboard:generateDebugResources', task ':capacitor-clipboard:packageDebugResources', task ':capacitor-cordova-android-plugins:generateDebugResValues', task ':capacitor-cordova-android-plugins:generateDebugResources', task ':capacitor-cordova-android-plugins:packageDebugResources', task ':capacitor-filesystem:generateDebugResValues', task ':capacitor-filesystem:generateDebugResources', task ':capacitor-filesystem:packageDebugResources', task ':capacitor-firebase-authentication:generateDebugResValues', task ':capacitor-firebase-authentication:generateDebugResources', task ':capacitor-firebase-authentication:packageDebugResources', task ':capacitor-share:generateDebugResValues', task ':capacitor-share:generateDebugResources', task ':capacitor-share:packageDebugResources', task ':app:mapDebugSourceSetPaths', task ':app:generateDebugResources', task ':app:mergeDebugResources', task ':app:packageDebugResources', task ':app:parseDebugLocalResources', task ':app:createDebugCompatibleScreenManifests', task ':app:extractDeepLinksDebug', task ':capacitor-android:extractDeepLinksDebug', task ':capacitor-android:processDebugManifest', task ':capacitor-clipboard:extractDeepLinksDebug', task ':capacitor-clipboard:processDebugManifest', task ':capacitor-cordova-android-plugins:extractDeepLinksDebug', task ':capacitor-cordova-android-plugins:processDebugManifest', task ':capacitor-filesystem:extractDeepLinksDebug', task ':capacitor-filesystem:processDebugManifest', task ':capacitor-firebase-authentication:extractDeepLinksDebug', task ':capacitor-firebase-authentication:processDebugManifest', task ':capacitor-share:extractDeepLinksDebug', task ':capacitor-share:processDebugManifest', task ':app:processDebugMainManifest', task ':app:processDebugManifest', task ':app:processDebugManifestForPackage', task ':capacitor-android:compileDebugLibraryResources', task ':capacitor-android:parseDebugLocalResources', task ':capacitor-android:generateDebugRFile', task ':capacitor-clipboard:compileDebugLibraryResources', task ':capacitor-clipboard:parseDebugLocalResources', task ':capacitor-clipboard:generateDebugRFile', task ':capacitor-cordova-android-plugins:compileDebugLibraryResources', task ':capacitor-cordova-android-plugins:parseDebugLocalResources', task ':capacitor-cordova-android-plugins:generateDebugRFile', task ':capacitor-filesystem:compileDebugLibraryResources', task ':capacitor-filesystem:parseDebugLocalResources', task ':capacitor-filesystem:generateDebugRFile', task ':capacitor-firebase-authentication:compileDebugLibraryResources', task ':capacitor-firebase-authentication:parseDebugLocalResources', task ':capacitor-firebase-authentication:generateDebugRFile', task ':capacitor-share:compileDebugLibraryResources', task ':capacitor-share:parseDebugLocalResources', task ':capacitor-share:generateDebugRFile', task ':app:processDebugResources', task ':capacitor-android:javaPreCompileDebug', task ':capacitor-android:compileDebugJavaWithJavac', task ':capacitor-android:bundleLibCompileToJarDebug', task ':capacitor-clipboard:javaPreCompileDebug', task ':capacitor-clipboard:compileDebugJavaWithJavac', task ':capacitor-clipboard:bundleLibCompileToJarDebug', task ':capacitor-cordova-android-plugins:javaPreCompileDebug', task ':capacitor-cordova-android-plugins:compileDebugJavaWithJavac', task ':capacitor-cordova-android-plugins:bundleLibCompileToJarDebug', task ':capacitor-filesystem:javaPreCompileDebug', task ':capacitor-filesystem:compileDebugJavaWithJavac', task ':capacitor-filesystem:bundleLibCompileToJarDebug', task ':capacitor-firebase-authentication:javaPreCompileDebug', task ':capacitor-firebase-authentication:compileDebugJavaWithJavac', task ':capacitor-firebase-authentication:bundleLibCompileToJarDebug', task ':capacitor-share:javaPreCompileDebug', task ':capacitor-share:compileDebugJavaWithJavac', task ':capacitor-share:bundleLibCompileToJarDebug', task ':app:compileDebugJavaWithJavac', task ':app:mergeDebugShaders', task ':app:compileDebugShaders', task ':app:generateDebugAssets', task ':capacitor-android:mergeDebugShaders', task ':capacitor-android:compileDebugShaders', task ':capacitor-android:generateDebugAssets', task ':capacitor-android:mergeDebugAssets', task ':capacitor-clipboard:mergeDebugShaders', task ':capacitor-clipboard:compileDebugShaders', task ':capacitor-clipboard:generateDebugAssets', task ':capacitor-clipboard:mergeDebugAssets', task ':capacitor-cordova-android-plugins:mergeDebugShaders', task ':capacitor-cordova-android-plugins:compileDebugShaders', task ':capacitor-cordova-android-plugins:generateDebugAssets', task ':capacitor-cordova-android-plugins:mergeDebugAssets', task ':capacitor-filesystem:mergeDebugShaders', task ':capacitor-filesystem:compileDebugShaders', task ':capacitor-filesystem:generateDebugAssets', task ':capacitor-filesystem:mergeDebugAssets', task ':capacitor-firebase-authentication:mergeDebugShaders', task ':capacitor-firebase-authentication:compileDebugShaders', task ':capacitor-firebase-authentication:generateDebugAssets', task ':capacitor-firebase-authentication:mergeDebugAssets', task ':capacitor-share:mergeDebugShaders', task ':capacitor-share:compileDebugShaders', task ':capacitor-share:generateDebugAssets', task ':capacitor-share:mergeDebugAssets', task ':app:mergeDebugAssets', task ':app:compressDebugAssets', task ':capacitor-firebase-authentication:bundleLibRuntimeToJarDebug', task ':capacitor-android:bundleLibRuntimeToJarDebug', task ':capacitor-clipboard:bundleLibRuntimeToJarDebug', task ':capacitor-filesystem:bundleLibRuntimeToJarDebug', task ':capacitor-share:bundleLibRuntimeToJarDebug', task ':capacitor-cordova-android-plugins:bundleLibRuntimeToJarDebug', task ':app:desugarDebugFileDependencies', task ':app:dexBuilderDebug', task ':app:mergeDebugGlobalSynthetics', task ':app:processDebugJavaRes', task ':capacitor-android:processDebugJavaRes', task ':capacitor-clipboard:processDebugJavaRes', task ':capacitor-cordova-android-plugins:processDebugJavaRes', task ':capacitor-filesystem:processDebugJavaRes', task ':capacitor-firebase-authentication:processDebugJavaRes', task ':capacitor-share:processDebugJavaRes', task ':app:mergeDebugJavaResource', task ':app:checkDebugDuplicateClasses', task ':app:mergeExtDexDebug', task ':app:mergeLibDexDebug', task ':app:mergeProjectDexDebug', task ':app:mergeDebugJniLibFolders', task ':capacitor-android:mergeDebugJniLibFolders', task ':capacitor-android:mergeDebugNativeLibs', task ':capacitor-android:copyDebugJniLibsProjectOnly', task ':capacitor-clipboard:mergeDebugJniLibFolders', task ':capacitor-clipboard:mergeDebugNativeLibs', task ':capacitor-clipboard:copyDebugJniLibsProjectOnly', task ':capacitor-cordova-android-plugins:mergeDebugJniLibFolders', task ':capacitor-cordova-android-plugins:mergeDebugNativeLibs', task ':capacitor-cordova-android-plugins:copyDebugJniLibsProjectOnly', task ':capacitor-filesystem:mergeDebugJniLibFolders', task ':capacitor-filesystem:mergeDebugNativeLibs', task ':capacitor-filesystem:copyDebugJniLibsProjectOnly', task ':capacitor-firebase-authentication:mergeDebugJniLibFolders', task ':capacitor-firebase-authentication:mergeDebugNativeLibs', task ':capacitor-firebase-authentication:copyDebugJniLibsProjectOnly', task ':capacitor-share:mergeDebugJniLibFolders', task ':capacitor-share:mergeDebugNativeLibs', task ':capacitor-share:copyDebugJniLibsProjectOnly', task ':app:mergeDebugNativeLibs', task ':app:stripDebugDebugSymbols', task ':app:validateSigningDebug', task ':app:writeDebugAppMetadata', task ':app:writeDebugSigningConfigVersions', task ':app:packageDebug', task ':app:createDebugApkListingFileRedirect', task ':app:assembleDebug', task ':capacitor-android:checkDebugAarMetadata', task ':capacitor-android:stripDebugDebugSymbols', task ':capacitor-android:copyDebugJniLibsProjectAndLocalJars', task ':capacitor-android:extractDebugAnnotations', task ':capacitor-android:extractDeepLinksForAarDebug', task ':capacitor-android:mergeDebugGeneratedProguardFiles', task ':capacitor-android:mergeDebugConsumerProguardFiles', task ':capacitor-android:prepareDebugArtProfile', task ':capacitor-android:prepareLintJarForPublish', task ':capacitor-android:mergeDebugJavaResource', task ':capacitor-android:syncDebugLibJars', task ':capacitor-android:bundleDebugAar', task ':capacitor-android:assembleDebug', task ':capacitor-clipboard:checkDebugAarMetadata', task ':capacitor-clipboard:stripDebugDebugSymbols', task ':capacitor-clipboard:copyDebugJniLibsProjectAndLocalJars', task ':capacitor-clipboard:extractDebugAnnotations', task ':capacitor-clipboard:extractDeepLinksForAarDebug', task ':capacitor-clipboard:mergeDebugGeneratedProguardFiles', task ':capacitor-clipboard:mergeDebugConsumerProguardFiles', task ':capacitor-clipboard:prepareDebugArtProfile', task ':capacitor-clipboard:prepareLintJarForPublish', task ':capacitor-clipboard:mergeDebugJavaResource', task ':capacitor-clipboard:syncDebugLibJars', task ':capacitor-clipboard:bundleDebugAar', task ':capacitor-clipboard:assembleDebug', task ':capacitor-cordova-android-plugins:checkDebugAarMetadata', task ':capacitor-cordova-android-plugins:stripDebugDebugSymbols', task ':capacitor-cordova-android-plugins:copyDebugJniLibsProjectAndLocalJars', task ':capacitor-cordova-android-plugins:extractDebugAnnotations', task ':capacitor-cordova-android-plugins:extractDeepLinksForAarDebug', task ':capacitor-cordova-android-plugins:mergeDebugGeneratedProguardFiles', task ':capacitor-cordova-android-plugins:mergeDebugConsumerProguardFiles', task ':capacitor-cordova-android-plugins:prepareDebugArtProfile', task ':capacitor-cordova-android-plugins:prepareLintJarForPublish', task ':capacitor-cordova-android-plugins:mergeDebugJavaResource', task ':capacitor-cordova-android-plugins:syncDebugLibJars', task ':capacitor-cordova-android-plugins:bundleDebugAar', task ':capacitor-cordova-android-plugins:assembleDebug', task ':capacitor-filesystem:checkDebugAarMetadata', task ':capacitor-filesystem:stripDebugDebugSymbols', task ':capacitor-filesystem:copyDebugJniLibsProjectAndLocalJars', task ':capacitor-filesystem:extractDebugAnnotations', task ':capacitor-filesystem:extractDeepLinksForAarDebug', task ':capacitor-filesystem:mergeDebugGeneratedProguardFiles', task ':capacitor-filesystem:mergeDebugConsumerProguardFiles', task ':capacitor-filesystem:prepareDebugArtProfile', task ':capacitor-filesystem:prepareLintJarForPublish', task ':capacitor-filesystem:mergeDebugJavaResource', task ':capacitor-filesystem:syncDebugLibJars', task ':capacitor-filesystem:bundleDebugAar', task ':capacitor-filesystem:assembleDebug', task ':capacitor-firebase-authentication:checkDebugAarMetadata', task ':capacitor-firebase-authentication:stripDebugDebugSymbols', task ':capacitor-firebase-authentication:copyDebugJniLibsProjectAndLocalJars', task ':capacitor-firebase-authentication:extractDebugAnnotations', task ':capacitor-firebase-authentication:extractDeepLinksForAarDebug', task ':capacitor-firebase-authentication:mergeDebugGeneratedProguardFiles', task ':capacitor-firebase-authentication:mergeDebugConsumerProguardFiles', task ':capacitor-firebase-authentication:prepareDebugArtProfile', task ':capacitor-firebase-authentication:prepareLintJarForPublish', task ':capacitor-firebase-authentication:mergeDebugJavaResource', task ':capacitor-firebase-authentication:syncDebugLibJars', task ':capacitor-firebase-authentication:bundleDebugAar', task ':capacitor-firebase-authentication:assembleDebug', task ':capacitor-share:checkDebugAarMetadata', task ':capacitor-share:stripDebugDebugSymbols', task ':capacitor-share:copyDebugJniLibsProjectAndLocalJars', task ':capacitor-share:extractDebugAnnotations', task ':capacitor-share:extractDeepLinksForAarDebug', task ':capacitor-share:mergeDebugGeneratedProguardFiles', task ':capacitor-share:mergeDebugConsumerProguardFiles', task ':capacitor-share:prepareDebugArtProfile', task ':capacitor-share:prepareLintJarForPublish', task ':capacitor-share:mergeDebugJavaResource', task ':capacitor-share:syncDebugLibJars', task ':capacitor-share:bundleDebugAar', task ':capacitor-share:assembleDebug']
+Tasks that were excluded: []
+work action Parameters of DexingWithClasspathTransform (Thread[#3707,Execution worker,5,main]) started.
+work action Parameters of DexingOutputSplitTransform (Thread[#3707,Execution worker,5,main]) started.
+work action org.gradle.api.internal.artifacts.transform.DefaultTransformUpstreamDependenciesResolver$FinalizeTransformDependenciesFromSelectedArtifacts$CalculateFinalDependencies@a24a25a (Thread[#3707,Execution worker,5,main]) started.
+work action Dependencies for project :capacitor-android {artifactType=android-classes-jar, dexing-component-attributes=ComponentSpecificParameters(minSdkVersion=22, debuggable=true, enableCoreLibraryDesugaring=false, enableGlobalSynthetics=true, enableApiModeling=false, dependenciesClassesAreInstrumented=false, asmTransformComponent=null, useJacocoTransformInstrumentation=false, enableDesugaring=true, needsClasspath=true, useFullClasspath=false, componentIfUsingFullClasspath=null)} (Thread[#3707,Execution worker,5,main]) started.
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor-firebase\authentication\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\clipboard\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\filesystem\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\share\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\android\capacitor\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\capacitor-cordova-android-plugins\src\main\libs', not found
+work action org.gradle.api.internal.artifacts.transform.DefaultTransformUpstreamDependenciesResolver$FinalizeTransformDependenciesFromSelectedArtifacts$CalculateFinalDependencies@3c8d3905 (Thread[#3716,Execution worker Thread 10,5,main]) started.
+work action Dependencies for project :capacitor-cordova-android-plugins {artifactType=android-classes-jar, dexing-component-attributes=ComponentSpecificParameters(minSdkVersion=22, debuggable=true, enableCoreLibraryDesugaring=false, enableGlobalSynthetics=true, enableApiModeling=false, dependenciesClassesAreInstrumented=false, asmTransformComponent=null, useJacocoTransformInstrumentation=false, enableDesugaring=true, needsClasspath=true, useFullClasspath=false, componentIfUsingFullClasspath=null)} (Thread[#3720,Execution worker Thread 14,5,main]) started.
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor-firebase\authentication\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\clipboard\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\filesystem\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\share\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\android\capacitor\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\capacitor-cordova-android-plugins\src\main\libs', not found
+work action Parameters of DexingOutputSplitTransform (Thread[#3720,Execution worker Thread 14,5,main]) started.
+Resolve mutations for :app:preBuild (Thread[#3720,Execution worker Thread 14,5,main]) started.
+:app:preBuild (Thread[#3720,Execution worker Thread 14,5,main]) started.
+
+> Task :app:preBuild UP-TO-DATE
+Skipping task ':app:preBuild' as it has no actions.
+Resolve mutations for :app:preDebugBuild (Thread[#3720,Execution worker Thread 14,5,main]) started.
+:app:preDebugBuild (Thread[#3708,Execution worker Thread 2,5,main]) started.
+
+> Task :app:preDebugBuild UP-TO-DATE
+Skipping task ':app:preDebugBuild' as it has no actions.
+Resolve mutations for :app:mergeDebugNativeDebugMetadata (Thread[#3708,Execution worker Thread 2,5,main]) started.
+:app:mergeDebugNativeDebugMetadata (Thread[#3708,Execution worker Thread 2,5,main]) started.
+
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+Skipping task ':app:mergeDebugNativeDebugMetadata' as it has no source files and no previous output files.
+Resolve mutations for :app:javaPreCompileDebug (Thread[#3708,Execution worker Thread 2,5,main]) started.
+:app:javaPreCompileDebug (Thread[#3708,Execution worker Thread 2,5,main]) started.
+
+> Task :app:javaPreCompileDebug UP-TO-DATE
+Caching disabled for task ':app:javaPreCompileDebug' because:
+  Build cache is disabled
+Skipping task ':app:javaPreCompileDebug' as it is up-to-date.
+Resolve mutations for :capacitor-android:preBuild (Thread[#3708,Execution worker Thread 2,5,main]) started.
+:capacitor-android:preBuild (Thread[#3718,Execution worker Thread 12,5,main]) started.
+
+> Task :capacitor-android:preBuild UP-TO-DATE
+Skipping task ':capacitor-android:preBuild' as it has no actions.
+Resolve mutations for :capacitor-android:preDebugBuild (Thread[#3718,Execution worker Thread 12,5,main]) started.
+:capacitor-android:preDebugBuild (Thread[#3714,Execution worker Thread 8,5,main]) started.
+
+> Task :capacitor-android:preDebugBuild UP-TO-DATE
+Skipping task ':capacitor-android:preDebugBuild' as it has no actions.
+Resolve mutations for :capacitor-android:writeDebugAarMetadata (Thread[#3714,Execution worker Thread 8,5,main]) started.
+:capacitor-android:writeDebugAarMetadata (Thread[#3710,Execution worker Thread 4,5,main]) started.
+
+> Task :capacitor-android:writeDebugAarMetadata UP-TO-DATE
+Caching disabled for task ':capacitor-android:writeDebugAarMetadata' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':capacitor-android:writeDebugAarMetadata' as it is up-to-date.
+work action resolve aar-metadata.properties (project :capacitor-android) (Thread[#3710,Execution worker Thread 4,5,main]) started.
+Resolve mutations for :capacitor-clipboard:preBuild (Thread[#3710,Execution worker Thread 4,5,main]) started.
+:capacitor-clipboard:preBuild (Thread[#3715,Execution worker Thread 9,5,main]) started.
+
+> Task :capacitor-clipboard:preBuild UP-TO-DATE
+Skipping task ':capacitor-clipboard:preBuild' as it has no actions.
+Resolve mutations for :capacitor-clipboard:preDebugBuild (Thread[#3715,Execution worker Thread 9,5,main]) started.
+:capacitor-clipboard:preDebugBuild (Thread[#3713,Execution worker Thread 7,5,main]) started.
+
+> Task :capacitor-clipboard:preDebugBuild UP-TO-DATE
+Skipping task ':capacitor-clipboard:preDebugBuild' as it has no actions.
+Resolve mutations for :capacitor-clipboard:writeDebugAarMetadata (Thread[#3713,Execution worker Thread 7,5,main]) started.
+:capacitor-clipboard:writeDebugAarMetadata (Thread[#3713,Execution worker Thread 7,5,main]) started.
+
+> Task :capacitor-clipboard:writeDebugAarMetadata UP-TO-DATE
+Caching disabled for task ':capacitor-clipboard:writeDebugAarMetadata' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':capacitor-clipboard:writeDebugAarMetadata' as it is up-to-date.
+work action resolve aar-metadata.properties (project :capacitor-clipboard) (Thread[#3713,Execution worker Thread 7,5,main]) started.
+Resolve mutations for :capacitor-cordova-android-plugins:preBuild (Thread[#3717,Execution worker Thread 11,5,main]) started.
+:capacitor-cordova-android-plugins:preBuild (Thread[#3717,Execution worker Thread 11,5,main]) started.
+
+> Task :capacitor-cordova-android-plugins:preBuild UP-TO-DATE
+Skipping task ':capacitor-cordova-android-plugins:preBuild' as it has no actions.
+Resolve mutations for :capacitor-cordova-android-plugins:preDebugBuild (Thread[#3717,Execution worker Thread 11,5,main]) started.
+:capacitor-cordova-android-plugins:preDebugBuild (Thread[#3717,Execution worker Thread 11,5,main]) started.
+
+> Task :capacitor-cordova-android-plugins:preDebugBuild UP-TO-DATE
+Skipping task ':capacitor-cordova-android-plugins:preDebugBuild' as it has no actions.
+Resolve mutations for :capacitor-cordova-android-plugins:writeDebugAarMetadata (Thread[#3717,Execution worker Thread 11,5,main]) started.
+:capacitor-cordova-android-plugins:writeDebugAarMetadata (Thread[#3717,Execution worker Thread 11,5,main]) started.
+
+> Task :capacitor-cordova-android-plugins:writeDebugAarMetadata UP-TO-DATE
+Caching disabled for task ':capacitor-cordova-android-plugins:writeDebugAarMetadata' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':capacitor-cordova-android-plugins:writeDebugAarMetadata' as it is up-to-date.
+work action resolve aar-metadata.properties (project :capacitor-cordova-android-plugins) (Thread[#3717,Execution worker Thread 11,5,main]) started.
+Resolve mutations for :capacitor-filesystem:preBuild (Thread[#3717,Execution worker Thread 11,5,main]) started.
+:capacitor-filesystem:preBuild (Thread[#3717,Execution worker Thread 11,5,main]) started.
+
+> Task :capacitor-filesystem:preBuild UP-TO-DATE
+Skipping task ':capacitor-filesystem:preBuild' as it has no actions.
+Resolve mutations for :capacitor-filesystem:preDebugBuild (Thread[#3717,Execution worker Thread 11,5,main]) started.
+:capacitor-filesystem:preDebugBuild (Thread[#3717,Execution worker Thread 11,5,main]) started.
+
+> Task :capacitor-filesystem:preDebugBuild UP-TO-DATE
+Skipping task ':capacitor-filesystem:preDebugBuild' as it has no actions.
+Resolve mutations for :capacitor-filesystem:writeDebugAarMetadata (Thread[#3717,Execution worker Thread 11,5,main]) started.
+:capacitor-filesystem:writeDebugAarMetadata (Thread[#3717,Execution worker Thread 11,5,main]) started.
+
+> Task :capacitor-filesystem:writeDebugAarMetadata UP-TO-DATE
+Caching disabled for task ':capacitor-filesystem:writeDebugAarMetadata' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':capacitor-filesystem:writeDebugAarMetadata' as it is up-to-date.
+work action resolve aar-metadata.properties (project :capacitor-filesystem) (Thread[#3717,Execution worker Thread 11,5,main]) started.
+Resolve mutations for :capacitor-firebase-authentication:preBuild (Thread[#3717,Execution worker Thread 11,5,main]) started.
+:capacitor-firebase-authentication:preBuild (Thread[#3717,Execution worker Thread 11,5,main]) started.
+
+> Task :capacitor-firebase-authentication:preBuild UP-TO-DATE
+Skipping task ':capacitor-firebase-authentication:preBuild' as it has no actions.
+Resolve mutations for :capacitor-firebase-authentication:preDebugBuild (Thread[#3717,Execution worker Thread 11,5,main]) started.
+:capacitor-firebase-authentication:preDebugBuild (Thread[#3711,Execution worker Thread 5,5,main]) started.
+
+> Task :capacitor-firebase-authentication:preDebugBuild UP-TO-DATE
+Skipping task ':capacitor-firebase-authentication:preDebugBuild' as it has no actions.
+Resolve mutations for :capacitor-firebase-authentication:writeDebugAarMetadata (Thread[#3711,Execution worker Thread 5,5,main]) started.
+:capacitor-firebase-authentication:writeDebugAarMetadata (Thread[#3709,Execution worker Thread 3,5,main]) started.
+
+> Task :capacitor-firebase-authentication:writeDebugAarMetadata UP-TO-DATE
+Caching disabled for task ':capacitor-firebase-authentication:writeDebugAarMetadata' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':capacitor-firebase-authentication:writeDebugAarMetadata' as it is up-to-date.
+work action resolve aar-metadata.properties (project :capacitor-firebase-authentication) (Thread[#3709,Execution worker Thread 3,5,main]) started.
+Resolve mutations for :capacitor-share:preBuild (Thread[#3709,Execution worker Thread 3,5,main]) started.
+:capacitor-share:preBuild (Thread[#3709,Execution worker Thread 3,5,main]) started.
+
+> Task :capacitor-share:preBuild UP-TO-DATE
+Skipping task ':capacitor-share:preBuild' as it has no actions.
+Resolve mutations for :capacitor-share:preDebugBuild (Thread[#3709,Execution worker Thread 3,5,main]) started.
+:capacitor-share:preDebugBuild (Thread[#3709,Execution worker Thread 3,5,main]) started.
+
+> Task :capacitor-share:preDebugBuild UP-TO-DATE
+Skipping task ':capacitor-share:preDebugBuild' as it has no actions.
+Resolve mutations for :capacitor-share:writeDebugAarMetadata (Thread[#3709,Execution worker Thread 3,5,main]) started.
+:capacitor-share:writeDebugAarMetadata (Thread[#3709,Execution worker Thread 3,5,main]) started.
+
+> Task :capacitor-share:writeDebugAarMetadata UP-TO-DATE
+Caching disabled for task ':capacitor-share:writeDebugAarMetadata' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':capacitor-share:writeDebugAarMetadata' as it is up-to-date.
+work action resolve aar-metadata.properties (project :capacitor-share) (Thread[#3709,Execution worker Thread 3,5,main]) started.
+Resolve mutations for :app:checkDebugAarMetadata (Thread[#3709,Execution worker Thread 3,5,main]) started.
+:app:checkDebugAarMetadata (Thread[#3709,Execution worker Thread 3,5,main]) started.
+
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor-firebase\authentication\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\clipboard\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\filesystem\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\share\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\android\capacitor\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\capacitor-cordova-android-plugins\src\main\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor-firebase\authentication\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\clipboard\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\filesystem\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\share\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\android\capacitor\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\capacitor-cordova-android-plugins\src\main\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor-firebase\authentication\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\clipboard\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\filesystem\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\share\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\android\capacitor\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\capacitor-cordova-android-plugins\src\main\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor-firebase\authentication\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\clipboard\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\filesystem\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\share\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\android\capacitor\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\capacitor-cordova-android-plugins\src\main\libs', not found
+Caching disabled for task ':app:checkDebugAarMetadata' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':app:checkDebugAarMetadata' as it is up-to-date.
+Resolve mutations for :capacitor-android:processDebugNavigationResources (Thread[#3709,Execution worker Thread 3,5,main]) started.
+:capacitor-android:processDebugNavigationResources (Thread[#3706,included builds,5,main]) started.
+
+> Task :capacitor-android:processDebugNavigationResources UP-TO-DATE
+Caching disabled for task ':capacitor-android:processDebugNavigationResources' because:
+  Build cache is disabled
+Skipping task ':capacitor-android:processDebugNavigationResources' as it is up-to-date.
+work action resolve debug (project :capacitor-android) (Thread[#3706,included builds,5,main]) started.
+Resolve mutations for :capacitor-clipboard:processDebugNavigationResources (Thread[#3708,Execution worker Thread 2,5,main]) started.
+:capacitor-clipboard:processDebugNavigationResources (Thread[#3708,Execution worker Thread 2,5,main]) started.
+
+> Task :capacitor-clipboard:processDebugNavigationResources UP-TO-DATE
+Caching disabled for task ':capacitor-clipboard:processDebugNavigationResources' because:
+  Build cache is disabled
+Skipping task ':capacitor-clipboard:processDebugNavigationResources' as it is up-to-date.
+work action resolve debug (project :capacitor-clipboard) (Thread[#3708,Execution worker Thread 2,5,main]) started.
+Resolve mutations for :capacitor-cordova-android-plugins:processDebugNavigationResources (Thread[#3715,Execution worker Thread 9,5,main]) started.
+:capacitor-cordova-android-plugins:processDebugNavigationResources (Thread[#3706,included builds,5,main]) started.
+
+> Task :capacitor-cordova-android-plugins:processDebugNavigationResources UP-TO-DATE
+Caching disabled for task ':capacitor-cordova-android-plugins:processDebugNavigationResources' because:
+  Build cache is disabled
+Skipping task ':capacitor-cordova-android-plugins:processDebugNavigationResources' as it is up-to-date.
+work action resolve debug (project :capacitor-cordova-android-plugins) (Thread[#3706,included builds,5,main]) started.
+Resolve mutations for :capacitor-filesystem:processDebugNavigationResources (Thread[#3719,Execution worker Thread 13,5,main]) started.
+:capacitor-filesystem:processDebugNavigationResources (Thread[#3719,Execution worker Thread 13,5,main]) started.
+
+> Task :capacitor-filesystem:processDebugNavigationResources UP-TO-DATE
+Caching disabled for task ':capacitor-filesystem:processDebugNavigationResources' because:
+  Build cache is disabled
+Skipping task ':capacitor-filesystem:processDebugNavigationResources' as it is up-to-date.
+work action resolve debug (project :capacitor-filesystem) (Thread[#3719,Execution worker Thread 13,5,main]) started.
+Resolve mutations for :capacitor-firebase-authentication:processDebugNavigationResources (Thread[#3707,Execution worker,5,main]) started.
+:capacitor-firebase-authentication:processDebugNavigationResources (Thread[#3707,Execution worker,5,main]) started.
+
+> Task :capacitor-firebase-authentication:processDebugNavigationResources UP-TO-DATE
+Caching disabled for task ':capacitor-firebase-authentication:processDebugNavigationResources' because:
+  Build cache is disabled
+Skipping task ':capacitor-firebase-authentication:processDebugNavigationResources' as it is up-to-date.
+work action resolve debug (project :capacitor-firebase-authentication) (Thread[#3707,Execution worker,5,main]) started.
+Resolve mutations for :capacitor-share:processDebugNavigationResources (Thread[#3721,Execution worker Thread 15,5,main]) started.
+:capacitor-share:processDebugNavigationResources (Thread[#3721,Execution worker Thread 15,5,main]) started.
+
+> Task :capacitor-share:processDebugNavigationResources UP-TO-DATE
+Caching disabled for task ':capacitor-share:processDebugNavigationResources' because:
+  Build cache is disabled
+Skipping task ':capacitor-share:processDebugNavigationResources' as it is up-to-date.
+work action resolve debug (project :capacitor-share) (Thread[#3721,Execution worker Thread 15,5,main]) started.
+Resolve mutations for :app:processDebugNavigationResources (Thread[#3721,Execution worker Thread 15,5,main]) started.
+:app:processDebugNavigationResources (Thread[#3709,Execution worker Thread 3,5,main]) started.
+
+> Task :app:processDebugNavigationResources UP-TO-DATE
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor-firebase\authentication\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\clipboard\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\filesystem\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\share\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\android\capacitor\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\capacitor-cordova-android-plugins\src\main\libs', not found
+Caching disabled for task ':app:processDebugNavigationResources' because:
+  Build cache is disabled
+Skipping task ':app:processDebugNavigationResources' as it is up-to-date.
+Resolve mutations for :app:compileDebugNavigationResources (Thread[#3709,Execution worker Thread 3,5,main]) started.
+:app:compileDebugNavigationResources (Thread[#3710,Execution worker Thread 4,5,main]) started.
+
+> Task :app:compileDebugNavigationResources UP-TO-DATE
+Caching disabled for task ':app:compileDebugNavigationResources' because:
+  Build cache is disabled
+Skipping task ':app:compileDebugNavigationResources' as it is up-to-date.
+Resolve mutations for :app:generateDebugResValues (Thread[#3710,Execution worker Thread 4,5,main]) started.
+:app:generateDebugResValues (Thread[#3710,Execution worker Thread 4,5,main]) started.
+
+> Task :app:generateDebugResValues UP-TO-DATE
+Caching disabled for task ':app:generateDebugResValues' because:
+  Build cache is disabled
+Skipping task ':app:generateDebugResValues' as it is up-to-date.
+Resolve mutations for :app:processDebugGoogleServices (Thread[#3710,Execution worker Thread 4,5,main]) started.
+:app:processDebugGoogleServices (Thread[#3718,Execution worker Thread 12,5,main]) started.
+
+> Task :app:processDebugGoogleServices UP-TO-DATE
+Caching disabled for task ':app:processDebugGoogleServices' because:
+  Build cache is disabled
+Skipping task ':app:processDebugGoogleServices' as it is up-to-date.
+Resolve mutations for :capacitor-android:generateDebugResValues (Thread[#3718,Execution worker Thread 12,5,main]) started.
+:capacitor-android:generateDebugResValues (Thread[#3718,Execution worker Thread 12,5,main]) started.
+
+> Task :capacitor-android:generateDebugResValues UP-TO-DATE
+Caching disabled for task ':capacitor-android:generateDebugResValues' because:
+  Build cache is disabled
+Skipping task ':capacitor-android:generateDebugResValues' as it is up-to-date.
+Resolve mutations for :capacitor-android:generateDebugResources (Thread[#3718,Execution worker Thread 12,5,main]) started.
+:capacitor-android:generateDebugResources (Thread[#3718,Execution worker Thread 12,5,main]) started.
+
+> Task :capacitor-android:generateDebugResources UP-TO-DATE
+Caching disabled for task ':capacitor-android:generateDebugResources' because:
+  Build cache is disabled
+Skipping task ':capacitor-android:generateDebugResources' as it is up-to-date.
+Resolve mutations for :capacitor-android:packageDebugResources (Thread[#3718,Execution worker Thread 12,5,main]) started.
+:capacitor-android:packageDebugResources (Thread[#3718,Execution worker Thread 12,5,main]) started.
+
+> Task :capacitor-android:packageDebugResources UP-TO-DATE
+Caching disabled for task ':capacitor-android:packageDebugResources' because:
+  Build cache is disabled
+Skipping task ':capacitor-android:packageDebugResources' as it is up-to-date.
+work action resolve packageDebugResources (project :capacitor-android) (Thread[#3718,Execution worker Thread 12,5,main]) started.
+Resolve mutations for :capacitor-clipboard:generateDebugResValues (Thread[#3710,Execution worker Thread 4,5,main]) started.
+:capacitor-clipboard:generateDebugResValues (Thread[#3710,Execution worker Thread 4,5,main]) started.
+
+> Task :capacitor-clipboard:generateDebugResValues UP-TO-DATE
+Caching disabled for task ':capacitor-clipboard:generateDebugResValues' because:
+  Build cache is disabled
+Skipping task ':capacitor-clipboard:generateDebugResValues' as it is up-to-date.
+Resolve mutations for :capacitor-clipboard:generateDebugResources (Thread[#3710,Execution worker Thread 4,5,main]) started.
+:capacitor-clipboard:generateDebugResources (Thread[#3713,Execution worker Thread 7,5,main]) started.
+
+> Task :capacitor-clipboard:generateDebugResources UP-TO-DATE
+Caching disabled for task ':capacitor-clipboard:generateDebugResources' because:
+  Build cache is disabled
+Skipping task ':capacitor-clipboard:generateDebugResources' as it is up-to-date.
+Resolve mutations for :capacitor-clipboard:packageDebugResources (Thread[#3713,Execution worker Thread 7,5,main]) started.
+:capacitor-clipboard:packageDebugResources (Thread[#3713,Execution worker Thread 7,5,main]) started.
+
+> Task :capacitor-clipboard:packageDebugResources UP-TO-DATE
+Caching disabled for task ':capacitor-clipboard:packageDebugResources' because:
+  Build cache is disabled
+Skipping task ':capacitor-clipboard:packageDebugResources' as it is up-to-date.
+work action resolve packageDebugResources (project :capacitor-clipboard) (Thread[#3713,Execution worker Thread 7,5,main]) started.
+Resolve mutations for :capacitor-cordova-android-plugins:generateDebugResValues (Thread[#3713,Execution worker Thread 7,5,main]) started.
+:capacitor-cordova-android-plugins:generateDebugResValues (Thread[#3713,Execution worker Thread 7,5,main]) started.
+
+> Task :capacitor-cordova-android-plugins:generateDebugResValues UP-TO-DATE
+Caching disabled for task ':capacitor-cordova-android-plugins:generateDebugResValues' because:
+  Build cache is disabled
+Skipping task ':capacitor-cordova-android-plugins:generateDebugResValues' as it is up-to-date.
+Resolve mutations for :capacitor-cordova-android-plugins:generateDebugResources (Thread[#3713,Execution worker Thread 7,5,main]) started.
+:capacitor-cordova-android-plugins:generateDebugResources (Thread[#3713,Execution worker Thread 7,5,main]) started.
+
+> Task :capacitor-cordova-android-plugins:generateDebugResources UP-TO-DATE
+Caching disabled for task ':capacitor-cordova-android-plugins:generateDebugResources' because:
+  Build cache is disabled
+Skipping task ':capacitor-cordova-android-plugins:generateDebugResources' as it is up-to-date.
+Resolve mutations for :capacitor-cordova-android-plugins:packageDebugResources (Thread[#3713,Execution worker Thread 7,5,main]) started.
+:capacitor-cordova-android-plugins:packageDebugResources (Thread[#3713,Execution worker Thread 7,5,main]) started.
+
+> Task :capacitor-cordova-android-plugins:packageDebugResources UP-TO-DATE
+Caching disabled for task ':capacitor-cordova-android-plugins:packageDebugResources' because:
+  Build cache is disabled
+Skipping task ':capacitor-cordova-android-plugins:packageDebugResources' as it is up-to-date.
+work action resolve packageDebugResources (project :capacitor-cordova-android-plugins) (Thread[#3713,Execution worker Thread 7,5,main]) started.
+Resolve mutations for :capacitor-filesystem:generateDebugResValues (Thread[#3713,Execution worker Thread 7,5,main]) started.
+:capacitor-filesystem:generateDebugResValues (Thread[#3713,Execution worker Thread 7,5,main]) started.
+
+> Task :capacitor-filesystem:generateDebugResValues UP-TO-DATE
+Caching disabled for task ':capacitor-filesystem:generateDebugResValues' because:
+  Build cache is disabled
+Skipping task ':capacitor-filesystem:generateDebugResValues' as it is up-to-date.
+Resolve mutations for :capacitor-filesystem:generateDebugResources (Thread[#3713,Execution worker Thread 7,5,main]) started.
+:capacitor-filesystem:generateDebugResources (Thread[#3713,Execution worker Thread 7,5,main]) started.
+
+> Task :capacitor-filesystem:generateDebugResources UP-TO-DATE
+Caching disabled for task ':capacitor-filesystem:generateDebugResources' because:
+  Build cache is disabled
+Skipping task ':capacitor-filesystem:generateDebugResources' as it is up-to-date.
+Resolve mutations for :capacitor-filesystem:packageDebugResources (Thread[#3713,Execution worker Thread 7,5,main]) started.
+:capacitor-filesystem:packageDebugResources (Thread[#3713,Execution worker Thread 7,5,main]) started.
+
+> Task :capacitor-filesystem:packageDebugResources UP-TO-DATE
+Caching disabled for task ':capacitor-filesystem:packageDebugResources' because:
+  Build cache is disabled
+Skipping task ':capacitor-filesystem:packageDebugResources' as it is up-to-date.
+work action resolve packageDebugResources (project :capacitor-filesystem) (Thread[#3713,Execution worker Thread 7,5,main]) started.
+Resolve mutations for :capacitor-firebase-authentication:generateDebugResValues (Thread[#3713,Execution worker Thread 7,5,main]) started.
+:capacitor-firebase-authentication:generateDebugResValues (Thread[#3713,Execution worker Thread 7,5,main]) started.
+
+> Task :capacitor-firebase-authentication:generateDebugResValues UP-TO-DATE
+Caching disabled for task ':capacitor-firebase-authentication:generateDebugResValues' because:
+  Build cache is disabled
+Skipping task ':capacitor-firebase-authentication:generateDebugResValues' as it is up-to-date.
+Resolve mutations for :capacitor-firebase-authentication:generateDebugResources (Thread[#3713,Execution worker Thread 7,5,main]) started.
+:capacitor-firebase-authentication:generateDebugResources (Thread[#3713,Execution worker Thread 7,5,main]) started.
+
+> Task :capacitor-firebase-authentication:generateDebugResources UP-TO-DATE
+Caching disabled for task ':capacitor-firebase-authentication:generateDebugResources' because:
+  Build cache is disabled
+Skipping task ':capacitor-firebase-authentication:generateDebugResources' as it is up-to-date.
+Resolve mutations for :capacitor-firebase-authentication:packageDebugResources (Thread[#3713,Execution worker Thread 7,5,main]) started.
+:capacitor-firebase-authentication:packageDebugResources (Thread[#3713,Execution worker Thread 7,5,main]) started.
+
+> Task :capacitor-firebase-authentication:packageDebugResources UP-TO-DATE
+Caching disabled for task ':capacitor-firebase-authentication:packageDebugResources' because:
+  Build cache is disabled
+Skipping task ':capacitor-firebase-authentication:packageDebugResources' as it is up-to-date.
+work action resolve packageDebugResources (project :capacitor-firebase-authentication) (Thread[#3713,Execution worker Thread 7,5,main]) started.
+Resolve mutations for :capacitor-share:generateDebugResValues (Thread[#3713,Execution worker Thread 7,5,main]) started.
+:capacitor-share:generateDebugResValues (Thread[#3713,Execution worker Thread 7,5,main]) started.
+
+> Task :capacitor-share:generateDebugResValues UP-TO-DATE
+Caching disabled for task ':capacitor-share:generateDebugResValues' because:
+  Build cache is disabled
+Skipping task ':capacitor-share:generateDebugResValues' as it is up-to-date.
+Resolve mutations for :capacitor-share:generateDebugResources (Thread[#3713,Execution worker Thread 7,5,main]) started.
+:capacitor-share:generateDebugResources (Thread[#3713,Execution worker Thread 7,5,main]) started.
+
+> Task :capacitor-share:generateDebugResources UP-TO-DATE
+Caching disabled for task ':capacitor-share:generateDebugResources' because:
+  Build cache is disabled
+Skipping task ':capacitor-share:generateDebugResources' as it is up-to-date.
+Resolve mutations for :capacitor-share:packageDebugResources (Thread[#3713,Execution worker Thread 7,5,main]) started.
+:capacitor-share:packageDebugResources (Thread[#3713,Execution worker Thread 7,5,main]) started.
+
+> Task :capacitor-share:packageDebugResources UP-TO-DATE
+Caching disabled for task ':capacitor-share:packageDebugResources' because:
+  Build cache is disabled
+Skipping task ':capacitor-share:packageDebugResources' as it is up-to-date.
+work action resolve packageDebugResources (project :capacitor-share) (Thread[#3713,Execution worker Thread 7,5,main]) started.
+Resolve mutations for :app:mapDebugSourceSetPaths (Thread[#3713,Execution worker Thread 7,5,main]) started.
+:app:mapDebugSourceSetPaths (Thread[#3713,Execution worker Thread 7,5,main]) started.
+
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor-firebase\authentication\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\clipboard\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\filesystem\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\share\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\android\capacitor\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\capacitor-cordova-android-plugins\src\main\libs', not found
+Caching disabled for task ':app:mapDebugSourceSetPaths' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':app:mapDebugSourceSetPaths' as it is up-to-date.
+Resolve mutations for :app:generateDebugResources (Thread[#3713,Execution worker Thread 7,5,main]) started.
+:app:generateDebugResources (Thread[#3713,Execution worker Thread 7,5,main]) started.
+
+> Task :app:generateDebugResources UP-TO-DATE
+Caching disabled for task ':app:generateDebugResources' because:
+  Build cache is disabled
+Skipping task ':app:generateDebugResources' as it is up-to-date.
+Resolve mutations for :app:mergeDebugResources (Thread[#3713,Execution worker Thread 7,5,main]) started.
+:app:mergeDebugResources (Thread[#3713,Execution worker Thread 7,5,main]) started.
+
+> Task :app:mergeDebugResources UP-TO-DATE
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor-firebase\authentication\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\clipboard\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\filesystem\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\share\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\android\capacitor\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\capacitor-cordova-android-plugins\src\main\libs', not found
+Caching disabled for task ':app:mergeDebugResources' because:
+  Build cache is disabled
+Skipping task ':app:mergeDebugResources' as it is up-to-date.
+Resolve mutations for :app:packageDebugResources (Thread[#3713,Execution worker Thread 7,5,main]) started.
+:app:packageDebugResources (Thread[#3713,Execution worker Thread 7,5,main]) started.
+
+> Task :app:packageDebugResources UP-TO-DATE
+Caching disabled for task ':app:packageDebugResources' because:
+  Build cache is disabled
+Skipping task ':app:packageDebugResources' as it is up-to-date.
+Resolve mutations for :app:parseDebugLocalResources (Thread[#3713,Execution worker Thread 7,5,main]) started.
+:app:parseDebugLocalResources (Thread[#3713,Execution worker Thread 7,5,main]) started.
+
+> Task :app:parseDebugLocalResources UP-TO-DATE
+Caching disabled for task ':app:parseDebugLocalResources' because:
+  Build cache is disabled
+Skipping task ':app:parseDebugLocalResources' as it is up-to-date.
+Resolve mutations for :app:createDebugCompatibleScreenManifests (Thread[#3713,Execution worker Thread 7,5,main]) started.
+:app:createDebugCompatibleScreenManifests (Thread[#3713,Execution worker Thread 7,5,main]) started.
+
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+Caching disabled for task ':app:createDebugCompatibleScreenManifests' because:
+  Build cache is disabled
+  Caching has been disabled for the task
+Skipping task ':app:createDebugCompatibleScreenManifests' as it is up-to-date.
+Resolve mutations for :app:extractDeepLinksDebug (Thread[#3713,Execution worker Thread 7,5,main]) started.
+:app:extractDeepLinksDebug (Thread[#3713,Execution worker Thread 7,5,main]) started.
+
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+Caching disabled for task ':app:extractDeepLinksDebug' because:
+  Build cache is disabled
+Skipping task ':app:extractDeepLinksDebug' as it is up-to-date.
+Resolve mutations for :capacitor-android:extractDeepLinksDebug (Thread[#3713,Execution worker Thread 7,5,main]) started.
+:capacitor-android:extractDeepLinksDebug (Thread[#3713,Execution worker Thread 7,5,main]) started.
+
+> Task :capacitor-android:extractDeepLinksDebug UP-TO-DATE
+Caching disabled for task ':capacitor-android:extractDeepLinksDebug' because:
+  Build cache is disabled
+Skipping task ':capacitor-android:extractDeepLinksDebug' as it is up-to-date.
+work action resolve navigation.json (project :capacitor-android) (Thread[#3713,Execution worker Thread 7,5,main]) started.
+Resolve mutations for :capacitor-android:processDebugManifest (Thread[#3714,Execution worker Thread 8,5,main]) started.
+:capacitor-android:processDebugManifest (Thread[#3714,Execution worker Thread 8,5,main]) started.
+
+> Task :capacitor-android:processDebugManifest UP-TO-DATE
+Caching disabled for task ':capacitor-android:processDebugManifest' because:
+  Build cache is disabled
+Skipping task ':capacitor-android:processDebugManifest' as it is up-to-date.
+work action resolve AndroidManifest.xml (project :capacitor-android) (Thread[#3714,Execution worker Thread 8,5,main]) started.
+Resolve mutations for :capacitor-clipboard:extractDeepLinksDebug (Thread[#3714,Execution worker Thread 8,5,main]) started.
+:capacitor-clipboard:extractDeepLinksDebug (Thread[#3710,Execution worker Thread 4,5,main]) started.
+
+> Task :capacitor-clipboard:extractDeepLinksDebug UP-TO-DATE
+Caching disabled for task ':capacitor-clipboard:extractDeepLinksDebug' because:
+  Build cache is disabled
+Skipping task ':capacitor-clipboard:extractDeepLinksDebug' as it is up-to-date.
+work action resolve navigation.json (project :capacitor-clipboard) (Thread[#3710,Execution worker Thread 4,5,main]) started.
+Resolve mutations for :capacitor-clipboard:processDebugManifest (Thread[#3710,Execution worker Thread 4,5,main]) started.
+:capacitor-clipboard:processDebugManifest (Thread[#3710,Execution worker Thread 4,5,main]) started.
+
+> Task :capacitor-clipboard:processDebugManifest UP-TO-DATE
+Caching disabled for task ':capacitor-clipboard:processDebugManifest' because:
+  Build cache is disabled
+Skipping task ':capacitor-clipboard:processDebugManifest' as it is up-to-date.
+work action resolve AndroidManifest.xml (project :capacitor-clipboard) (Thread[#3710,Execution worker Thread 4,5,main]) started.
+Resolve mutations for :capacitor-cordova-android-plugins:extractDeepLinksDebug (Thread[#3710,Execution worker Thread 4,5,main]) started.
+:capacitor-cordova-android-plugins:extractDeepLinksDebug (Thread[#3710,Execution worker Thread 4,5,main]) started.
+
+> Task :capacitor-cordova-android-plugins:extractDeepLinksDebug UP-TO-DATE
+Caching disabled for task ':capacitor-cordova-android-plugins:extractDeepLinksDebug' because:
+  Build cache is disabled
+Skipping task ':capacitor-cordova-android-plugins:extractDeepLinksDebug' as it is up-to-date.
+work action resolve navigation.json (project :capacitor-cordova-android-plugins) (Thread[#3710,Execution worker Thread 4,5,main]) started.
+Resolve mutations for :capacitor-cordova-android-plugins:processDebugManifest (Thread[#3710,Execution worker Thread 4,5,main]) started.
+:capacitor-cordova-android-plugins:processDebugManifest (Thread[#3710,Execution worker Thread 4,5,main]) started.
+
+> Task :capacitor-cordova-android-plugins:processDebugManifest UP-TO-DATE
+Caching disabled for task ':capacitor-cordova-android-plugins:processDebugManifest' because:
+  Build cache is disabled
+Skipping task ':capacitor-cordova-android-plugins:processDebugManifest' as it is up-to-date.
+work action resolve AndroidManifest.xml (project :capacitor-cordova-android-plugins) (Thread[#3710,Execution worker Thread 4,5,main]) started.
+Resolve mutations for :capacitor-filesystem:extractDeepLinksDebug (Thread[#3710,Execution worker Thread 4,5,main]) started.
+:capacitor-filesystem:extractDeepLinksDebug (Thread[#3710,Execution worker Thread 4,5,main]) started.
+
+> Task :capacitor-filesystem:extractDeepLinksDebug UP-TO-DATE
+Caching disabled for task ':capacitor-filesystem:extractDeepLinksDebug' because:
+  Build cache is disabled
+Skipping task ':capacitor-filesystem:extractDeepLinksDebug' as it is up-to-date.
+work action resolve navigation.json (project :capacitor-filesystem) (Thread[#3710,Execution worker Thread 4,5,main]) started.
+Resolve mutations for :capacitor-filesystem:processDebugManifest (Thread[#3710,Execution worker Thread 4,5,main]) started.
+:capacitor-filesystem:processDebugManifest (Thread[#3710,Execution worker Thread 4,5,main]) started.
+
+> Task :capacitor-filesystem:processDebugManifest UP-TO-DATE
+Caching disabled for task ':capacitor-filesystem:processDebugManifest' because:
+  Build cache is disabled
+Skipping task ':capacitor-filesystem:processDebugManifest' as it is up-to-date.
+work action resolve AndroidManifest.xml (project :capacitor-filesystem) (Thread[#3710,Execution worker Thread 4,5,main]) started.
+Resolve mutations for :capacitor-firebase-authentication:extractDeepLinksDebug (Thread[#3710,Execution worker Thread 4,5,main]) started.
+:capacitor-firebase-authentication:extractDeepLinksDebug (Thread[#3710,Execution worker Thread 4,5,main]) started.
+
+> Task :capacitor-firebase-authentication:extractDeepLinksDebug UP-TO-DATE
+Caching disabled for task ':capacitor-firebase-authentication:extractDeepLinksDebug' because:
+  Build cache is disabled
+Skipping task ':capacitor-firebase-authentication:extractDeepLinksDebug' as it is up-to-date.
+work action resolve navigation.json (project :capacitor-firebase-authentication) (Thread[#3710,Execution worker Thread 4,5,main]) started.
+Resolve mutations for :capacitor-firebase-authentication:processDebugManifest (Thread[#3706,included builds,5,main]) started.
+:capacitor-firebase-authentication:processDebugManifest (Thread[#3706,included builds,5,main]) started.
+
+> Task :capacitor-firebase-authentication:processDebugManifest UP-TO-DATE
+Caching disabled for task ':capacitor-firebase-authentication:processDebugManifest' because:
+  Build cache is disabled
+Skipping task ':capacitor-firebase-authentication:processDebugManifest' as it is up-to-date.
+work action resolve AndroidManifest.xml (project :capacitor-firebase-authentication) (Thread[#3706,included builds,5,main]) started.
+Resolve mutations for :capacitor-share:extractDeepLinksDebug (Thread[#3706,included builds,5,main]) started.
+:capacitor-share:extractDeepLinksDebug (Thread[#3706,included builds,5,main]) started.
+
+> Task :capacitor-share:extractDeepLinksDebug UP-TO-DATE
+Caching disabled for task ':capacitor-share:extractDeepLinksDebug' because:
+  Build cache is disabled
+Skipping task ':capacitor-share:extractDeepLinksDebug' as it is up-to-date.
+work action resolve navigation.json (project :capacitor-share) (Thread[#3706,included builds,5,main]) started.
+Resolve mutations for :capacitor-share:processDebugManifest (Thread[#3706,included builds,5,main]) started.
+:capacitor-share:processDebugManifest (Thread[#3706,included builds,5,main]) started.
+
+> Task :capacitor-share:processDebugManifest UP-TO-DATE
+Caching disabled for task ':capacitor-share:processDebugManifest' because:
+  Build cache is disabled
+Skipping task ':capacitor-share:processDebugManifest' as it is up-to-date.
+work action resolve AndroidManifest.xml (project :capacitor-share) (Thread[#3706,included builds,5,main]) started.
+Resolve mutations for :app:processDebugMainManifest (Thread[#3706,included builds,5,main]) started.
+:app:processDebugMainManifest (Thread[#3706,included builds,5,main]) started.
+
+> Task :app:processDebugMainManifest FAILED
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor-firebase\authentication\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\clipboard\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\filesystem\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\share\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\android\capacitor\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\capacitor-cordova-android-plugins\src\main\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor-firebase\authentication\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\clipboard\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\filesystem\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\share\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\android\capacitor\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\capacitor-cordova-android-plugins\src\main\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor-firebase\authentication\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\clipboard\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\filesystem\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\share\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\android\capacitor\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\capacitor-cordova-android-plugins\src\main\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor-firebase\authentication\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\clipboard\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\filesystem\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\share\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\android\capacitor\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\capacitor-cordova-android-plugins\src\main\libs', not found
+Caching disabled for task ':app:processDebugMainManifest' because:
+  Build cache is disabled
+Task ':app:processDebugMainManifest' is not up-to-date because:
+  Task has failed previously.
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor-firebase\authentication\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\clipboard\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\filesystem\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\share\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\android\capacitor\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\capacitor-cordova-android-plugins\src\main\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor-firebase\authentication\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\clipboard\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\filesystem\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\share\android\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\android\capacitor\libs', not found
+file or directory 'C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\capacitor-cordova-android-plugins\src\main\libs', not found
+Loading library manifest C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor-firebase\authentication\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\clipboard\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\filesystem\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\share\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\android\capacitor\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\capacitor-cordova-android-plugins\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7d17618aa86eb0e282681aa2fe2a9807\transformed\core-splashscreen-1.2.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\ad7cb8328670bd332c13b228918f0aa6\transformed\appcompat-resources-1.7.1\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\6d771cbb0f7d882c7f0dc60cb5735b49\transformed\appcompat-1.7.1\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\4d4255620ed51968d8224c017f1caf94\transformed\coordinatorlayout-1.3.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\52c0d3665c3cb42881d0932cf6193a44\transformed\firebase-common-ktx-21.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\550afaa6c168beb7ef33891c47a6552a\transformed\firebase-auth-interop-20.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\0c71c3a28216227f9c4b367c854113b0\transformed\firebase-common-21.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\4f7698b5f8d0810734f3b6a02072a672\transformed\credentials-1.2.0-rc01\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\46b4180aeb4746994a44404ee0b9ebed\transformed\credentials-play-services-auth-1.2.0-rc01\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\b4961d1f78533bbdea2971d1dbc5f2a2\transformed\play-services-auth-20.7.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\a01060775ed27f3c1d54a76611393ea2\transformed\play-services-auth-api-phone-18.0.2\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\c7d557ec0caef8088c47b6ff630e4a06\transformed\recaptcha-18.4.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\9f42a110e8463edc4df2a9d73b1956b8\transformed\integrity-1.2.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\2ae6fe16f1eb9a810f2432d815310250\transformed\firebase-appcheck-interop-17.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\ce2a9ef909bf0177389c3a46893a2f3d\transformed\play-services-fido-20.1.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\ac2028c2156cb583c5d3e95fd81a5337\transformed\play-services-auth-base-18.0.4\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\3e75c12f8f9d489a650802bfc026fcf1\transformed\play-services-base-18.0.1\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\f7fd63d2e1cc49ff76990fc99598404b\transformed\core-ktx-1.13.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\b618d0986e1b5fc22438c672016980ec\transformed\drawerlayout-1.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\2e964ce8b63bc8e9c09b029bd9d2f5e4\transformed\emoji2-views-helper-1.3.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\477771911854ac40e0b71f26b928c018\transformed\emoji2-1.3.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\a1661141dae84b7180724f1d87e383a5\transformed\viewpager-1.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\ee4dca89c618207b0d803f16acc9a518\transformed\customview-1.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\75e06cff0aa3facc7a279dc894acfd00\transformed\webkit-1.11.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\74ee6b5177db5499c9c7aa2928240eef\transformed\browser-1.4.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\3530116760840408a4f46f332e3f1606\transformed\vectordrawable-animated-1.1.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\9eebb80ab35da538abbfc8d7922d5ec8\transformed\vectordrawable-1.1.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\b23ad303d6ab71b4075fd04217f02228\transformed\loader-1.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\89d480b519d59c9897dd0aed6436f1c4\transformed\core-1.13.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\082aa998754fe29c85ab97f8d6408771\transformed\lifecycle-livedata-2.6.2\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\81248ccc5129de62ccd03c9d69e0dbff\transformed\lifecycle-viewmodel-2.6.2\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\a870539f1841bf53ebecddd0abb003dc\transformed\lifecycle-process-2.6.2\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\f2cf5f0edba16a9f6c73da6e9d2fb300\transformed\lifecycle-livedata-core-2.6.2\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\fd1ee558f960b2e869048b3254947fa0\transformed\lifecycle-runtime-2.6.2\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\8e1c922c3544980ec5e261357578a267\transformed\lifecycle-viewmodel-savedstate-2.6.2\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\b94d3b86c8bb748874011d6df5c94383\transformed\savedstate-1.2.1\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\f5e3e332331cf5dcb483c5209dc06cc0\transformed\play-services-tasks-18.1.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\56ef2302ec69d98601da6f1601e2d4d6\transformed\play-services-basement-18.3.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\ea56756fe523e04d89d032ef4433cb32\transformed\fragment-1.8.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\ac7773082f91ba1ee653d4f88114134f\transformed\activity-1.9.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\366379bd53fa9d4c8396864242892546\transformed\cursoradapter-1.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7ba1363b34b8249cd63283f9bde8077d\transformed\profileinstaller-1.3.1\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\2350967a64e8cab8a88d042339a8e247\transformed\localbroadcastmanager-1.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\b094c7923703db15827b40b6bc0d08a5\transformed\firebase-components-18.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\f44483d579302f4497f956ad52990504\transformed\interpolator-1.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\a25bc2b57cd3fa6ebb85c61edcabbb29\transformed\versionedparcelable-1.1.1\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\3ecd75d9cfcfb791ec18a3885583ae91\transformed\startup-runtime-1.1.1\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\2ad9669a1d62cc00b111911a6bb47e80\transformed\tracing-1.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\da4013f117181753b4373f9c4c4fcca1\transformed\core-runtime-2.2.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\23b661b3eab7bdad3d24f1a517a50af0\transformed\annotation-experimental-1.4.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7050f414d3b75c96cbcf7ca845bdffe9\transformed\googleid-1.1.0\AndroidManifest.xml
+Loading library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\4d766f823dc8ff437c27473349fa7201\transformed\framework-10.1.1\AndroidManifest.xml
+Merging main manifest C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml
+
+Merging library manifest C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor-firebase\authentication\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml
+Merging manifest with lower [:capacitor-firebase-authentication] AndroidManifest.xml:2:1-7:12
+uses-sdk defined in both files...
+Merging uses-sdk with lower [:capacitor-firebase-authentication] AndroidManifest.xml:5:5-44
+Merging library manifest C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\clipboard\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml
+Merging manifest with lower [:capacitor-clipboard] AndroidManifest.xml:2:1-7:12
+uses-sdk defined in both files...
+Merging uses-sdk with lower [:capacitor-clipboard] AndroidManifest.xml:5:5-44
+Merging library manifest C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\filesystem\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml
+Merging manifest with lower [:capacitor-filesystem] AndroidManifest.xml:2:1-7:12
+uses-sdk defined in both files...
+Merging uses-sdk with lower [:capacitor-filesystem] AndroidManifest.xml:5:5-44
+Merging library manifest C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\share\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml
+Merging manifest with lower [:capacitor-share] AndroidManifest.xml:2:1-7:12
+uses-sdk defined in both files...
+Merging uses-sdk with lower [:capacitor-share] AndroidManifest.xml:5:5-44
+Merging library manifest C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\android\capacitor\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml
+Merging manifest with lower [:capacitor-android] AndroidManifest.xml:2:1-7:12
+uses-sdk defined in both files...
+Merging uses-sdk with lower [:capacitor-android] AndroidManifest.xml:5:5-44
+Merging library manifest C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\capacitor-cordova-android-plugins\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml
+Merging manifest with lower [:capacitor-cordova-android-plugins] AndroidManifest.xml:2:1-11:12
+uses-sdk defined in both files...
+Merging uses-sdk with lower [:capacitor-cordova-android-plugins] AndroidManifest.xml:6:5-44
+application defined in both files...
+Merging application with lower [:capacitor-cordova-android-plugins] AndroidManifest.xml:8:5-9:19
+Merging library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7d17618aa86eb0e282681aa2fe2a9807\transformed\core-splashscreen-1.2.0\AndroidManifest.xml
+Merging manifest with lower [androidx.core:core-splashscreen:1.2.0] AndroidManifest.xml:17:1-22:12
+uses-sdk defined in both files...
+Merging uses-sdk with lower [androidx.core:core-splashscreen:1.2.0] AndroidManifest.xml:20:5-44
+Merging library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\ad7cb8328670bd332c13b228918f0aa6\transformed\appcompat-resources-1.7.1\AndroidManifest.xml
+Merging manifest with lower [androidx.appcompat:appcompat-resources:1.7.1] AndroidManifest.xml:2:1-7:12
+uses-sdk defined in both files...
+Merging uses-sdk with lower [androidx.appcompat:appcompat-resources:1.7.1] AndroidManifest.xml:5:5-44
+Merging library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\6d771cbb0f7d882c7f0dc60cb5735b49\transformed\appcompat-1.7.1\AndroidManifest.xml
+Merging manifest with lower [androidx.appcompat:appcompat:1.7.1] AndroidManifest.xml:2:1-7:12
+uses-sdk defined in both files...
+Merging uses-sdk with lower [androidx.appcompat:appcompat:1.7.1] AndroidManifest.xml:5:5-44
+Merging library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\4d4255620ed51968d8224c017f1caf94\transformed\coordinatorlayout-1.3.0\AndroidManifest.xml
+Merging manifest with lower [androidx.coordinatorlayout:coordinatorlayout:1.3.0] AndroidManifest.xml:2:1-7:12
+uses-sdk defined in both files...
+Merging uses-sdk with lower [androidx.coordinatorlayout:coordinatorlayout:1.3.0] AndroidManifest.xml:5:5-44
+Merging library manifest C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml
+Merging manifest with lower [com.google.firebase:firebase-auth:23.0.0] AndroidManifest.xml:17:1-75:12
+uses-sdk defined in both files...
+Merging uses-sdk with lower [com.google.firebase:firebase-auth:23.0.0] AndroidManifest.xml:21:5-23:151
+uses-permission#android.permission.INTERNET defined in both files...
+Merging uses-permission#android.permission.INTERNET with lower [com.google.firebase:firebase-auth:23.0.0] AndroidManifest.xml:25:5-67
+Adopted [uses-permission: null]
+application defined in both files...
+Merging application with lower [com.google.firebase:firebase-auth:23.0.0] AndroidManifest.xml:28:5-73:19
+Adopted [activity: null]
+Adopted [activity: null]
+Adopted [service: null]
+Merging result: ERROR
+./gradlew : 
+C:\Users\SISTEMAS-PC\Desktop\PROJETOS 
+ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\ca
+laculadora-de-precificacao-de-satatos\andro
+id\app\src\main\AndroidManifest.xml Error:
+No linha:1 caractere:1
++ ./gradlew assembleDebug --info > 
+build_log.txt 2>&1
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~
+    + CategoryInfo          : NotSpecified 
+   : (C:\Users\SISTEM...fest.xml Error::S  
+  tring) [], RemoteException
+    + FullyQualifiedErrorId : NativeComman 
+   dError
+ 
+	uses-sdk:minSdkVersion 22 cannot be 
+smaller than version 23 declared in 
+library 
+[com.google.firebase:firebase-auth:23.0.0] 
+C:\Users\SISTEMAS-PC\.gradle\caches\8.13\tr
+ansforms\7a0b43f5c555a532bbed6c8802271ad5\t
+ransformed\firebase-auth-23.0.0\AndroidMani
+fest.xml as the library might be using 
+APIs not available in 22
+	Suggestion: use a compatible library with 
+a minSdk of at most 22,
+		or increase this project's minSdk 
+version to at least 23,
+		or use tools:overrideLibrary="com.google.
+firebase.auth" to force usage (may lead to 
+runtime failures)
+-- Merging decision tree log ---
+provider#androidx.core.content.FileProvider
+INJECTED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:27:9-35:20
+	android:grantUriPermissions
+		ADDED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:31:13-47
+	android:authorities
+		INJECTED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml
+		ADDED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:29:13-64
+	android:exported
+		ADDED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:30:13-37
+	android:name
+		ADDED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:28:13-62
+manifest
+ADDED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:2:1-41:12
+INJECTED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:2:1-41:12
+INJECTED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:2:1-41:12
+INJECTED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:2:1-41:12
+MERGED from [:capacitor-firebase-authentication] C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor-firebase\authentication\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:2:1-7:12
+MERGED from [:capacitor-clipboard] C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\clipboard\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:2:1-7:12
+MERGED from [:capacitor-filesystem] C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\filesystem\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:2:1-7:12
+MERGED from [:capacitor-share] C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\share\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:2:1-7:12
+MERGED from [:capacitor-android] C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\android\capacitor\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:2:1-7:12
+MERGED from [:capacitor-cordova-android-plugins] C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\capacitor-cordova-android-plugins\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:2:1-11:12
+MERGED from [androidx.core:core-splashscreen:1.2.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7d17618aa86eb0e282681aa2fe2a9807\transformed\core-splashscreen-1.2.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.appcompat:appcompat-resources:1.7.1] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\ad7cb8328670bd332c13b228918f0aa6\transformed\appcompat-resources-1.7.1\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.appcompat:appcompat:1.7.1] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\6d771cbb0f7d882c7f0dc60cb5735b49\transformed\appcompat-1.7.1\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.coordinatorlayout:coordinatorlayout:1.3.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\4d4255620ed51968d8224c017f1caf94\transformed\coordinatorlayout-1.3.0\AndroidManifest.xml:2:1-7:12
+MERGED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:17:1-75:12
+	package
+		INJECTED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml
+	android:versionName
+		INJECTED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml
+	android:versionCode
+		INJECTED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml
+	xmlns:android
+		ADDED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:2:11-69
+application
+ADDED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:4:5-36:19
+INJECTED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:4:5-36:19
+MERGED from [:capacitor-cordova-android-plugins] C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\capacitor-cordova-android-plugins\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:8:5-9:19
+MERGED from [:capacitor-cordova-android-plugins] C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\capacitor-cordova-android-plugins\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:8:5-9:19
+MERGED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:28:5-73:19
+MERGED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:28:5-73:19
+	android:extractNativeLibs
+		INJECTED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml
+	android:supportsRtl
+		ADDED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:9:9-35
+	android:label
+		ADDED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:7:9-41
+	android:roundIcon
+		ADDED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:8:9-54
+	android:icon
+		ADDED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:6:9-43
+	android:allowBackup
+		ADDED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:5:9-35
+	android:theme
+		ADDED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:10:9-40
+activity#com.example.calculadoraprecopro.MainActivity
+ADDED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:12:9-25:20
+	android:label
+		ADDED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:15:13-56
+	android:launchMode
+		ADDED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:17:13-44
+	android:exported
+		ADDED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:18:13-36
+	android:configChanges
+		ADDED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:13:13-129
+	android:theme
+		ADDED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:16:13-62
+	android:name
+		ADDED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:14:13-41
+intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
+ADDED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:20:13-23:29
+action#android.intent.action.MAIN
+ADDED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:21:17-69
+	android:name
+		ADDED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:21:25-66
+category#android.intent.category.LAUNCHER
+ADDED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:22:17-77
+	android:name
+		ADDED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:22:27-74
+uses-permission#android.permission.INTERNET
+ADDED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:40:5-67
+MERGED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:25:5-67
+MERGED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:25:5-67
+	android:name
+		ADDED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:40:22-64
+meta-data#android.support.FILE_PROVIDER_PATHS
+ADDED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:32:13-34:64
+	android:resource
+		ADDED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:34:17-51
+	android:name
+		ADDED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml:33:17-67
+uses-sdk
+INJECTED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml reason: use-sdk injection requested
+INJECTED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml
+INJECTED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml
+MERGED from [:capacitor-firebase-authentication] C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor-firebase\authentication\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:5:5-44
+MERGED from [:capacitor-firebase-authentication] C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor-firebase\authentication\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:5:5-44
+MERGED from [:capacitor-clipboard] C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\clipboard\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:5:5-44
+MERGED from [:capacitor-clipboard] C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\clipboard\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:5:5-44
+MERGED from [:capacitor-filesystem] C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\filesystem\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:5:5-44
+MERGED from [:capacitor-filesystem] C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\filesystem\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:5:5-44
+MERGED from [:capacitor-share] C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\share\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:5:5-44
+MERGED from [:capacitor-share] C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\share\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:5:5-44
+MERGED from [:capacitor-android] C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\android\capacitor\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:5:5-44
+MERGED from [:capacitor-android] C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\node_modules\@capacitor\android\capacitor\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:5:5-44
+MERGED from [:capacitor-cordova-android-plugins] C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\capacitor-cordova-android-plugins\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:6:5-44
+MERGED from [:capacitor-cordova-android-plugins] C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\capacitor-cordova-android-plugins\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:6:5-44
+MERGED from [androidx.core:core-splashscreen:1.2.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7d17618aa86eb0e282681aa2fe2a9807\transformed\core-splashscreen-1.2.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.core:core-splashscreen:1.2.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7d17618aa86eb0e282681aa2fe2a9807\transformed\core-splashscreen-1.2.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.appcompat:appcompat-resources:1.7.1] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\ad7cb8328670bd332c13b228918f0aa6\transformed\appcompat-resources-1.7.1\AndroidManifest.xml:5:5-44
+MERGED from [androidx.appcompat:appcompat-resources:1.7.1] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\ad7cb8328670bd332c13b228918f0aa6\transformed\appcompat-resources-1.7.1\AndroidManifest.xml:5:5-44
+MERGED from [androidx.appcompat:appcompat:1.7.1] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\6d771cbb0f7d882c7f0dc60cb5735b49\transformed\appcompat-1.7.1\AndroidManifest.xml:5:5-44
+MERGED from [androidx.appcompat:appcompat:1.7.1] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\6d771cbb0f7d882c7f0dc60cb5735b49\transformed\appcompat-1.7.1\AndroidManifest.xml:5:5-44
+MERGED from [androidx.coordinatorlayout:coordinatorlayout:1.3.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\4d4255620ed51968d8224c017f1caf94\transformed\coordinatorlayout-1.3.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.coordinatorlayout:coordinatorlayout:1.3.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\4d4255620ed51968d8224c017f1caf94\transformed\coordinatorlayout-1.3.0\AndroidManifest.xml:5:5-44
+MERGED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:21:5-23:151
+MERGED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:21:5-23:151
+	tools:overrideLibrary
+		ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:23:9-148
+	android:targetSdkVersion
+		INJECTED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml
+	android:minSdkVersion
+		INJECTED from C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android\app\src\main\AndroidManifest.xml
+uses-permission#android.permission.ACCESS_NETWORK_STATE
+ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:26:5-79
+	android:name
+		ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:26:22-76
+activity#com.google.firebase.auth.internal.GenericIdpActivity
+ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:29:9-46:20
+	android:excludeFromRecents
+		ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:31:13-46
+	android:launchMode
+		ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:33:13-44
+	android:exported
+		ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:32:13-36
+	android:theme
+		ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:34:13-72
+	android:name
+		ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:30:13-80
+intent-filter#action:name:android.intent.action.VIEW+category:name:android.intent.category.BROWSABLE+category:name:android.intent.category.DEFAULT+data:host:firebase.auth+data:path:/+data:scheme:genericidp
+ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:35:13-45:29
+action#android.intent.action.VIEW
+ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:36:17-69
+	android:name
+		ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:36:25-66
+category#android.intent.category.DEFAULT
+ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:38:17-76
+	android:name
+		ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:38:27-73
+category#android.intent.category.BROWSABLE
+ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:39:17-78
+	android:name
+		ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:39:27-75
+data
+ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:41:17-44:51
+	android:path
+		ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:43:21-37
+	android:host
+		ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:42:21-49
+	android:scheme
+		ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:44:21-48
+activity#com.google.firebase.auth.internal.RecaptchaActivity
+ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:47:9-64:20
+	android:excludeFromRecents
+		ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:49:13-46
+	android:launchMode
+		ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:51:13-44
+	android:exported
+		ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:50:13-36
+
+	android:theme
+FAILURE: Build failed with an exception.
+		ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:52:13-72
+	android:name
+		ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:48:13-79
+intent-filter#action:name:android.intent.action.VIEW+category:name:android.intent.category.BROWSABLE+category:name:android.intent.category.DEFAULT+data:host:firebase.auth+data:path:/+data:scheme:recaptcha
+ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:53:13-63:29
+service#com.google.firebase.components.ComponentDiscoveryService
+ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:66:9-72:19
+	android:exported
+		ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:68:13-37
+	android:name
+		ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:67:13-84
+meta-data#com.google.firebase.components:com.google.firebase.auth.FirebaseAuthRegistrar
+ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:69:13-71:85
+	android:value
+		ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:71:17-82
+	android:name
+		ADDED from [com.google.firebase:firebase-auth:23.0.0] C:\Users\SISTEMAS-PC\.gradle\caches\8.13\transforms\7a0b43f5c555a532bbed6c8802271ad5\transformed\firebase-auth-23.0.0\AndroidManifest.xml:70:17-109
+
+
+See https://developer.android.com/r/studio-ui/build/manifest-merger for more information about the manifest merger.
+
+
+[Incubating] Problems report is available at: file:///C:/Users/SISTEMAS-PC/Desktop/PROJETOS%20ANTIGRAVIT/CALCULADORA%20CUSTOS%20DE%20PRODUTO/calaculadora-de-precificacao-de-satatos/android/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.13/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+56 actionable tasks: 1 executed, 55 up-to-date
+Watched directory hierarchies: [C:\Users\SISTEMAS-PC\Desktop\PROJETOS ANTIGRAVIT\CALCULADORA CUSTOS DE PRODUTO\calaculadora-de-precificacao-de-satatos\android]
+
+* What went wrong:
+Execution failed for task 
+':app:processDebugMainManifest'.
+> Manifest merger failed : 
+uses-sdk:minSdkVersion 22 cannot be 
+smaller than version 23 declared in 
+library 
+[com.google.firebase:firebase-auth:23.0.0] 
+C:\Users\SISTEMAS-PC\.gradle\caches\8.13\tr
+ansforms\7a0b43f5c555a532bbed6c8802271ad5\t
+ransformed\firebase-auth-23.0.0\AndroidMani
+fest.xml as the library might be using 
+APIs not available in 22
+  	Suggestion: use a compatible library 
+with a minSdk of at most 22,
+  		or increase this project's minSdk 
+version to at least 23,
+  		or use tools:overrideLibrary="com.googl
+e.firebase.auth" to force usage (may lead 
+to runtime failures)
+
+* Try:
+> Run with --stacktrace option to get the 
+stack trace.
+> Run with --debug option to get more log 
+output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 1s
+
