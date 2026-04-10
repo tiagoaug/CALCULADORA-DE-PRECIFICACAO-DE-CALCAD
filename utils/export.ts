@@ -66,9 +66,16 @@ export const exportToXLS = async (
     ['Fretes de Venda', summary.valorFreteUnitario],
     ...freteDetailRows,
     [''],
-    ['Composição de Insumos'],
+    [''],
+    ['Composição de Materiais'],
     ['Nome', 'Quantidade', 'Unidade', 'Valor Unit.', 'Subtotal'],
-    ...(insumos || []).map(i => [i.nome, i.quantidade, i.unidade, i.valorUnitario, i.quantidade * i.valorUnitario])
+    ...(insumos || []).map(i => [i.nome, i.quantidade, i.unidade, i.valorUnitario, (i.quantidade || 0) * (i.valorUnitario || 0)]),
+    ['Total Materiais', '', '', '', formatCurrency(summary.custoMaterial)],
+    [''],
+    ['Composição de Terceirizados/Serviços'],
+    ['Nome', 'Quantidade', 'Unidade', 'Valor Unit.', 'Subtotal'],
+    ...(terceirizados || []).map(i => [i.nome, i.quantidade, i.unidade, i.valorUnitario, (i.quantidade || 0) * (i.valorUnitario || 0)]),
+    ['Total Serviços', '', '', '', formatCurrency(summary.custoTerceirizados)]
   ];
 
   const wb = XLSX.utils.book_new();
@@ -306,7 +313,15 @@ export const generatePDFBlob = (
 
       currentY += 8;
     });
-    currentY += 10;
+
+    // Subtotal Row
+    const total = data.reduce((acc, i) => acc + (i.quantidade || 0) * (i.valorUnitario || 0), 0);
+    doc.setFillColor(primary[0], primary[1], primary[2], 0.05); // Very light blue
+    doc.rect(15, currentY, pageWidth - 30, 8, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.text('SUBTOTAL', 18, currentY + 5.5);
+    doc.text(formatCurrency(total), pageWidth - 18, currentY + 5.5, { align: 'right' });
+    currentY += 8;
   };
 
   if (type !== 'ready') {

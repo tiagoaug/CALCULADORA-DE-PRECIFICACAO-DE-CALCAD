@@ -1,5 +1,56 @@
 
-import { Insumo, CustoFixo, ProductionSettings, MarkupSettings, PriceSummary, Sola } from '../types';
+import { Insumo, CustoFixo, ProductionSettings, MarkupSettings, PriceSummary, Sola, UnidadeMedida } from '../types';
+
+/**
+ * Procura o fator de conversão para uma unidade de medida.
+ * Ex: 'Milheiro' -> 1000, 'Unidade' -> 1
+ */
+export const findUnitFactor = (nome: string, unidadesMedida: UnidadeMedida[] = [], materialFator?: number) => {
+  // 1. Se o material já tem um fator definido, usa ele (Prioridade Máxima)
+  if (materialFator !== undefined && materialFator > 0) return materialFator;
+
+  if (!nome) return 1;
+  const n = nome.trim().toLowerCase();
+  
+  // 2. Procurar na lista de unidades (Prioridade Média)
+  const unit = unidadesMedida.find(u => 
+    u.nome && u.nome.trim().toLowerCase() === n
+  );
+  if (unit && unit.fator) return unit.fator;
+
+  // 3. Fallbacks para unidades comuns (Prioridade Baixa)
+  switch (n) {
+    case 'kg':
+    case 'kilo':
+    case 'quilo':
+    case 'quilograma':
+    case 'kilograma':
+    case 'kgs':
+      return 1000;
+    case 'g':
+    case 'gr':
+    case 'grama':
+    case 'gramas':
+      return 1;
+    case 'mil':
+    case 'milheiro':
+      return 1000;
+    case 'par':
+    case 'pares':
+    case 'un':
+    case 'unidade':
+    case 'unidades':
+    case 'm':
+    case 'metro':
+    case 'metros':
+    case 'm²':
+    case 'm2':
+    case 'ml':
+      return 1;
+    default:
+      return 1;
+  }
+};
 
 export const calculateSummary = (
   insumos: Insumo[] = [],
@@ -10,7 +61,8 @@ export const calculateSummary = (
   terceirizados: Insumo[] = [],
   precoManual: number = 0,
   type: 'detailed' | 'ready' = 'detailed',
-  purchasePrice: number = 0
+  purchasePrice: number = 0,
+  unidadesMedida: UnidadeMedida[] = []
 ): PriceSummary => {
   // Garantia de valores numéricos
   const dias = production?.diasTrabalhados || 0;
@@ -20,10 +72,18 @@ export const calculateSummary = (
   // 1. Custo de Materiais (Unitário)
   const custoMaterial = type === 'ready' 
     ? (purchasePrice || 0)
-    : (insumos || []).reduce((acc, curr) => acc + ((curr.quantidade || 0) * (curr.valorUnitario || 0)), 0);
+    : (insumos || []).reduce((acc, curr) => {
+        const factor = findUnitFactor(curr.unidade, unidadesMedida, curr.fator);
+        const valorReal = (curr.valorUnitario || 0) / (factor || 1);
+        return acc + ((curr.quantidade || 0) * valorReal);
+      }, 0);
 
   // 2. Custo de Terceirizados (Unitário)
-  const custoTerceirizados = (terceirizados || []).reduce((acc, curr) => acc + ((curr.quantidade || 0) * (curr.valorUnitario || 0)), 0);
+  const custoTerceirizados = (terceirizados || []).reduce((acc, curr) => {
+    const factor = findUnitFactor(curr.unidade, unidadesMedida, curr.fator);
+    const valorReal = (curr.valorUnitario || 0) / (factor || 1);
+    return acc + ((curr.quantidade || 0) * valorReal);
+  }, 0);
 
   // 3. Custos Operacionais Totais
   const custoFixoTotal = (custosFixos || []).reduce((acc, curr) => acc + (curr.valor || 0), 0);
@@ -42,21 +102,18 @@ export const calculateSummary = (
   const custoProducaoUnitario = custoBase + valorPerdaUnitario;
 
   // 7. Preço Sugerido (Baseado na MARGEM ALVO e TAXAS DE VENDA)
-  // Usando Markup por Dentro: Preco = (Custo + FreteFixo) / (1 - %Imposto - %Comissao - %Margem)
   const percImposto = (markup?.impostos || 0) / 100;
   const percComissao = (markup?.comissao || 0) / 100;
   const percMargemAlvo = (markup?.margemLucro || 0) / 100;
   const freteFixo = (markup?.freteFixo || 0);
 
-  const divisorMarkup = 1 - percImposto - percComissao - percMargemAlvo;
-  // Fallback para evitar divisão por zero se a soma de taxas for >= 100%
-  const precoSugerido = (divisorMarkup > 0.01) ? (custoProducaoUnitario + freteFixo) / divisorMarkup : (custoProducaoUnitario + freteFixo) * 2;
+  const divisorMarkup = Math.max(0.1, 1 - percImposto - percComissao - percMargemAlvo);
+  const precoSugerido = (custoProducaoUnitario + freteFixo) / divisorMarkup;
 
   // 8. Preço Praticado (O que o usuário inseriu ou o sugerido se vazio)
   const precoPraticado = precoManual > 0 ? precoManual : precoSugerido;
 
   // 9. Cálculo das Taxas Reais e Margem Real
-  // As taxas reais são calculadas sobre o preço praticado (venda final)
   const valorImpostoUnitario = precoPraticado * percImposto;
   const valorComissaoUnitaria = precoPraticado * percComissao;
   const valorFreteUnitario = freteFixo;
@@ -93,16 +150,38 @@ export const formatCurrency = (value: number) => {
   }).format(value).replace(/\s/g, ' ');
 };
 
-export const calculateSolaAverageCost = (sola: Sola, libraryInsumos: Insumo[]) => {
-  // 1. Custo de materiais (peso em g * preço/kg / 1000)
-  const materialCost = (sola.materiais || []).reduce((acc, mat) => {
-    const libraryMat = libraryInsumos.find(m => m.id === mat.materialId);
-    const price = mat.precoAlternativo !== undefined ? mat.precoAlternativo : (libraryMat?.valorUnitario || 0);
-    return acc + ((price / 1000) * (mat.pesoGrams || 0));
-  }, 0);
+export const calculateSolaMaterialsTotal = (sola: Sola, libraryInsumos: Insumo[], unidadesMedida: UnidadeMedida[] = []) => {
+  return (sola.materiais || []).reduce((acc, mat) => {
+    const libraryMat = libraryInsumos.find(m => m.id === (mat as any).materialId || m.id === mat.id);
+    if (!libraryMat) return acc;
 
-  // 2. Custo de mão de obra
-  const laborCost = (sola.maoDeObra || []).reduce((sum, item) => sum + (item.valor || 0), 0);
+    // Lógica específica para solados: converte Kg para Gramas apenas aqui
+    let factor = findUnitFactor(libraryMat.unidade || '', unidadesMedida, libraryMat.fator);
+    const unitName = (libraryMat.unidade || '').toLowerCase();
+    
+    // Se a unidade for Kg e o fator ainda for 1 (padrão), assume que o usuário quer converter para Gramas (1000)
+    // Mas se o usuário definiu um fator explicitamente (via material.fator), findUnitFactor já retornou ele.
+    
+    const price = Number(mat.precoAlternativo !== undefined ? mat.precoAlternativo : (libraryMat.valorUnitario || 0));
+    const peso = Number(mat.pesoGrams || 0);
+    
+    return acc + ((price / factor) * peso);
+  }, 0);
+};
+
+export const calculateSolaLaborTotal = (sola: Sola) => {
+  return (sola.maoDeObra || []).reduce((sum, item) => sum + Number(item.valor || 0), 0);
+};
+
+export const calculateSolaAverageCost = (sola: Sola, libraryInsumos: Insumo[], unidadesMedida: UnidadeMedida[] = []) => {
+  // Se o solado tiver um valor fixo (solado pronto), retorna este valor
+  const fixo = Number(sola.valor || 0);
+  if (fixo > 0) {
+    return fixo;
+  }
+
+  const materialCost = Number(calculateSolaMaterialsTotal(sola, libraryInsumos, unidadesMedida) || 0);
+  const laborCost = Number(calculateSolaLaborTotal(sola) || 0);
 
   return materialCost + laborCost;
 };

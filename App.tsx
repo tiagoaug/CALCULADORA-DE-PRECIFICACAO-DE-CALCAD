@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   Plus,
@@ -37,10 +36,11 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   AlertCircle,
-  ArrowRight
+  ArrowRight,
+  LogOut
 } from 'lucide-react';
-import { ProductData, AppDatabase, LibraryData, MaterialPriceRecord, Sola, Supplier } from './types';
-import { calculateSummary, formatCurrency, calculateSolaAverageCost } from './utils/calculations';
+import { ProductData, AppDatabase, LibraryData, Insumo, MaterialPriceRecord, Sola, Supplier, UnidadeMedida } from './types';
+import { calculateSummary, formatCurrency, calculateSolaAverageCost, findUnitFactor } from './utils/calculations';
 import { downloadPDF, sharePDF, shareFile, copyBackupToClipboard, shareTextReport, exportToXLS } from './utils/export';
 import LibraryView from './LibraryView';
 import AutocompleteInput from './AutocompleteInput';
@@ -48,59 +48,28 @@ import { auth } from './firebase';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { firebaseService } from './firebaseService';
 import AuthScreen from './AuthScreen';
+import { Capacitor } from '@capacitor/core';
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 
 
 const DB_KEY = 'preco_pro_db_v1';
+const getScopedDbKey = (uid: string | null) => uid ? `${DB_KEY}_${uid}` : DB_KEY;
 
-const DEFAULT_UNITS = ['Kg', 'Un', 'Par', 'M', 'M²', 'ML', 'Rolo', 'Lata'];
+const DEFAULT_UNITS: UnidadeMedida[] = [
+  { id: 'u1', nome: 'Quilograma', fator: 1000 },
+  { id: 'u2', nome: 'Unidade', fator: 1 },
+  { id: 'u3', nome: 'Par', fator: 1 },
+  { id: 'u4', nome: 'Metro', fator: 1 },
+  { id: 'u5', nome: 'Metro Quadrado', fator: 1 },
+  { id: 'u6', nome: 'Metro Linear', fator: 1 },
+  { id: 'u7', nome: 'Rolo', fator: 1 },
+  { id: 'u8', nome: 'Lata', fator: 1 },
+  { id: 'u9', nome: 'Milheiro', fator: 1000 },
+];
 
 // Dados do Backup fornecidos pelo usuário
-const BACKUP_PRODUCT_320_BOSS: ProductData = {
-  "id": "default",
-  "name": "(100 modelo base)",
-  "lastModified": 1770324245468,
-  "insumos": [
-    { "id": "1", "nome": "Palmilha intertela", "quantidade": 0.0577, "unidade": "Ml", "valorUnitario": 5.5 },
-    { "id": "0.x8nbfhrivlo", "nome": "Palmilha acabamento ", "quantidade": 0.049, "unidade": "Ml", "valorUnitario": 9.8 },
-    { "id": "0.t2z37kzqixs", "nome": "Nilon latera", "quantidade": 0.125, "unidade": "Ml", "valorUnitario": 18 },
-    { "id": "0.udl0razbae9", "nome": "Borracha tubox", "quantidade": 0.01, "unidade": "Ml", "valorUnitario": 4.56 },
-    { "id": "0.hm4muwfggkq", "nome": "Forro traseiro ", "quantidade": 0.03, "unidade": "Ml", "valorUnitario": 9.8 },
-    { "id": "0.3l7anefqeex", "nome": "Vies elástico ", "quantidade": 0.95, "unidade": "Ml", "valorUnitario": 0.8 },
-    { "id": "0.cs3cs3x38bd", "nome": "Sola", "quantidade": 1, "unidade": "Par", "valorUnitario": 9.8 },
-    { "id": "0.nzfnkn9vf0a", "nome": "Palmilha de sola", "quantidade": 0.0411, "unidade": "Ml", "valorUnitario": 4.56 },
-    { "id": "0.5ifd01cdzvx", "nome": "Linha", "quantidade": 1, "unidade": "un", "valorUnitario": 0.25 },
-    { "id": "0.8vi80invgy4", "nome": "Cola", "quantidade": 1, "unidade": "un", "valorUnitario": 1.2 },
-    { "id": "0.ycwmukd2cnh", "nome": "Caixa unitário ", "quantidade": 1, "unidade": "un", "valorUnitario": 1.7 },
-    { "id": "0.l5f27su3sq", "nome": "Caixa coletiva", "quantidade": 0.08333333333333333, "unidade": "un", "valorUnitario": 4.3 },
-    { "id": "0.fbf980d0dr", "nome": "Etiquetas zebra", "quantidade": 1, "unidade": "un", "valorUnitario": 0.2 },
-    { "id": "0.0glbudhpq0b6", "nome": "Saquinho gominha esqueiro ", "quantidade": 1, "unidade": "un", "valorUnitario": 0.2 },
-    { "id": "0.q79frrgz19", "nome": "Gorgorão ", "quantidade": 1, "unidade": "un", "valorUnitario": 0.18 }
-  ],
-  "terceirizados": [
-    { "id": "0.cd82xiz9t5s", "nome": "Pesponto", "quantidade": 1, "unidade": "par", "valorUnitario": 4.2 },
-    { "id": "0.1c2jzc7do66", "nome": "Montagem ", "quantidade": 1, "unidade": "par", "valorUnitario": 2.5 },
-    { "id": "0.npwyquo06js", "nome": "Corte", "quantidade": 1, "unidade": "par", "valorUnitario": 1 },
-    { "id": "0.79hod3c5j1d", "nome": "Bordados", "quantidade": 1, "unidade": "par", "valorUnitario": 1.4 },
-    { "id": "0.4cdwp3ua8ai", "nome": "Overloque ", "quantidade": 1, "unidade": "par", "valorUnitario": 0.35 },
-    { "id": "0.t1y29esrqs", "nome": "Blaque", "quantidade": 1, "unidade": "par", "valorUnitario": 0.8 }
-  ],
-  "custosFixos": [
-    { "id": "f1", "nome": "Salários ", "valor": 3000 },
-    { "id": "0.3lfeh6l60fa", "nome": "Água ", "valor": 120 },
-    { "id": "0.6d07bishee7", "nome": "Luz", "valor": 120 },
-    { "id": "0.kxq3mwalja", "nome": "Celular ", "valor": 200 },
-    { "id": "0.h13wayinj3t", "nome": "Programas ", "valor": 120 },
-    { "id": "0.wbd8bsy3wki", "nome": "Manutenção de contas em banco ", "valor": 300 },
-    { "id": "0.dn2ctiy50gw", "nome": "Internet ", "valor": 130 }
-  ],
-  "custosIndiretos": [
-    { "id": "i1", "nome": "Manutenção", "valor": 250 },
-    { "id": "0.li8817qo54", "nome": "Gasolina ", "valor": 1200 }
-  ],
-  "production": { "diasTrabalhados": 22, "producaoDiaria": 240 },
-  "markup": { "impostos": 0, "comissao": 0, "frete": 0, "freteFixo": 0, "perdas": 0.5, "margemLucro": 25, "selectedImpostos": [], "selectedComissoes": [], "selectedFretes": [] },
-  "precoVendaManual": 36
-};
+// O backup foi removido para deixar o programa limpo.
+
 
 const DEFAULT_PRODUCT = (id: string = 'new'): ProductData => ({
   id,
@@ -108,7 +77,7 @@ const DEFAULT_PRODUCT = (id: string = 'new'): ProductData => ({
   lastModified: Date.now(),
   type: 'detailed',
   purchasePrice: 0,
-  insumos: [{ id: '1', nome: 'Material Exemplo', quantidade: 1, unidade: 'un', valorUnitario: 0 }],
+  insumos: [],
   terceirizados: [],
   custosFixos: [{ id: 'f1', nome: 'Aluguel/Luz', valor: 0 }],
   custosIndiretos: [{ id: 'i1', nome: 'Manutenção', valor: 0 }],
@@ -388,15 +357,33 @@ const ConsumptionCalculator: React.FC<{
 };
 
 const INITIAL_LIBRARY: LibraryData = {
-  insumos: BACKUP_PRODUCT_320_BOSS.insumos.map(i => ({ ...i, id: Math.random().toString(36), valorUnitario: 0 })),
-  terceirizados: BACKUP_PRODUCT_320_BOSS.terceirizados.map(i => ({ ...i, id: Math.random().toString(36), valorUnitario: 0 })),
-  custosFixos: BACKUP_PRODUCT_320_BOSS.custosFixos.map(i => ({ ...i, id: Math.random().toString(36), valor: 0 })),
-  custosIndiretos: BACKUP_PRODUCT_320_BOSS.custosIndiretos.map(i => ({ ...i, id: Math.random().toString(36), valor: 0 })),
+  insumos: [],
+  pecas: [],
+  terceirizados: [],
+  custosFixos: [],
+  custosIndiretos: [],
   impostos: [],
   comissoes: [],
   fretes: [],
-  solados: []
+  solados: [],
+  unidadesMedida: DEFAULT_UNITS
 };
+
+const getInitialDbState = (uid?: string): AppDatabase => ({
+  uid,
+  products: [DEFAULT_PRODUCT()],
+  lastSelectedProductId: 'new',
+  library: INITIAL_LIBRARY,
+  materialPrices: [],
+  suppliers: [],
+  settings: {
+    productionDays: 22,
+    dailyProduction: 0,
+    currency: 'BRL',
+    theme: 'light',
+    unidadesMedida: DEFAULT_UNITS
+  }
+});
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -407,7 +394,7 @@ const App: React.FC = () => {
   // Monitor Auth State
   useEffect(() => {
     console.log("App: Initializing Firebase Authentication listener...");
-    
+
     // Timeout fallback to prevent forever-loading
     const timer = setTimeout(() => {
       if (isLoadingAuth) {
@@ -426,10 +413,74 @@ const App: React.FC = () => {
       clearTimeout(timer);
       setIsLoadingAuth(false);
     });
-    
+
     return () => {
       unsubscribe();
       clearTimeout(timer);
+    };
+  }, []);
+
+  const migrateDb = useCallback((data: any): AppDatabase => {
+    // Basic migration to ensure all required fields exist
+    // Removed legacy cleanup logic that was causing systematic data loss
+    const incomingLibrary = data.library || {};
+
+    const migratedLibrary: LibraryData = {
+      ...INITIAL_LIBRARY,
+      ...incomingLibrary,
+      // Ensure arrays exist for each category
+      insumos: incomingLibrary.insumos || [],
+      pecas: incomingLibrary.pecas || [],
+      terceirizados: incomingLibrary.terceirizados || [],
+      custosFixos: incomingLibrary.custosFixos || [],
+      custosIndiretos: incomingLibrary.custosIndiretos || [],
+      impostos: incomingLibrary.impostos || [],
+      comissoes: incomingLibrary.comissoes || [],
+      fretes: incomingLibrary.fretes || [],
+      solados: incomingLibrary.solados || [],
+      unidadesMedida: (incomingLibrary.unidadesMedida && incomingLibrary.unidadesMedida.length > 0 
+        ? incomingLibrary.unidadesMedida 
+        : DEFAULT_UNITS).map((u: any) => ({
+        ...u,
+        compraEm: u.compraEm || (u.nome.toLowerCase() === 'milheiro' ? 'Un' : u.nome),
+        quantidadeCompra: u.quantidadeCompra || (u.nome.toLowerCase() === 'milheiro' ? 1000 : u.fator || 1),
+        rendimento: u.rendimento || u.fator || 1,
+        fator: u.fator || 1
+      }))
+    };
+
+    const migratedProducts = (data.products || []).map((p: ProductData) => ({
+      ...p,
+      type: p.type || 'detailed',
+      purchasePrice: p.purchasePrice || 0,
+      insumos: (p.insumos || []).map(i => ({ ...i, peca: i.peca || '' })),
+      markup: {
+        ...p.markup,
+        impostos: p.markup?.impostos || 0,
+        comissao: p.markup?.comissao || 0,
+        frete: p.markup?.frete || 0,
+        selectedImpostos: p.markup?.selectedImpostos || [],
+        selectedComissoes: p.markup?.selectedComissoes || [],
+        selectedFretes: p.markup?.selectedFretes || [],
+      }
+    }));
+
+    return {
+      ...data,
+      products: migratedProducts,
+      library: migratedLibrary,
+      materialPrices: data.materialPrices || [],
+      suppliers: data.suppliers || [],
+      settings: data.settings ? {
+        ...data.settings,
+        unidadesMedida: data.settings.unidadesMedida || DEFAULT_UNITS
+      } : {
+        productionDays: 22,
+        dailyProduction: 0,
+        currency: 'BRL',
+        theme: 'light',
+        unidadesMedida: DEFAULT_UNITS
+      }
     };
   }, []);
 
@@ -438,15 +489,27 @@ const App: React.FC = () => {
     if (user && isInitialLoad) {
       const loadCloudData = async () => {
         try {
+          console.log(`App: Loading cloud data for user ${user.uid}...`);
           const cloudData = await firebaseService.loadFullDatabase(user.uid);
+          
           if (cloudData) {
-            setDb(cloudData);
+            setDb(migrateDb(cloudData));
           } else {
-            // If cloud is empty but we have local data, migrate
-            const localData = localStorage.getItem(DB_KEY);
+            // If cloud is empty, check for LOCAL data FOR THIS SPECIFIC USER
+            // We NO LONGER migrate the generic DB_KEY to new users to prevent data leaks.
+            const scopedKey = getScopedDbKey(user.uid);
+            const localData = localStorage.getItem(scopedKey);
+            
             if (localData) {
               const parsed = JSON.parse(localData);
-              await firebaseService.syncLocalToFirebase(user.uid, parsed);
+              const migrated = migrateDb(parsed);
+              // Force the UID onto the migrated state
+              migrated.uid = user.uid;
+              await firebaseService.syncLocalToFirebase(user.uid, migrated);
+              setDb(migrated);
+            } else {
+              // Truly new account with no local data
+              setDb(getInitialDbState(user.uid));
             }
           }
           setIsInitialLoad(false);
@@ -457,77 +520,52 @@ const App: React.FC = () => {
       };
       loadCloudData();
     }
-  }, [user, isInitialLoad]);
+  }, [user, isInitialLoad, migrateDb]);
 
-  const [db, setDb] = useState<AppDatabase>(() => {
-    const saved = localStorage.getItem(DB_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (parsed?.products?.length > 0) {
-          // Robust initialization for old data
-          const migratedLibrary = {
-            ...INITIAL_LIBRARY,
-            ...(parsed.library || {}),
-            impostos: parsed.library?.impostos || [],
-            comissoes: parsed.library?.comissoes || [],
-            fretes: parsed.library?.fretes || [],
-            solados: parsed.library?.solados || [],
-            // Mapear campos antigos para novos se necessário
-            terceirizados: parsed.library?.terceirizados || parsed.library?.terceirizados || [],
-            custosIndiretos: parsed.library?.custosIndiretos || parsed.library?.custosIndiretos || [],
-          };
+  const [db, setDb] = useState<AppDatabase>(getInitialDbState());
 
-          const migratedProducts = parsed.products.map((p: ProductData) => ({
-            ...p,
-            type: p.type || 'detailed',
-            purchasePrice: p.purchasePrice || 0,
-            markup: {
-              ...p.markup,
-              impostos: p.markup?.impostos || 0,
-              comissao: p.markup?.comissao || 0,
-              frete: p.markup?.frete || 0,
-              selectedImpostos: p.markup?.selectedImpostos || [],
-              selectedComissoes: p.markup?.selectedComissoes || [],
-              selectedFretes: p.markup?.selectedFretes || [],
-            }
-          }));
+  // Handle data persistence with scoped keys
+  const persistData = useCallback(async () => {
+    // SECURITY: CRITICAL CHECK
+    // 1. Don't persist if no user
+    // 2. Don't persist if we are still doing the initial cloud load (prevent wiping data)
+    if (!user || isInitialLoad) return; 
 
-          return {
-            ...parsed,
-            products: migratedProducts,
-            library: migratedLibrary,
-            materialPrices: parsed.materialPrices || [],
-            suppliers: parsed.suppliers || [],
-            settings: parsed.settings ? {
-              ...parsed.settings,
-              unidadesMedida: parsed.settings.unidadesMedida || DEFAULT_UNITS
-            } : {
-              productionDays: 22,
-              dailyProduction: 0,
-              currency: 'BRL',
-              theme: 'light',
-              unidadesMedida: DEFAULT_UNITS
-            }
-          };
-        }
-      } catch (e) { console.error(e); }
+    // 3. PIN CHECK: Don't persist if the DB state doesn't belong to this user
+    // CRITICAL: Must have a UID and it MUST match the user.uid
+    if (!db.uid || db.uid !== user.uid) {
+      console.warn(`App: Sync blocked - UID mismatch or unassigned state. (DB:${db.uid} vs User:${user.uid})`);
+      return;
     }
-    return {
-      products: [BACKUP_PRODUCT_320_BOSS],
-      lastSelectedProductId: BACKUP_PRODUCT_320_BOSS.id,
-      library: INITIAL_LIBRARY,
-      materialPrices: [],
-      suppliers: [],
-      settings: {
-        productionDays: 22,
-        dailyProduction: 0,
-        currency: 'BRL',
-        theme: 'light',
-        unidadesMedida: DEFAULT_UNITS
-      }
-    };
-  });
+
+    setSaveStatus('saving');
+    setSyncStatus('syncing');
+
+    try {
+      const scopedKey = getScopedDbKey(user.uid);
+      
+      // Local backup (Immediate)
+      localStorage.setItem(scopedKey, JSON.stringify(db));
+      
+      // Sync to Cloud (Always pinned to user.uid)
+      await firebaseService.syncLocalToFirebase(user.uid, db);
+      setSyncStatus('synced');
+    } catch (error: any) {
+      console.error("App: Sync error:", error);
+      setSyncStatus('error');
+    } finally {
+      setTimeout(() => {
+        setSaveStatus('saved');
+        setTimeout(() => setSaveStatus('idle'), 1500);
+      }, 200);
+    }
+  }, [db, user, isInitialLoad]);
+
+  // Trigger persistence when DB changes
+  useEffect(() => {
+    const debounceTimer = setTimeout(persistData, 2000); 
+    return () => clearTimeout(debounceTimer);
+  }, [db, persistData]);
 
   const [activeLibraryTarget, setActiveLibraryTarget] = useState<{ id: string, type: string } | null>(null);
   const [copiedSection, setCopiedSection] = useState<{ type: string, data: any[] } | null>(null);
@@ -545,42 +583,31 @@ const App: React.FC = () => {
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
+  const [selectedInsumoIds, setSelectedInsumoIds] = useState<string[]>([]);
+  const [selectedTerceirizadoIds, setSelectedTerceirizadoIds] = useState<string[]>([]);
+  const [selectedCustoFixoIds, setSelectedCustoFixoIds] = useState<string[]>([]);
+  const [selectedCustoIndiretoIds, setSelectedCustoIndiretoIds] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Limpar seleção ao trocar de projeto
+  useEffect(() => {
+    setSelectedInsumoIds([]);
+    setSelectedTerceirizadoIds([]);
+    setSelectedCustoFixoIds([]);
+    setSelectedCustoIndiretoIds([]);
+  }, [db.lastSelectedProductId]);
 
   const currentProduct = useMemo(() => {
     const found = db.products.find(p => p.id === db.lastSelectedProductId);
-    return found || db.products[0] || BACKUP_PRODUCT_320_BOSS;
+    return found || db.products[0] || DEFAULT_PRODUCT();
   }, [db]);
 
-  const persistData = useCallback(async () => {
-    setSaveStatus('saving');
-    setSyncStatus('syncing');
-    
-    // Local backup
-    localStorage.setItem(DB_KEY, JSON.stringify(db));
-    localStorage.setItem(DB_KEY + '_lastId', db.lastSelectedProductId);
+  const combinedMaterialsSuggestions = useMemo(() => {
+    const insumos = (db.library.insumos || []).map(i => ({ ...i, _type: 'insumos' }));
+    const solados = (db.library.solados || []).map(s => ({ ...s, _type: 'solados' }));
+    return [...insumos, ...solados];
+  }, [db.library.insumos, db.library.solados]);
 
-    // Sync to Cloud if authenticated
-    if (user) {
-      try {
-        await firebaseService.syncLocalToFirebase(user.uid, db);
-        setSyncStatus('synced');
-      } catch (error) {
-        console.error("Cloud sync fail:", error);
-        setSyncStatus('error');
-      }
-    }
-
-    setTimeout(() => {
-      setSaveStatus('saved');
-      setTimeout(() => setSaveStatus('idle'), 1500);
-    }, 200);
-  }, [db, user]);
-
-  useEffect(() => {
-    const debounceTimer = setTimeout(persistData, 2000); // 2s debounce for cloud sync
-    return () => clearTimeout(debounceTimer);
-  }, [db, persistData]);
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -593,7 +620,7 @@ const App: React.FC = () => {
       products: prev.products.map(p => {
         if (p.id === prev.lastSelectedProductId) {
           const updated = { ...p, ...updates, lastModified: Date.now() };
-          
+
           // Especial handling for nested objects to avoid overwriting them entirely if not intended
           // but here updates is Partial<ProductData>, so if updates.markup exists, it replaces p.markup.
           // To be safe against uninitialized state in older data:
@@ -626,11 +653,20 @@ const App: React.FC = () => {
   }, [db.lastSelectedProductId]);
 
   const handleAddItemToLibrary = useCallback((type: keyof LibraryData, item: any) => {
+    // Auto-calculate fator for unidades de medida: rendimento / quantidadeCompra
+    const processedItem = type === 'unidadesMedida'
+      ? {
+          ...item,
+          fator: item.rendimento && item.quantidadeCompra
+            ? Number(item.rendimento) / Number(item.quantidadeCompra)
+            : item.rendimento || item.fator || 1
+        }
+      : item;
     setDb(prev => ({
       ...prev,
       library: {
         ...prev.library,
-        [type]: [...prev.library[type], { ...item, id: Math.random().toString(36) }]
+        [type]: [...prev.library[type], { ...processedItem, id: Math.random().toString(36) }]
       }
     }));
   }, []);
@@ -646,11 +682,20 @@ const App: React.FC = () => {
   }, []);
 
   const handleUpdateItemInLibrary = useCallback((type: keyof LibraryData, id: string, updatedItem: any) => {
+    // Auto-calculate fator for unidades de medida: rendimento / quantidadeCompra
+    const processedItem = type === 'unidadesMedida'
+      ? {
+          ...updatedItem,
+          fator: updatedItem.rendimento && updatedItem.quantidadeCompra
+            ? Number(updatedItem.rendimento) / Number(updatedItem.quantidadeCompra)
+            : updatedItem.rendimento || updatedItem.fator || 1
+        }
+      : updatedItem;
     setDb(prev => ({
       ...prev,
       library: {
         ...prev.library,
-        [type]: prev.library[type].map(item => item.id === id ? { ...updatedItem, id } : item)
+        [type]: prev.library[type].map(item => item.id === id ? { ...processedItem, id } : item)
       }
     }));
   }, []);
@@ -662,13 +707,16 @@ const App: React.FC = () => {
       return;
     }
 
-    const newItem = {
+    const newItem: any = {
       id: Math.random().toString(36),
       nome: name,
-      unidade: type === 'insumos' ? 'un' : 'par',
+      unidade: (type === 'insumos' || type === 'pecas') ? 'un' : 'par',
       valorUnitario: 0,
       valor: 0
     };
+
+    if (type === 'pecas') newItem.peca = name;
+    if (type === 'insumos') newItem.material = name;
 
     setDb(prev => ({
       ...prev,
@@ -678,6 +726,8 @@ const App: React.FC = () => {
       }
     }));
     alert(`"${name}" salvo com sucesso no banco de dados!`);
+    // Optional: auto-open library? User approved plan but I'll stick to alert first as primary feedback.
+    // setActiveLibraryTarget({ id: '', type }); setShowDatabase(true); 
   }, [db.library]);
 
   const handleSelectItem = useCallback((type: string, item: any) => {
@@ -685,27 +735,54 @@ const App: React.FC = () => {
       // Preencher item existente
       const id = activeLibraryTarget.id;
       switch (type) {
-        case 'insumos':
+        case 'pecas':
           updateCurrentProduct({
             insumos: currentProduct.insumos.map(i => i.id === id ? {
               ...i,
-              nome: item.nome,
-              unidade: item.unidade || i.unidade,
-              valorUnitario: item.valor_unitario || item.valorUnitario || i.valorUnitario
+              peca: item.nome,
+              nome: `${item.nome}${i.material ? ' - ' + i.material : ''}`
             } : i)
+          });
+          break;
+        case 'insumos':
+          updateCurrentProduct({
+            insumos: currentProduct.insumos.map(i => {
+              if (i.id === id) {
+                const resolvedUnit = db.library.unidadesMedida.find(u => 
+                  (u.nome && u.nome.toLowerCase() === (item.unidade || '').toLowerCase())
+                );
+                return {
+                  ...i,
+                  material: item.nome,
+                  nome: `${i.peca ? i.peca + ' - ' : ''}${item.nome}`,
+                  unidade: resolvedUnit ? resolvedUnit.nome.toUpperCase() : (item.unidade || i.unidade || 'UN').toUpperCase(),
+                  valorUnitario: item.valor_unitario || item.valorUnitario || i.valorUnitario || item.valor || 0
+                };
+              }
+              return i;
+            })
           });
           break;
         case 'terceirizados':
           updateCurrentProduct({
-            terceirizados: currentProduct.terceirizados.map(i => i.id === id ? {
-              ...i,
-              nome: item.nome,
-              unidade: item.unidade || i.unidade,
-              valorUnitario: item.valor_unitario || item.valorUnitario || i.valorUnitario
-            } : i)
+            terceirizados: currentProduct.terceirizados.map(i => {
+              if (i.id === id) {
+                const resolvedUnit = db.library.unidadesMedida.find(u => 
+                  (u.nome && u.nome.toLowerCase() === (item.unidade || '').toLowerCase())
+                );
+                return {
+                  ...i,
+                  nome: item.nome,
+                  unidade: resolvedUnit ? resolvedUnit.nome.toUpperCase() : (item.unidade || i.unidade || 'UN').toUpperCase(),
+                  valorUnitario: item.valor_unitario || item.valorUnitario || i.valorUnitario || item.valor || 0
+                };
+              }
+              return i;
+            })
           });
           break;
         case 'custosFixos':
+        case 'fixos':
           updateCurrentProduct({
             custosFixos: currentProduct.custosFixos.map(i => i.id === id ? {
               ...i,
@@ -715,6 +792,7 @@ const App: React.FC = () => {
           });
           break;
         case 'custosIndiretos':
+        case 'variaveis':
           updateCurrentProduct({
             custosIndiretos: currentProduct.custosIndiretos.map(i => i.id === id ? {
               ...i,
@@ -723,39 +801,92 @@ const App: React.FC = () => {
             } : i)
           });
           break;
+        case 'unidadesMedida':
+          // Check if the target is an insumo or a terceirizado
+          // Store the unit name (uppercase) so findUnitFactor can match it by name in the library
+          if (currentProduct.insumos.find(i => i.id === id)) {
+            updateCurrentProduct({
+              insumos: currentProduct.insumos.map(i =>
+                i.id === id ? { ...i, unidade: item.nome.toUpperCase() } : i
+              )
+            });
+          } else if (currentProduct.terceirizados.find(t => t.id === id)) {
+            updateCurrentProduct({
+              terceirizados: currentProduct.terceirizados.map(t =>
+                t.id === id ? { ...t, unidade: item.nome.toUpperCase() } : t
+              )
+            });
+          }
+          setShowDatabase(false);
+          break;
       }
       setActiveLibraryTarget(null);
     } else {
       // Adicionar novo item (comportamento original)
       switch (type) {
-        case 'insumos':
+        case 'pecas':
           updateCurrentProduct({
             insumos: [
               ...currentProduct.insumos,
               {
                 id: Math.random().toString(36),
                 nome: item.nome,
-                quantidade: Math.round((item.quantidade || 1) * 10000) / 10000,
-                unidade: item.unidade || 'un',
-                valorUnitario: item.valor_unitario || item.valorUnitario || 0
+                peca: item.nome,
+                material: '',
+                quantidade: 1,
+                unidade: 'un',
+                valorUnitario: 0
               }
             ]
           });
           break;
-        case 'terceirizados':
+        case 'insumos': {
+          const resolvedUnitInsumo = db.library.unidadesMedida.find(u => 
+            (u.nome && u.nome.toLowerCase() === (item.unidade || '').toLowerCase())
+          );
+          const finalCost = (item.quantidadeCompra && item.quantidadeCompra > 0)
+            ? Math.round((item.valorUnitario / item.quantidadeCompra) * 100) / 100
+            : Math.round((item.valor_unitario || item.valorUnitario || item.valor || 0) * 100) / 100;
+
+          updateCurrentProduct({
+            insumos: [
+              ...currentProduct.insumos,
+              {
+                id: Math.random().toString(36),
+                nome: item.nome,
+                peca: '',
+                material: item.nome,
+                quantidade: item.rendimento && item.rendimento > 1 
+                  ? Math.round(((item.fator || 1) / item.rendimento) * 10000) / 10000 
+                  : Math.round((item.quantidade || 1) * 10000) / 10000,
+                unidade: resolvedUnitInsumo ? resolvedUnitInsumo.nome.toUpperCase() : (item.unidade || 'UN').toUpperCase(),
+                valorUnitario: finalCost
+              }
+            ]
+          });
+          break;
+        }
+        case 'terceirizados': {
+          const resolvedUnitTerceirizado = db.library.unidadesMedida.find(u => 
+            (u.nome && u.nome.toLowerCase() === (item.unidade || '').toLowerCase())
+          );
           updateCurrentProduct({
             terceirizados: [
               ...currentProduct.terceirizados,
               {
                 id: Math.random().toString(36),
                 nome: item.nome,
-                quantidade: 1,
-                unidade: 'par',
-                valorUnitario: item.valor_unitario || item.valorUnitario || 0
+                quantidade: item.rendimento && item.rendimento > 1 
+                  ? Math.round(((item.fator || 1) / item.rendimento) * 10000) / 10000 
+                  : 1,
+                unidade: resolvedUnitTerceirizado ? resolvedUnitTerceirizado.nome.toUpperCase() : (item.unidade || 'UN').toUpperCase(),
+                valorUnitario: item.valor_unitario || item.valorUnitario || item.valor || 0
               }
             ]
           });
           break;
+        }
+        case 'custosFixos':
         case 'fixos':
           updateCurrentProduct({
             custosFixos: [
@@ -768,6 +899,7 @@ const App: React.FC = () => {
             ]
           });
           break;
+        case 'custosIndiretos':
         case 'variaveis':
           updateCurrentProduct({
             custosIndiretos: [
@@ -781,13 +913,15 @@ const App: React.FC = () => {
           });
           break;
         case 'solados':
-          const solaCost = calculateSolaAverageCost(item, db.library.insumos);
+          const solaCost = calculateSolaAverageCost(item, db.library.insumos, db.library.unidadesMedida);
           updateCurrentProduct({
             insumos: [
               ...currentProduct.insumos,
               {
                 id: Math.random().toString(36),
                 nome: `Sola: ${item.nome}`,
+                peca: 'Solado',
+                material: item.nome,
                 quantidade: 1,
                 unidade: 'par',
                 valorUnitario: solaCost
@@ -799,7 +933,110 @@ const App: React.FC = () => {
     }
     setShowDatabase(false);
     alert('Item atualizado/adicionado!');
-  }, [currentProduct, updateCurrentProduct, activeLibraryTarget]);
+  }, [currentProduct, updateCurrentProduct, activeLibraryTarget, db.library.insumos]);
+
+  const handleSelectMultipleItems = useCallback((type: string, items: any[]) => {
+    switch (type) {
+      case 'pecas':
+      case 'insumos':
+      case 'solados':
+        const newInsumos = items.map(item => {
+          if (type === 'pecas') {
+            return {
+              id: Math.random().toString(36),
+              nome: item.nome,
+              peca: item.nome,
+              material: '',
+              quantidade: 1,
+              unidade: 'un',
+              valorUnitario: 0
+            };
+          } else if (type === 'solados') {
+            const solaCost = calculateSolaAverageCost(item, db.library.insumos, db.library.unidadesMedida);
+            return {
+              id: Math.random().toString(36),
+              nome: `Sola: ${item.nome}`,
+              peca: 'Solado',
+              material: item.nome,
+              quantidade: 1,
+              unidade: 'par',
+              valorUnitario: solaCost
+            };
+          } else {
+            const finalCost = (item.quantidadeCompra && item.quantidadeCompra > 0)
+              ? Math.round((item.valorUnitario / item.quantidadeCompra) * 100) / 100
+              : Math.round((item.valor_unitario || item.valorUnitario || item.valor || 0) * 100) / 100;
+            return {
+              id: Math.random().toString(36),
+              nome: item.nome,
+              peca: '',
+              material: item.nome,
+              quantidade: item.rendimento && item.rendimento > 1 
+                ? Math.round(((item.fator || 1) / item.rendimento) * 10000) / 10000 
+                : Math.round((item.quantidade || 1) * 10000) / 10000,
+              unidade: (item.unidade || 'un').toUpperCase(),
+              valorUnitario: finalCost
+            };
+          }
+        });
+        updateCurrentProduct({ insumos: [...currentProduct.insumos, ...newInsumos] });
+        break;
+      case 'terceirizados':
+        const newTerceirizados = items.map(item => ({
+          id: Math.random().toString(36),
+          nome: item.nome,
+          quantidade: 1,
+          unidade: 'par',
+          valorUnitario: item.valor_unitario || item.valorUnitario || item.valor || 0
+        }));
+        updateCurrentProduct({ terceirizados: [...currentProduct.terceirizados, ...newTerceirizados] });
+        break;
+      case 'custosFixos':
+      case 'fixos':
+        const newFixos = items.map(item => ({
+          id: Math.random().toString(36),
+          nome: item.nome,
+          valor: item.valor || item.valorUnitario || 0
+        }));
+        updateCurrentProduct({ custosFixos: [...currentProduct.custosFixos, ...newFixos] });
+        break;
+      case 'custosIndiretos':
+      case 'variaveis':
+        const newVariaveis = items.map(item => ({
+          id: Math.random().toString(36),
+          nome: item.nome,
+          valor: item.valor || item.valorUnitario || 0
+        }));
+        updateCurrentProduct({ custosIndiretos: [...currentProduct.custosIndiretos, ...newVariaveis] });
+        break;
+      case 'impostos':
+        const newImpostos = items.map(item => ({
+          id: Math.random().toString(36),
+          nome: item.nome,
+          aliquota: item.aliquota || 0
+        }));
+        updateCurrentProduct({ impostos: [...currentProduct.impostos, ...newImpostos] });
+        break;
+      case 'comissoes':
+        const newComissoes = items.map(item => ({
+          id: Math.random().toString(36),
+          nome: item.nome,
+          aliquota: item.aliquota || 0
+        }));
+        updateCurrentProduct({ comissoes: [...currentProduct.comissoes, ...newComissoes] });
+        break;
+      case 'fretes':
+        const newFretes = items.map(item => ({
+          id: Math.random().toString(36),
+          nome: item.nome,
+          valor: item.valor || 0
+        }));
+        updateCurrentProduct({ fretes: [...currentProduct.fretes, ...newFretes] });
+        break;
+    }
+    setShowDatabase(false);
+    alert(`${items.length} itens adicionados com sucesso ao projeto!`);
+  }, [currentProduct, updateCurrentProduct, db.library.insumos]);
 
   const toggleSection = (section: string) => {
     setExpandedSection(prev => prev === section ? null : section);
@@ -844,6 +1081,45 @@ const App: React.FC = () => {
     reader.readAsText(file);
   };
 
+  const handleLogout = async () => {
+    if (window.confirm("Deseja realmente sair da sua conta? Todas as alterações sincronizadas estão seguras na nuvem. Os dados locais deste dispositivo serão limpos para sua segurança.")) {
+      const targetUid = user?.uid; // Store current UID before resetting state
+      
+      try {
+        // Reset App State immediately to prevent flashing old data
+        // Pinned to null/undefined to disable sync until new login
+        setDb(getInitialDbState(undefined));
+        setIsInitialLoad(true);
+        setShowProjectList(false);
+        setShowDatabase(false);
+
+        // Clear Scoped Storage
+        if (targetUid) {
+          const scopedKey = getScopedDbKey(targetUid);
+          localStorage.removeItem(scopedKey);
+          localStorage.removeItem(scopedKey + '_lastId');
+        }
+        
+        // Clear Generic Storage (just in case)
+        localStorage.removeItem(DB_KEY);
+        localStorage.removeItem(DB_KEY + '_lastId');
+
+        // Clear Firebase session (JS SDK)
+        await signOut(auth);
+        
+        // Clear native session if on mobile (Capacitor plugin)
+        if (Capacitor.isNativePlatform()) {
+          await FirebaseAuthentication.signOut();
+        }
+        
+        console.log("App: User signed out and local state cleared.");
+      } catch (error) {
+        console.error("App: Logout error:", error);
+        alert("Erro ao sair da conta.");
+      }
+    }
+  };
+
   const summary = useMemo(() =>
     calculateSummary(
       currentProduct.insumos || [],
@@ -854,9 +1130,10 @@ const App: React.FC = () => {
       currentProduct.terceirizados || [],
       currentProduct.precoVendaManual || 0,
       currentProduct.type || 'detailed',
-      currentProduct.purchasePrice || 0
+      currentProduct.purchasePrice || 0,
+      db.library.unidadesMedida || []
     ),
-    [currentProduct]
+    [currentProduct, db.library.unidadesMedida]
   );
 
   const handleUpdateComment = (id: string, type: string, comment: string) => {
@@ -878,7 +1155,7 @@ const App: React.FC = () => {
 
   const handleNumericChange = (id: string, field: string, rawVal: string, updateFn: (numValue: number) => void) => {
     let normalizedVal = rawVal;
-    
+
     // Limitar campo manual de preço de venda a 2 casas decimais
     if (field === 'manual') {
       if (normalizedVal.includes(',')) {
@@ -900,6 +1177,89 @@ const App: React.FC = () => {
 
     setEditingValue({ id, field, val: normalizedVal });
     updateFn(isNaN(parsed) ? 0 : parsed);
+  };
+
+  const handleBulkCopy = (type: 'insumos' | 'terceirizados' | 'custosFixos' | 'custosIndiretos') => {
+    let itemsToCopy: any[] = [];
+    switch (type) {
+      case 'insumos': itemsToCopy = currentProduct.insumos.filter(i => selectedInsumoIds.includes(i.id)); break;
+      case 'terceirizados': itemsToCopy = currentProduct.terceirizados.filter(i => selectedTerceirizadoIds.includes(i.id)); break;
+      case 'custosFixos': itemsToCopy = currentProduct.custosFixos.filter(i => selectedCustoFixoIds.includes(i.id)); break;
+      case 'custosIndiretos': itemsToCopy = currentProduct.custosIndiretos.filter(i => selectedCustoIndiretoIds.includes(i.id)); break;
+    }
+    if (itemsToCopy.length === 0) return;
+    const newItems = itemsToCopy.map(item => ({ ...item, id: Math.random().toString(36).substr(2, 9) }));
+    switch (type) {
+      case 'insumos': updateCurrentProduct({ insumos: [...currentProduct.insumos, ...newItems] }); setSelectedInsumoIds([]); break;
+      case 'terceirizados': updateCurrentProduct({ terceirizados: [...currentProduct.terceirizados, ...newItems] }); setSelectedTerceirizadoIds([]); break;
+      case 'custosFixos': updateCurrentProduct({ custosFixos: [...currentProduct.custosFixos, ...newItems] }); setSelectedCustoFixoIds([]); break;
+      case 'custosIndiretos': updateCurrentProduct({ custosIndiretos: [...currentProduct.custosIndiretos, ...newItems] }); setSelectedCustoIndiretoIds([]); break;
+    }
+    alert(`${newItems.length} itens duplicados com sucesso!`);
+  };
+
+  const handleBulkDelete = (type: 'insumos' | 'terceirizados' | 'custosFixos' | 'custosIndiretos') => {
+    let count = 0;
+    switch (type) {
+      case 'insumos': count = selectedInsumoIds.length; break;
+      case 'terceirizados': count = selectedTerceirizadoIds.length; break;
+      case 'custosFixos': count = selectedCustoFixoIds.length; break;
+      case 'custosIndiretos': count = selectedCustoIndiretoIds.length; break;
+    }
+    if (count === 0) return;
+    if (!confirm(`Deseja excluir os ${count} itens selecionados?`)) return;
+    switch (type) {
+      case 'insumos': updateCurrentProduct({ insumos: currentProduct.insumos.filter(i => !selectedInsumoIds.includes(i.id)) }); setSelectedInsumoIds([]); break;
+      case 'terceirizados': updateCurrentProduct({ terceirizados: currentProduct.terceirizados.filter(i => !selectedTerceirizadoIds.includes(i.id)) }); setSelectedTerceirizadoIds([]); break;
+      case 'custosFixos': updateCurrentProduct({ custosFixos: currentProduct.custosFixos.filter(i => !selectedCustoFixoIds.includes(i.id)) }); setSelectedCustoFixoIds([]); break;
+      case 'custosIndiretos': updateCurrentProduct({ custosIndiretos: currentProduct.custosIndiretos.filter(i => !selectedCustoIndiretoIds.includes(i.id)) }); setSelectedCustoIndiretoIds([]); break;
+    }
+  };
+
+  const toggleSelectItem = (type: 'insumos' | 'terceirizados' | 'custosFixos' | 'custosIndiretos', id: string) => {
+    if (type === 'insumos') setSelectedInsumoIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    if (type === 'terceirizados') setSelectedTerceirizadoIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    if (type === 'custosFixos') setSelectedCustoFixoIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    if (type === 'custosIndiretos') setSelectedCustoIndiretoIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const toggleSelectAll = (type: 'insumos' | 'terceirizados' | 'custosFixos' | 'custosIndiretos') => {
+    switch (type) {
+      case 'insumos': setSelectedInsumoIds(selectedInsumoIds.length === currentProduct.insumos.length ? [] : currentProduct.insumos.map(i => i.id)); break;
+      case 'terceirizados': setSelectedTerceirizadoIds(selectedTerceirizadoIds.length === currentProduct.terceirizados.length ? [] : currentProduct.terceirizados.map(i => i.id)); break;
+      case 'custosFixos': setSelectedCustoFixoIds(selectedCustoFixoIds.length === currentProduct.custosFixos.length ? [] : currentProduct.custosFixos.map(i => i.id)); break;
+      case 'custosIndiretos': setSelectedCustoIndiretoIds(selectedCustoIndiretoIds.length === currentProduct.custosIndiretos.length ? [] : currentProduct.custosIndiretos.map(i => i.id)); break;
+    }
+  };
+
+  const handleManualSync = async () => {
+    if (!user) return;
+    setSyncStatus('syncing');
+    try {
+      await firebaseService.syncLocalToFirebase(user.uid, db);
+      setSyncStatus('synced');
+    } catch (error) {
+      console.error("Manual sync error:", error);
+      setSyncStatus('error');
+      alert('Erro ao sincronizar com a nuvem. Verifique sua conexão.');
+    }
+  };
+
+  const handleResetCloud = async () => {
+    if (!user) return;
+    if (!confirm('ATENÇÃO: Isso apagará TODOS os dados salvos na sua conta da nuvem (Firebase) e enviará os dados atuais. Deseja prosseguir com a limpeza total?')) return;
+
+    setSyncStatus('syncing');
+    try {
+      await firebaseService.clearFullDatabase(user.uid);
+      await firebaseService.syncLocalToFirebase(user.uid, db);
+      setSyncStatus('synced');
+      alert('Nuvem limpa e sincronizada com sucesso!');
+    } catch (error) {
+      console.error("Reset cloud error:", error);
+      setSyncStatus('error');
+      alert('Erro ao limpar a nuvem. Verifique sua conexão.');
+    }
   };
 
   const getDisplayValue = (val: number, id: string, field: string): string => {
@@ -943,28 +1303,31 @@ const App: React.FC = () => {
             <button onClick={() => setShowDatabase(true)} title="Abrir Biblioteca de Itens" aria-label="Biblioteca" className="p-2 sm:p-2.5 shrink-0 bg-slate-50 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-xl border border-slate-200 dark:border-slate-700 transition-all active:scale-95 shadow-sm">
               <Database className="w-5 h-5 text-emerald-600" />
             </button>
-            <button 
-              onClick={() => setShowMaterialPrices(true)} 
-              title="Comparação de Preços" 
-              aria-label="Preços" 
+            <button
+              onClick={() => setShowMaterialPrices(true)}
+              title="Comparação de Preços"
+              aria-label="Preços"
               className="p-2 sm:p-2.5 shrink-0 bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl border border-slate-200 dark:border-slate-700 transition-all active:scale-95 shadow-sm"
             >
               <TrendingUp className="w-5 h-5 text-blue-600" />
             </button>
           </div>
-          
+
           <div className="flex flex-col flex-1 min-w-0 border-l border-slate-200 dark:border-slate-700 pl-3">
             <input value={currentProduct.name} title="Nome do Produto" aria-label="Nome do Produto" onChange={(e) => updateCurrentProduct({ name: e.target.value })} className="bg-transparent border-none font-black text-base sm:text-lg focus:ring-0 w-full min-w-0 truncate leading-tight p-0 text-slate-800 dark:text-white" placeholder="Nome do Produto" />
             <div className="flex items-center gap-2 mt-1.5">
-              <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${
-                syncStatus === 'synced' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : 
-                syncStatus === 'syncing' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 
-                'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-              }`}>
-                {syncStatus === 'synced' ? <><Cloud className="w-3 h-3" /> Nuvem Ativa</> : 
-                 syncStatus === 'syncing' ? <><RefreshCw className="w-3 h-3 animate-spin" /> Sincronizando</> : 
-                 <><AlertCircle className="w-3 h-3" /> Erro Cloud</>}
-              </div>
+              <button
+                onClick={handleManualSync}
+                disabled={syncStatus === 'syncing'}
+                title="Clique para sincronizar com a nuvem agora"
+                className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 ${syncStatus === 'synced' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-900/50' :
+                    syncStatus === 'syncing' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 cursor-wait' :
+                      'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50'
+                  }`}>
+                {syncStatus === 'synced' ? <><Cloud className="w-3 h-3" /> Nuvem Ativa</> :
+                  syncStatus === 'syncing' ? <><RefreshCw className="w-3 h-3 animate-spin" /> Sincronizando</> :
+                    <><AlertCircle className="w-3 h-3" /> Erro Cloud</>}
+              </button>
               <span className="text-[10px] font-bold uppercase text-slate-400 tracking-tight truncate hidden sm:inline-block">
                 {saveStatus === 'saving' ? 'Gravando...' : 'Seguro'}
               </span>
@@ -977,7 +1340,7 @@ const App: React.FC = () => {
             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Conta ativa</span>
             <span className="text-xs font-bold text-slate-600 dark:text-slate-300 max-w-[150px] truncate">{user.email}</span>
           </div>
-          
+
           <div className="flex items-center gap-2">
 
           </div>
@@ -1001,7 +1364,7 @@ const App: React.FC = () => {
         <div className="lg:col-span-8 space-y-6 print:space-y-4">
 
           <Section title="1. Materiais e Peças" icon={<Package className="text-emerald-500 w-5 h-5" />} expanded={expandedSection === 'insumos'} onToggle={() => toggleSection('insumos')}>
-            
+
             <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-xl mb-6 border border-slate-200 dark:border-slate-800">
               <button
                 onClick={() => updateCurrentProduct({ type: 'detailed' })}
@@ -1040,255 +1403,509 @@ const App: React.FC = () => {
               </div>
             ) : (
               <>
-            {/* Toolbar Copiar/Colar */}
-            <div className="flex justify-end gap-2 mb-4 print:hidden">
-              <button onClick={() => setCopiedSection({ type: 'insumos', data: currentProduct.insumos })} className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-500 rounded-md transition-colors">
-                <Copy className="w-3.5 h-3.5" /> Copiar Lista
-              </button>
-              {copiedSection?.type === 'insumos' && (
-                <button onClick={() => {
-                  if (confirm('Deseja substituir a lista atual pela lista copiada?')) {
-                    const newItems = copiedSection.data.map(i => ({...i, id: Math.random().toString(36)}));
-                    updateCurrentProduct({ insumos: newItems });
-                  }
-                }} className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:text-emerald-500 rounded-md transition-colors">
-                  <ClipboardPaste className="w-3.5 h-3.5" /> Colar Lista
-                </button>
-              )}
-              {copiedItem?.type === 'insumos' && (
-                <button onClick={() => {
-                  const newItem = { ...copiedItem.data, id: Math.random().toString(36) };
-                  updateCurrentProduct({ insumos: [...currentProduct.insumos, newItem] });
-                }} className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 rounded-md transition-colors border border-emerald-200 dark:border-emerald-800">
-                  <ClipboardPaste className="w-3.5 h-3.5" /> Colar Material Copiado
-                </button>
-              )}
-            </div>
+                {/* Toolbar Copiar/Colar */}
+                <div className="flex justify-end gap-2 mb-4 print:hidden">
+                  <button onClick={() => setCopiedSection({ type: 'insumos', data: currentProduct.insumos })} className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-500 rounded-md transition-colors">
+                    <Copy className="w-3.5 h-3.5" /> Copiar Lista
+                  </button>
+                  {copiedSection?.type === 'insumos' && (
+                    <button onClick={() => {
+                      if (confirm('Deseja substituir a lista atual pela lista copiada?')) {
+                        const newItems = copiedSection.data.map(i => ({ ...i, id: Math.random().toString(36) }));
+                        updateCurrentProduct({ insumos: newItems });
+                      }
+                    }} className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:text-emerald-500 rounded-md transition-colors">
+                      <ClipboardPaste className="w-3.5 h-3.5" /> Colar Lista
+                    </button>
+                  )}
+                  {copiedItem?.type === 'insumos' && (
+                    <button onClick={() => {
+                      const newItem = { ...copiedItem.data, id: Math.random().toString(36) };
+                      updateCurrentProduct({ insumos: [...currentProduct.insumos, newItem] });
+                    }} className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 rounded-md transition-colors border border-emerald-200 dark:border-emerald-800">
+                      <ClipboardPaste className="w-3.5 h-3.5" /> Colar Material Copiado
+                    </button>
+                  )}
+                </div>
 
-            {/* MOBILE VIEW */}
-            <div className="md:hidden space-y-4 mb-4 max-h-[850px] overflow-y-auto custom-scrollbar pr-2">
-              {currentProduct.insumos.map((insumo) => (
-                <div key={insumo.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm relative group">
-                  <div className="mb-4">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1.5 block ml-1">Descrição</label>
-                    <div className="relative group">
-                      <AutocompleteInput
-                        value={insumo.nome}
-                        suggestions={db.library.insumos}
-                        placeholder="Ex: Couro, Cola, Solado..."
-                        className={`${inputBase} w-full pr-16`}
-                        onChange={(val) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, nome: val } : i) })}
-                        onSelect={(item) => updateCurrentProduct({
-                          insumos: currentProduct.insumos.map(i => i.id === insumo.id ? {
-                            ...i,
-                            nome: item.nome,
-                            unidade: item.unidade || i.unidade,
-                            valorUnitario: item.valor_unitario || item.valorUnitario || i.valorUnitario || i.valor || 0
-                          } : i)
-                        })}
-                      />
-                      <div className="absolute right-1 top-1/2 -translate-y-1/2 flex gap-1 z-10">
-                        <button
-                          onClick={() => setCommentingItem({ id: insumo.id, type: 'insumos', comment: insumo.comentario || '' })}
-                          title={insumo.comentario ? "Ver Comentário" : "Adicionar Comentário"}
-                          className={`p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-all ${insumo.comentario ? 'text-blue-500' : 'text-slate-300'}`}
-                        >
-                          <MessageSquare className="w-4 h-4" />
-                        </button>
-                        {insumo.nome.trim().length > 2 && !db.library.insumos.find(s => s.nome.toLowerCase() === insumo.nome.toLowerCase()) ? (
-                          <button
-                            onClick={() => handleSaveToLibrary('insumos', insumo.nome)}
-                            title="Salvar no Cadastro"
-                            className="p-1.5 hover:bg-amber-50 dark:hover:bg-amber-900/40 rounded-md text-amber-500 transition-all relative"
-                          >
-                            <Database className="w-4 h-4" />
-                            <Plus className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-amber-500 text-white rounded-full border border-white dark:border-slate-900" />
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => { setActiveLibraryTarget({ id: insumo.id, type: 'insumos' }); setShowDatabase(true); }}
-                            title="Buscar na Biblioteca"
-                            className="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded-md text-blue-500 transition-all"
-                          >
-                            <Database className="w-4 h-4" />
-                          </button>
-                        )}
-                        <button
-                          onClick={() => setActiveConsumptionCalc(insumo.id)}
-                          title="Calculador de Consumo"
-                          className="p-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-900/40 rounded-md text-emerald-500 transition-all"
-                        >
-                          <Ruler className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-[0.8fr_1.2fr_1.5fr] gap-3 mb-4">
-                    <div>
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1.5 block text-center">Unid.</label>
-                      <input
-                        value={insumo.unidade}
-                        onChange={(e) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, unidade: e.target.value } : i) })}
-                        title="Unidade de medida"
-                        className={`${inputBase} text-center uppercase px-1`}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1.5 block text-center">Qtd</label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          value={getDisplayValue(insumo.quantidade, insumo.id, 'q')}
-                          title="Quantidade"
-                          onBlur={() => setEditingValue(null)}
-                          onChange={(e) => handleNumericChange(insumo.id, 'q', e.target.value, (v) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, quantidade: v } : i) }))}
-                          className={`${inputBase} text-center font-mono pr-8`}
+                {/* Bulk Selection Toolbar for Materials */}
+                {selectedInsumoIds.length > 0 && (
+                  <div className="sticky top-20 z-[45] flex items-center justify-between bg-emerald-600 text-white px-2 sm:px-4 py-2 rounded-xl shadow-lg mb-4 animate-in fade-in slide-in-from-top-4 duration-300 border border-emerald-500/50">
+                    <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                      <div className="relative flex-shrink-0 flex items-center">
+                        <input 
+                          type="checkbox" 
+                          id="bulk-select-all-insumos"
+                          title="Selecionar todos os materiais"
+                          checked={selectedInsumoIds.length === currentProduct.insumos.length && currentProduct.insumos.length > 0}
+                          onChange={() => toggleSelectAll('insumos')}
+                          className="w-5 h-5 rounded border-white/30 bg-white/20 checked:bg-white checked:border-white text-emerald-600 focus:ring-0 focus:ring-offset-0 transition-all cursor-pointer accent-white"
                         />
-                        <button onClick={() => setActiveCalc({ id: insumo.id, field: 'q' })} title="Abrir Calculadora para Quantidade" aria-label="Calculadora" className="absolute right-1 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center text-slate-300 hover:text-emerald-500">
-                          <Calculator className="w-3.5 h-3.5" />
-                        </button>
                       </div>
+                      <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider truncate">
+                        {selectedInsumoIds.length} <span className="hidden sm:inline">selecionados</span>
+                      </span>
                     </div>
-
-                    <div>
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1.5 block text-right">Valor Unit.</label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          value={getDisplayValue(insumo.valorUnitario, insumo.id, 'v')}
-                          title="Valor Unitário"
-                          onBlur={() => setEditingValue(null)}
-                          onChange={(e) => handleNumericChange(insumo.id, 'v', e.target.value, (v) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, valorUnitario: v } : i) }))}
-                          className={`${inputBase} text-right font-mono pr-9`}
-                        />
-                        <button onClick={() => setActiveCalc({ id: insumo.id, field: 'v' })} title="Abrir Calculadora para Valor Unitário" aria-label="Calculadora" className="absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-slate-300 hover:text-blue-500">
-                          <Calculator className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
-                    <div>
-                      <span className="text-[9px] font-black text-slate-400 uppercase block mb-0.5">Subtotal</span>
-                      <span className="text-[15px] font-black text-blue-600 font-mono">{formatCurrency(insumo.quantidade * insumo.valorUnitario)}</span>
-                    </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => setCopiedItem({ type: 'insumos', data: insumo })} className="flex items-center gap-2 px-3 py-2 text-[10px] font-bold text-blue-500 bg-blue-50 dark:bg-blue-900/10 rounded-lg hover:bg-blue-100 transition-colors print:hidden">
-                        <Copy className="w-4 h-4" /> Copiar
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                      <button 
+                        onClick={() => handleBulkCopy('insumos')} 
+                        className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 bg-white/20 hover:bg-white/30 active:scale-95 rounded-lg text-[10px] font-bold uppercase transition-all"
+                      >
+                        <Copy className="w-3.5 h-3.5" /> <span className="hidden xs:inline">Copiar</span>
                       </button>
-                      <button onClick={() => updateCurrentProduct({ insumos: currentProduct.insumos.filter(i => i.id !== insumo.id) })} className="flex items-center gap-2 px-3 py-2 text-[10px] font-bold text-red-500 bg-red-50 dark:bg-red-900/10 rounded-lg hover:bg-red-100 transition-colors print:hidden">
-                        <Trash2 className="w-4 h-4" /> Excluir
+                      <button 
+                        onClick={() => handleBulkDelete('insumos')} 
+                        className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 bg-red-500 hover:bg-red-600 active:scale-95 rounded-lg text-[10px] font-bold uppercase transition-all shadow-sm"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> <span className="hidden xs:inline">Excluir</span>
+                      </button>
+                      <button 
+                        onClick={() => setSelectedInsumoIds([])} 
+                        title="Limpar seleção"
+                        className="flex-shrink-0 p-1.5 hover:bg-white/10 rounded-full transition-colors"
+                      >
+                        <X className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                )}
 
-            {/* DESKTOP VIEW */}
-            <div className="hidden md:block overflow-x-auto custom-scrollbar -mx-2 px-2">
-              <div className="min-w-[780px] pb-4">
-                <div className="grid grid-cols-[2fr_1fr_1fr_1.5fr_1.2fr_0.5fr] gap-3 px-3 py-2.5 mb-2 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 dark:border-slate-800">
-                  <div className="pl-1">Descrição</div><div className="text-center">Unidade</div><div className="text-center">Quantidade</div><div className="text-center">V. Unitário</div><div className="text-right">V. Total</div><div className="text-center">Ações</div>
-                </div>
-                <div className="space-y-2 p-1">
+                {/* MOBILE VIEW */}
+                <div className="md:hidden space-y-4 mb-4 max-h-[850px] overflow-y-auto custom-scrollbar pr-2">
                   {currentProduct.insumos.map((insumo) => (
-                    <div key={insumo.id} className="grid grid-cols-[2fr_1fr_1fr_1.5fr_1.2fr_0.5fr] gap-3 p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl items-center hover:border-blue-400 transition-all shadow-sm group">
-                      <div className="relative group">
-                        <AutocompleteInput
-                          value={insumo.nome}
-                          suggestions={db.library.insumos}
-                          placeholder="Ex: Couro..."
-                          className={`${inputBase} !bg-transparent truncate pr-16`}
-                          onChange={(val) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, nome: val } : i) })}
-                          onSelect={(item) => updateCurrentProduct({
-                            insumos: currentProduct.insumos.map(i => i.id === insumo.id ? {
-                              ...i,
-                              nome: item.nome,
-                              unidade: item.unidade || i.unidade,
-                              valorUnitario: item.valor_unitario || item.valorUnitario || i.valorUnitario || i.valor || 0
-                            } : i)
-                          })}
-                        />
-                        <div className="absolute right-1 top-1/2 -translate-y-1/2 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-all z-10">
-                          <button
-                            onClick={() => setCommentingItem({ id: insumo.id, type: 'insumos', comment: insumo.comentario || '' })}
-                            title={insumo.comentario ? "Ver Comentário" : "Adicionar Comentário"}
-                            className={`p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-all ${insumo.comentario ? 'text-blue-500' : 'text-slate-300'}`}
-                          >
-                            <MessageSquare className="w-3.5 h-3.5" />
+                    <div key={insumo.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm relative group mb-4">
+                      {/* Checkbox and Header */}
+                      <div className="flex items-center justify-between mb-3 border-b border-slate-100 dark:border-slate-800/50 pb-2">
+                        <div className="flex items-center gap-2">
+                          <input 
+                            type="checkbox"
+                            id={`insumo-select-${insumo.id}`}
+                            title="Selecionar item"
+                            checked={selectedInsumoIds.includes(insumo.id)}
+                            onChange={() => toggleSelectItem('insumos', insumo.id)}
+                            className="w-5 h-5 rounded border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-emerald-600 focus:ring-emerald-500 transition-all cursor-pointer accent-emerald-600"
+                          />
+                          <label htmlFor={`insumo-select-${insumo.id}`} className="text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-pointer">Selecionar</label>
+                        </div>
+                        <div className="flex gap-1.5">
+                          <button onClick={() => setCopiedItem({ type: 'insumos', data: insumo })} title="Copiar Material" className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors">
+                            <Copy className="w-4 h-4" />
                           </button>
-                          {insumo.nome.trim().length > 2 && !db.library.insumos.find(s => s.nome.toLowerCase() === insumo.nome.toLowerCase()) ? (
-                            <button
-                              onClick={() => handleSaveToLibrary('insumos', insumo.nome)}
-                              title="Salvar no Cadastro"
-                              className="p-1 hover:bg-amber-50 dark:hover:bg-amber-900/40 rounded text-amber-500 transition-all relative"
-                            >
-                              <Database className="w-3.5 h-3.5" />
-                              <Plus className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-500 text-white rounded-full border border-white dark:border-slate-900" />
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => { setActiveLibraryTarget({ id: insumo.id, type: 'insumos' }); setShowDatabase(true); }}
-                              title="Buscar na Biblioteca"
-                              className="p-1 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded text-blue-500"
-                            >
-                              <Database className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                          <button
-                            onClick={() => setActiveConsumptionCalc(insumo.id)}
-                            title="Calculador de Consumo"
-                            className="p-1 hover:bg-emerald-50 dark:hover:bg-emerald-900/40 rounded text-emerald-500"
-                          >
-                            <Ruler className="w-3.5 h-3.5" />
+                          <button onClick={() => updateCurrentProduct({ insumos: currentProduct.insumos.filter(i => i.id !== insumo.id) })} title="Excluir Material" className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </div>
-                      <input value={insumo.unidade} title="Unidade" onChange={(e) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, unidade: e.target.value } : i) })} className={`${inputBase} text-center uppercase text-[10px]`} />
-                      <div className="relative">
-                        <input type="text" value={getDisplayValue(insumo.quantidade, insumo.id, 'q')} title="Quantidade" onBlur={() => setEditingValue(null)} onChange={(e) => handleNumericChange(insumo.id, 'q', e.target.value, (v) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, quantidade: v } : i) }))} className={`${inputBase} text-center font-mono pr-8`} />
-                        <button onClick={() => setActiveCalc({ id: insumo.id, field: 'q' })} title="Abrir Calculadora para Quantidade" aria-label="Calculadora" className="absolute right-1 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center text-slate-300 hover:text-emerald-500"><Calculator className="w-3.5 h-3.5" /></button>
+
+                      <div className="flex flex-col gap-4 mb-4">
+                        <div>
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1.5 block ml-1">Peça</label>
+                          <div className="relative group">
+                            <AutocompleteInput
+                              id={`peca-${insumo.id}`}
+                              value={insumo.peca || ''}
+                              suggestions={db.library.pecas}
+                              placeholder="Ex: Cabedal..."
+                              hidePrice={true}
+                              className={`${inputBase} w-full pr-10`}
+                              onChange={(val) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, peca: val, nome: `${val}${i.material ? ' - ' + i.material : ''}` } : i) })}
+                              onSelect={(item) => updateCurrentProduct({
+                                insumos: currentProduct.insumos.map(i => i.id === insumo.id ? {
+                                  ...i,
+                                  peca: item.nome,
+                                  nome: `${item.nome}${i.material ? ' - ' + i.material : ''}`,
+                                  valorUnitario: 0 // Peça selection sets price to 0
+                                } : i)
+                              })}
+                            />
+                            <div className="absolute right-1 top-1/2 -translate-y-1/2 z-10 flex gap-0.5">
+                              {(insumo.peca || '').trim().length > 2 && !db.library.pecas.find(p => p.nome.toLowerCase() === (insumo.peca || '').toLowerCase()) ? (
+                                <button
+                                  onClick={() => handleSaveToLibrary('pecas', insumo.peca)}
+                                  title="Salvar Peça no Banco"
+                                  className="p-1.5 hover:bg-amber-50 dark:hover:bg-amber-900/40 rounded-md text-amber-500 relative"
+                                >
+                                  <Database className="w-4 h-4" />
+                                  <Plus className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-amber-500 text-white rounded-full border border-white dark:border-slate-900" />
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => { setActiveLibraryTarget({ id: insumo.id, type: 'pecas' }); setShowDatabase(true); }}
+                                  title="Buscar Peça na Biblioteca"
+                                  className="p-1.5 hover:bg-amber-50 dark:hover:bg-amber-900/40 rounded-md text-amber-500 transition-all"
+                                >
+                                  <Database className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1.5 block ml-1">Material</label>
+                          <div className="relative group">
+                            <AutocompleteInput
+                              id={`material-${insumo.id}`}
+                              value={insumo.material || ''}
+                              suggestions={combinedMaterialsSuggestions}
+                              placeholder="Ex: Couro ou Sola..."
+                              className={`${inputBase} w-full pr-10`}
+                              onChange={(val) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, material: val, nome: `${i.peca ? i.peca + ' - ' : ''}${val}` } : i) })}
+                              onSelect={(item) => {
+                                const isSola = (item as any)._type === 'solados';
+                                const finalCost = isSola
+                                  ? calculateSolaAverageCost(item as any, db.library.insumos, db.settings.unidadesMedida)
+                                  : ((item.quantidadeCompra && item.quantidadeCompra > 0) 
+                                      ? Math.round((item.valorUnitario / item.quantidadeCompra) * 100) / 100 
+                                      : Math.round((item.valor_unitario || item.valorUnitario || 0) * 100) / 100);
+                                const materialName = isSola ? `SOLA: ${item.nome}` : item.nome;
+                                updateCurrentProduct({
+                                  insumos: currentProduct.insumos.map(i => i.id === insumo.id ? {
+                                    ...i,
+                                    material: materialName,
+                                    nome: isSola ? materialName : `${i.peca ? i.peca + ' - ' : ''}${item.nome}`,
+                                    peca: isSola ? 'Solado' : i.peca,
+                                    unidade: isSola ? 'par' : (item.unidade || i.unidade),
+                                    valorUnitario: finalCost
+                                  } : i)
+                                });
+                              }}
+                            />
+                            <div className="absolute right-1 top-1/2 -translate-y-1/2 z-10 flex gap-0.5">
+                              {(insumo.material || '').trim().length > 2 && !db.library.insumos.find(m => m.nome.toLowerCase() === (insumo.material || '').toLowerCase()) ? (
+                                <button
+                                  onClick={() => handleSaveToLibrary('insumos', insumo.material)}
+                                  title="Salvar Material no Banco"
+                                  className="p-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-900/40 rounded-md text-emerald-600 relative"
+                                >
+                                  <Database className="w-4 h-4" />
+                                  <Plus className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-600 text-white rounded-full border border-white dark:border-slate-900" />
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => { setActiveLibraryTarget({ id: insumo.id, type: 'insumos' }); setShowDatabase(true); }}
+                                  title="Buscar Material na Biblioteca"
+                                  className="p-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-900/40 rounded-md text-emerald-600 transition-all"
+                                >
+                                  <Database className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <div className="relative">
-                        <input type="text" value={getDisplayValue(insumo.valorUnitario, insumo.id, 'v')} title="Valor Unitário" onBlur={() => setEditingValue(null)} onChange={(e) => handleNumericChange(insumo.id, 'v', e.target.value, (v) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, valorUnitario: v } : i) }))} className={`${inputBase} text-right font-mono pr-10`} />
-                        <button onClick={() => setActiveCalc({ id: insumo.id, field: 'v' })} title="Abrir Calculadora para Valor Unitário" aria-label="Calculadora" className="absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-slate-300 hover:text-blue-500"><Calculator className="w-4 h-4" /></button>
+
+
+                      {/* Detalhes de Quantidade e Valor */}
+
+                      <div className="mb-3">
+                        <div className="relative group/field">
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1.5 block ml-1">Unid.</label>
+                          <AutocompleteInput
+                            id={`unid-${insumo.id}`}
+                            value={insumo.unidade}
+                            suggestions={db.library.unidadesMedida}
+                            placeholder="Un..."
+                            hidePrice={true}
+                            className={`${inputBase} text-center uppercase px-1 h-11 pr-7`}
+                            onChange={(val) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, unidade: val.toUpperCase() } : i) })}
+                            onSelect={(item) => updateCurrentProduct({
+                              insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, unidade: item.nome.toUpperCase() } : i)
+                            })}
+                          />
+                          <div className="absolute right-1 top-1/2 translate-y-[-2px] opacity-0 group-hover/field:opacity-100 transition-all z-10">
+                            <button
+                              onClick={() => {
+                                setActiveLibraryTarget({ id: insumo.id, type: 'unidadesMedida' });
+                                setTimeout(() => setShowDatabase(true), 10);
+                              }}
+                              title="Buscar na Biblioteca de Unidades"
+                              className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-500"
+                            >
+                              <Database className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-right text-[12px] font-black text-blue-600 font-mono">{formatCurrency(insumo.quantidade * insumo.valorUnitario)}</div>
-                      <div className="flex justify-center gap-2 items-center print:hidden">
-                        <button onClick={() => setCopiedItem({ type: 'insumos', data: insumo })} title="Copiar Material" className="text-slate-300 hover:text-blue-500"><Copy className="w-4 h-4" /></button>
-                        <button onClick={() => updateCurrentProduct({ insumos: currentProduct.insumos.filter(i => i.id !== insumo.id) })} title="Excluir Material" aria-label="Excluir Material" className="text-slate-300 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+
+                      <div className="grid grid-cols-2 gap-3 mb-4">
+                        <div>
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1.5 block ml-1">Quantidade</label>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              value={getDisplayValue(insumo.quantidade, insumo.id, 'q')}
+                              title="Quantidade"
+                              onBlur={() => setEditingValue(null)}
+                              onChange={(e) => handleNumericChange(insumo.id, 'q', e.target.value, (v) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, quantidade: v } : i) }))}
+                              className={`${inputBase} text-center font-mono pr-16 h-11`}
+                            />
+                            <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                              <button onClick={() => setActiveConsumptionCalc(insumo.id)} title="Calculador de Consumo" className="w-7 h-7 flex items-center justify-center text-emerald-500 hover:text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg"><Ruler className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => setActiveCalc({ id: insumo.id, field: 'q' })} title="Abrir Calculadora para Quantidade" aria-label="Calculadora" className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-blue-500 bg-slate-50 dark:bg-slate-800 rounded-lg"><Calculator className="w-3.5 h-3.5" /></button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1.5 block ml-1">Valor Unitário</label>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              value={getDisplayValue(insumo.valorUnitario, insumo.id, 'v')}
+                              title="Valor Unitário"
+                              onBlur={() => setEditingValue(null)}
+                              onChange={(e) => handleNumericChange(insumo.id, 'v', e.target.value, (v) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, valorUnitario: v } : i) }))}
+                              className={`${inputBase} text-right font-mono pr-12 h-11`}
+                            />
+                            <button onClick={() => setActiveCalc({ id: insumo.id, field: 'v' })} title="Abrir Calculadora para Valor Unitário" aria-label="Calculadora" className="absolute right-1 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center text-slate-400 hover:text-blue-500 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                              <Calculator className="w-5 h-5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+
+                      {/* Nota do item */}
+                      {insumo.comentario && (
+                        <div className="mt-3 flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl px-3 py-2">
+                          <MessageSquare className="w-3.5 h-3.5 text-amber-500 mt-0.5 flex-shrink-0" />
+                          <span className="text-[10px] text-amber-700 dark:text-amber-300 font-medium leading-relaxed line-clamp-2">{insumo.comentario}</span>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
+                        <div>
+                          <span className="text-[9px] font-black text-slate-400 uppercase block mb-0.5">Subtotal</span>
+                          <span className="text-[15px] font-black text-blue-600 font-mono">{formatCurrency((insumo.quantidade / (findUnitFactor(insumo.unidade, db.library.unidadesMedida) || 1)) * insumo.valorUnitario)}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setCommentingItem({ id: insumo.id, type: 'insumos', comment: insumo.comentario || '' })}
+                            title={insumo.comentario ? 'Ver / Editar Anotação' : 'Adicionar Anotação'}
+                            className={`flex items-center gap-1.5 px-3 py-2 text-[10px] font-bold rounded-lg hover:bg-amber-100 transition-colors print:hidden ${
+                              insumo.comentario ? 'text-amber-600 bg-amber-50 dark:bg-amber-900/20' : 'text-slate-400 bg-slate-50 dark:bg-slate-800'
+                            }`}
+                          >
+                            <MessageSquare className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => setCopiedItem({ type: 'insumos', data: insumo })} className="flex items-center gap-2 px-3 py-2 text-[10px] font-bold text-blue-500 bg-blue-50 dark:bg-blue-900/10 rounded-lg hover:bg-blue-100 transition-colors print:hidden">
+                            <Copy className="w-4 h-4" /> Copiar
+                          </button>
+                          <button onClick={() => updateCurrentProduct({ insumos: currentProduct.insumos.filter(i => i.id !== insumo.id) })} className="flex items-center gap-2 px-3 py-2 text-[10px] font-bold text-red-500 bg-red-50 dark:bg-red-900/10 rounded-lg hover:bg-red-100 transition-colors print:hidden">
+                            <Trash2 className="w-4 h-4" /> Excluir
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
-              </div>
-            </div>
 
-            <button onClick={() => updateCurrentProduct({ insumos: [...currentProduct.insumos, { id: Math.random().toString(36), nome: '', quantidade: 1, unidade: 'un', valorUnitario: 0 }] })} className="w-full mt-4 py-3 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-slate-400 hover:text-blue-600 text-[11px] font-black uppercase flex items-center justify-center gap-2 print:hidden"><Plus className="w-4 h-4" /> NOVO MATERIAL</button>
+                {/* DESKTOP VIEW */}
+                <div className="hidden md:block overflow-x-auto custom-scrollbar -mx-2 px-2">
+                  <div className="min-w-[780px] pb-4">
+                    <div className="grid grid-cols-[40px_1.5fr_1.5fr_0.8fr_0.8fr_1.2fr_1.2fr_0.5fr] gap-3 px-3 py-2.5 mb-2 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 dark:border-slate-800">
+                      <div className="flex justify-center">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedInsumoIds.length === currentProduct.insumos.length && currentProduct.insumos.length > 0}
+                          onChange={() => toggleSelectAll('insumos')}
+                          className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                        />
+                      </div>
+                      <div className="pl-1">Peça</div><div>Material</div><div className="text-center">Unid.</div><div className="text-center">Qtd</div><div className="text-center">Valor Unit.</div><div className="text-right">V. Total</div><div className="text-center">Ações</div>
+                    </div>
+                    <div className="space-y-2 p-1">
+                      {currentProduct.insumos.map((insumo) => (
+                        <div key={insumo.id} className={`grid grid-cols-[40px_1.5fr_1.5fr_0.8fr_0.8fr_1.2fr_1.2fr_0.5fr] gap-3 p-2 border rounded-xl items-center transition-all shadow-sm group ${selectedInsumoIds.includes(insumo.id) ? 'bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-400 dark:border-emerald-700' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-blue-400'}`}>
+                          <div className="flex justify-center">
+                            <input 
+                              type="checkbox" 
+                              id={`insumo-desktop-select-${insumo.id}`}
+                              title="Selecionar material"
+                              checked={selectedInsumoIds.includes(insumo.id)}
+                              onChange={() => toggleSelectItem('insumos', insumo.id)}
+                              className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                            />
+                          </div>
+                          {/* PEÇA */}
+                          <div className="relative group/field">
+                            <AutocompleteInput
+                              id={`peca-desktop-${insumo.id}`}
+                              value={insumo.peca || ''}
+                              suggestions={db.library.pecas}
+                              placeholder="Ex: Cabedal..."
+                              hidePrice={true}
+                              className={`${inputBase} !bg-transparent truncate pr-8`}
+                              onChange={(val) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, peca: val, nome: `${val}${i.material ? ' - ' + i.material : ''}` } : i) })}
+                              onSelect={(item) => updateCurrentProduct({
+                                insumos: currentProduct.insumos.map(i => i.id === insumo.id ? {
+                                  ...i,
+                                  peca: item.nome,
+                                  nome: `${item.nome}${i.material ? ' - ' + i.material : ''}`,
+                                  valorUnitario: 0 // Peça selection sets price to 0
+                                } : i)
+                              })}
+                            />
+                            <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/field:opacity-100 transition-all z-10 flex gap-0.5">
+                              {(insumo.peca || '').trim().length > 2 && !db.library.pecas.find(p => p.nome.toLowerCase() === (insumo.peca || '').toLowerCase()) ? (
+                                <button
+                                  onClick={() => handleSaveToLibrary('pecas', insumo.peca)}
+                                  title="Salvar Peça no Banco"
+                                  className="p-1 hover:bg-amber-50 dark:hover:bg-amber-900/40 rounded text-amber-500 relative"
+                                >
+                                  <Database className="w-3.5 h-3.5" />
+                                  <Plus className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-500 text-white rounded-full border border-white dark:border-slate-900" />
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    setActiveLibraryTarget({ id: insumo.id, type: 'pecas' });
+                                    setTimeout(() => setShowDatabase(true), 10);
+                                  }}
+                                  title="Buscar na Biblioteca de Peças"
+                                  className="p-1 hover:bg-amber-50 dark:hover:bg-amber-900/40 rounded text-amber-500"
+                                >
+                                  <Database className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
 
-            {/* Subtotal da Seção 1 */}
-            <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800">
-              <div className="bg-blue-50/30 dark:bg-blue-900/10 rounded-2xl p-5 border border-blue-100 dark:border-blue-800/50">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                  <div>
-                    <h4 className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1">Total de Materiais</h4>
-                    <p className="text-[9px] text-slate-500 dark:text-slate-400 font-medium italic">Soma total de todos os insumos aplicados por par.</p>
-                  </div>
-                  <div className="flex flex-col items-end">
-                    <span className="text-xl font-black font-mono text-blue-600 dark:text-blue-400">
-                      {formatCurrency(currentProduct.insumos.reduce((acc, curr) => acc + (curr.quantidade * curr.valorUnitario), 0))}
-                    </span>
-                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter mt-0.5">Total Acumulado (Item 1)</span>
+                          {/* MATERIAL */}
+                          <div className="relative group/field">
+                            <AutocompleteInput
+                              id={`material-desktop-${insumo.id}`}
+                              value={insumo.material || ''}
+                              suggestions={combinedMaterialsSuggestions}
+                              placeholder="Ex: Couro ou Sola..."
+                              className={`${inputBase} !bg-transparent truncate pr-14`}
+                              onChange={(val) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, material: val, nome: `${i.peca ? i.peca + ' - ' : ''}${val}` } : i) })}
+                              onSelect={(item) => {
+                                const isSola = (item as any)._type === 'solados';
+                                const finalCost = isSola
+                                  ? calculateSolaAverageCost(item as any, db.library.insumos, db.settings.unidadesMedida)
+                                  : ((item.quantidadeCompra && item.quantidadeCompra > 0) 
+                                      ? Math.round((item.valorUnitario / item.quantidadeCompra) * 100) / 100 
+                                      : Math.round((item.valor_unitario || item.valorUnitario || 0) * 100) / 100);
+                                const materialName = isSola ? `SOLA: ${item.nome}` : item.nome;
+                                updateCurrentProduct({
+                                  insumos: currentProduct.insumos.map(i => i.id === insumo.id ? {
+                                    ...i,
+                                    material: materialName,
+                                    nome: isSola ? materialName : `${i.peca ? i.peca + ' - ' : ''}${item.nome}`,
+                                    peca: isSola ? 'Solado' : i.peca,
+                                    unidade: isSola ? 'par' : (item.unidade || i.unidade),
+                                    valorUnitario: finalCost
+                                  } : i)
+                                });
+                              }}
+                            />
+                            <div className="absolute right-1 top-1/2 -translate-y-1/2 flex gap-0.5 opacity-0 group-hover/field:opacity-100 transition-all z-10">
+                              <button
+                                onClick={() => setCommentingItem({ id: insumo.id, type: 'insumos', comment: insumo.comentario || '' })}
+                                title={insumo.comentario ? "Ver Comentário" : "Adicionar Comentário"}
+                                className={`p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-all ${insumo.comentario ? 'text-blue-500' : 'text-slate-300'}`}
+                              >
+                                <MessageSquare className="w-3.5 h-3.5" />
+                              </button>
+                              {(insumo.material || '').trim().length > 2 && !db.library.insumos.find(m => m.nome.toLowerCase() === (insumo.material || '').toLowerCase()) ? (
+                                <button
+                                  onClick={() => handleSaveToLibrary('insumos', insumo.material)}
+                                  title="Salvar Material no Banco"
+                                  className="p-1 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded text-blue-500 relative"
+                                >
+                                  <Database className="w-3.5 h-3.5" />
+                                  <Plus className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-blue-500 text-white rounded-full border border-white dark:border-slate-900" />
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    setActiveLibraryTarget({ id: insumo.id, type: 'insumos' });
+                                    setTimeout(() => setShowDatabase(true), 10);
+                                  }}
+                                  title="Buscar na Biblioteca de Materiais"
+                                  className="p-1 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded text-blue-500"
+                                >
+                                  <Database className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                           <div className="relative group/field">
+                             <AutocompleteInput
+                               id={`unid-desktop-${insumo.id}`}
+                               value={insumo.unidade}
+                               suggestions={db.library.unidadesMedida}
+                               placeholder="Un..."
+                               hidePrice={true}
+                               className={`${inputBase} text-center uppercase text-[10px] !bg-transparent pr-7`}
+                               onChange={(val) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, unidade: val.toUpperCase() } : i) })}
+                               onSelect={(item) => updateCurrentProduct({
+                                 insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, unidade: item.nome.toUpperCase() } : i)
+                               })}
+                             />
+                             <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/field:opacity-100 transition-all z-10 flex gap-0.5">
+                               <button
+                                 onClick={() => {
+                                   setActiveLibraryTarget({ id: insumo.id, type: 'unidadesMedida' });
+                                   setTimeout(() => setShowDatabase(true), 10);
+                                 }}
+                                 title="Buscar na Biblioteca de Unidades"
+                                 className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-500"
+                               >
+                                 <Database className="w-3.5 h-3.5" />
+                               </button>
+                             </div>
+                           </div>
+                          <div className="relative">
+                            <input type="text" value={getDisplayValue(insumo.quantidade, insumo.id, 'q')} title="Quantidade" onBlur={() => setEditingValue(null)} onChange={(e) => handleNumericChange(insumo.id, 'q', e.target.value, (v) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, quantidade: v } : i) }))} className={`${inputBase} text-center font-mono pr-12`} />
+                            <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                              <button onClick={() => setActiveConsumptionCalc(insumo.id)} title="Calculador de Consumo" className="w-6 h-6 flex items-center justify-center text-emerald-500 hover:text-emerald-600"><Ruler className="w-3.5 h-3.5" /></button>
+                                  <button onClick={() => setActiveCalc({ id: insumo.id, field: 'q' })} title="Abrir Calculadora para Quantidade" aria-label="Calculadora" className="w-6 h-6 flex items-center justify-center text-slate-300 hover:text-blue-500"><Calculator className="w-3.5 h-3.5" /></button>
+                            </div>
+                          </div>
+                          <div className="relative">
+                            <input type="text" value={getDisplayValue(insumo.valorUnitario, insumo.id, 'v')} title="Valor Unitário" onBlur={() => setEditingValue(null)} onChange={(e) => handleNumericChange(insumo.id, 'v', e.target.value, (v) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, valorUnitario: v } : i) }))} className={`${inputBase} text-right font-mono pr-10`} />
+                            <button onClick={() => setActiveCalc({ id: insumo.id, field: 'v' })} title="Abrir Calculadora para Valor Unitário" aria-label="Calculadora" className="absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-slate-300 hover:text-blue-500"><Calculator className="w-4 h-4" /></button>
+                          </div>
+                          <div className="text-right text-[12px] font-black text-blue-600 font-mono">{formatCurrency((insumo.quantidade / (findUnitFactor(insumo.unidade, db.library.unidadesMedida) || 1)) * insumo.valorUnitario)}</div>
+                          <div className="flex justify-center gap-1.5 items-center print:hidden">
+                            <button
+                              onClick={() => setCommentingItem({ id: insumo.id, type: 'insumos', comment: insumo.comentario || '' })}
+                              title={insumo.comentario ? 'Ver / Editar Anotação' : 'Adicionar Anotação'}
+                              className={`p-1.5 rounded transition-all ${insumo.comentario ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' : 'text-slate-300 hover:text-amber-500'}`}
+                            >
+                              <MessageSquare className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => setCopiedItem({ type: 'insumos', data: insumo })} title="Copiar Material" className="text-slate-300 hover:text-blue-500 p-1.5"><Copy className="w-4 h-4" /></button>
+                            <button onClick={() => updateCurrentProduct({ insumos: currentProduct.insumos.filter(i => i.id !== insumo.id) })} title="Excluir Material" aria-label="Excluir Material" className="text-slate-300 hover:text-red-500 p-1.5"><Trash2 className="w-4 h-4" /></button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-            </>
-          )}
+
+                <button onClick={() => updateCurrentProduct({ insumos: [...currentProduct.insumos, { id: Math.random().toString(36), nome: '', peca: '', material: '', quantidade: 1, unidade: 'un', valorUnitario: 0 }] })} className="w-full mt-4 py-3 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-slate-400 hover:text-blue-600 text-[11px] font-black uppercase flex items-center justify-center gap-2 print:hidden"><Plus className="w-4 h-4" /> NOVO MATERIAL</button>
+
+
+                {/* Subtotal da Seção 1 */}
+                <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800">
+                  <div className="bg-blue-50/30 dark:bg-blue-900/10 rounded-2xl p-5 border border-blue-100 dark:border-blue-800/50">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                      <div>
+                        <h4 className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1">Total de Materiais</h4>
+                        <p className="text-[9px] text-slate-500 dark:text-slate-400 font-medium italic">Soma total de todos os insumos aplicados por par.</p>
+                      </div>
+                        <span className="text-xl font-black font-mono text-blue-600 dark:text-blue-400">
+                          {formatCurrency(currentProduct.insumos.reduce((acc, curr) => acc + ((curr.quantidade / (findUnitFactor(curr.unidade, db.library.unidadesMedida) || 1)) * curr.valorUnitario), 0))}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+              </>
+            )}
           </Section>
 
           <Section title="2. Mão de Obra e Serviços" icon={<Users className="text-orange-500 w-5 h-5" />} expanded={expandedSection === 'terceirizados'} onToggle={() => toggleSection('terceirizados')}>
@@ -1301,7 +1918,7 @@ const App: React.FC = () => {
               {copiedSection?.type === 'terceirizados' && (
                 <button onClick={() => {
                   if (confirm('Deseja substituir a lista atual pela lista copiada?')) {
-                    const newItems = copiedSection.data.map(i => ({...i, id: Math.random().toString(36)}));
+                    const newItems = copiedSection.data.map(i => ({ ...i, id: Math.random().toString(36) }));
                     updateCurrentProduct({ terceirizados: newItems });
                   }
                 }} className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:text-emerald-500 rounded-md transition-colors">
@@ -1318,10 +1935,66 @@ const App: React.FC = () => {
               )}
             </div>
 
+            {/* Toolbar de Seleção em Massa (Terceirizados) */}
+            {selectedTerceirizadoIds.length > 0 && (
+              <div className="sticky top-[72px] z-[40] -mx-4 px-2 sm:px-4 py-2.5 bg-orange-600 shadow-lg border-b border-orange-500 animate-in slide-in-from-top duration-300 print:hidden flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                  <div className="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white flex items-center justify-center text-orange-600 font-black text-xs sm:text-sm shadow-sm ring-2 ring-orange-400/50">
+                    {selectedTerceirizadoIds.length}
+                  </div>
+                  <div className="truncate">
+                    <span className="text-white font-black text-[10px] sm:text-[11px] uppercase tracking-wider block leading-tight truncate">
+                      <span className="hidden xs:inline">Serviços</span> Selecionados
+                    </span>
+                    <span className="text-orange-200 text-[8px] sm:text-[9px] font-bold uppercase tracking-widest leading-tight hidden sm:block">Ações em massa disponíveis</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <button
+                    onClick={() => handleBulkCopy('terceirizados')}
+                    className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-[10px] font-bold transition-all border border-white/20 hover:scale-105 active:scale-95"
+                  >
+                    <Copy className="w-3.5 h-3.5 text-orange-200" /> <span className="hidden xs:inline">Copiar</span>
+                  </button>
+                  <button
+                    onClick={() => handleBulkDelete('terceirizados')}
+                    className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 bg-red-500/80 hover:bg-red-500 text-white rounded-lg text-[10px] font-bold transition-all border border-red-400/30 hover:scale-105 active:scale-95"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> <span className="hidden xs:inline">Excluir</span>
+                  </button>
+                  <button 
+                    onClick={() => setSelectedTerceirizadoIds([])} 
+                    title="Limpar seleção"
+                    className="flex-shrink-0 p-1.5 hover:bg-white/10 rounded-full transition-colors text-white"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* MOBILE VIEW */}
             <div className="md:hidden space-y-4 mb-4 max-h-[850px] overflow-y-auto custom-scrollbar pr-2">
               {currentProduct.terceirizados.map((t) => (
-                <div key={t.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm relative group">
+                <div key={t.id} className={`bg-white dark:bg-slate-900 border ${selectedTerceirizadoIds.includes(t.id) ? 'border-orange-500 ring-1 ring-orange-500' : 'border-slate-200 dark:border-slate-800'} rounded-xl p-4 shadow-sm relative group`}>
+                  {/* SELEÇÃO MOBILE */}
+                  <div className="mb-3">
+                    <button
+                      onClick={() => toggleSelectItem('terceirizados', t.id)}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${
+                        selectedTerceirizadoIds.includes(t.id)
+                          ? 'bg-orange-600 text-white shadow-md'
+                          : 'bg-slate-100 text-slate-400 dark:bg-slate-800'
+                      }`}
+                    >
+                      <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${
+                        selectedTerceirizadoIds.includes(t.id) ? 'border-transparent bg-white' : 'border-slate-400'
+                      }`}>
+                        {selectedTerceirizadoIds.includes(t.id) && <Check className="w-2.5 h-2.5 text-orange-600" />}
+                      </div>
+                      {selectedTerceirizadoIds.includes(t.id) ? 'Selecionado' : 'Selecionar'}
+                    </button>
+                  </div>
                   <div className="mb-4">
                     <div className="relative group">
                       <AutocompleteInput
@@ -1358,7 +2031,10 @@ const App: React.FC = () => {
                           </button>
                         ) : (
                           <button
-                            onClick={() => { setActiveLibraryTarget({ id: t.id, type: 'terceirizados' }); setShowDatabase(true); }}
+                            onClick={() => {
+                              setActiveLibraryTarget({ id: t.id, type: 'terceirizados' });
+                              setTimeout(() => setShowDatabase(true), 10);
+                            }}
                             title="Buscar na Biblioteca"
                             className="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded-md text-blue-500 transition-all"
                           >
@@ -1369,19 +2045,39 @@ const App: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-[0.8fr_1.2fr_1.5fr] gap-3 mb-4">
-                    <div>
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1.5 block text-center">Unid.</label>
-                      <input
-                        value={t.unidade}
-                        onChange={(e) => updateCurrentProduct({ terceirizados: currentProduct.terceirizados.map(i => i.id === t.id ? { ...i, unidade: e.target.value } : i) })}
-                        title="Unidade de medida"
-                        className={`${inputBase} text-center uppercase px-1`}
-                      />
-                    </div>
+                  <div className="mb-3">
+                     <div className="relative group/field">
+                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1.5 block ml-1">Unid.</label>
+                       <AutocompleteInput
+                         id={`unid-terc-${t.id}`}
+                         value={t.unidade}
+                         suggestions={db.library.unidadesMedida}
+                         placeholder="Un..."
+                         hidePrice={true}
+                         className={`${inputBase} text-center uppercase px-1 h-11 pr-7`}
+                         onChange={(val) => updateCurrentProduct({ terceirizados: currentProduct.terceirizados.map(i => i.id === t.id ? { ...i, unidade: val.toUpperCase() } : i) })}
+                         onSelect={(item) => updateCurrentProduct({
+                           terceirizados: currentProduct.terceirizados.map(i => i.id === t.id ? { ...i, unidade: item.nome.toUpperCase() } : i)
+                         })}
+                       />
+                       <div className="absolute right-1 top-1/2 translate-y-[-2px] opacity-0 group-hover/field:opacity-100 transition-all z-10">
+                         <button
+                           onClick={() => {
+                             setActiveLibraryTarget({ id: t.id, type: 'unidadesMedida' });
+                             setTimeout(() => setShowDatabase(true), 10);
+                           }}
+                           title="Buscar na Biblioteca de Unidades"
+                           className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-500"
+                         >
+                           <Database className="w-3.5 h-3.5" />
+                         </button>
+                       </div>
+                     </div>
+                  </div>
 
+                  <div className="grid grid-cols-2 gap-3 mb-4">
                     <div>
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1.5 block text-center">Qtd</label>
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1.5 block ml-1">Quantidade</label>
                       <div className="relative">
                         <input
                           type="text"
@@ -1389,16 +2085,16 @@ const App: React.FC = () => {
                           title="Quantidade"
                           onBlur={() => setEditingValue(null)}
                           onChange={(e) => handleNumericChange(t.id, 'tq', e.target.value, (v) => updateCurrentProduct({ terceirizados: currentProduct.terceirizados.map(i => i.id === t.id ? { ...i, quantidade: v } : i) }))}
-                          className={`${inputBase} text-center font-mono pr-8`}
+                          className={`${inputBase} text-center font-mono pr-12 h-11`}
                         />
-                        <button onClick={() => setActiveCalc({ id: t.id, field: 'tq' })} title="Abrir Calculadora para Quantidade" aria-label="Calculadora" className="absolute right-1 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center text-slate-300 hover:text-emerald-500">
-                          <Calculator className="w-3.5 h-3.5" />
+                        <button onClick={() => setActiveCalc({ id: t.id, field: 'tq' })} title="Abrir Calculadora para Quantidade" aria-label="Calculadora" className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center text-slate-400 hover:text-emerald-500 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                          <Calculator className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
 
                     <div>
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1.5 block text-right">Valor Unit.</label>
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1.5 block ml-1">Valor Unitário</label>
                       <div className="relative">
                         <input
                           type="text"
@@ -1406,21 +2102,38 @@ const App: React.FC = () => {
                           title="Valor Unitário"
                           onBlur={() => setEditingValue(null)}
                           onChange={(e) => handleNumericChange(t.id, 'tv', e.target.value, (v) => updateCurrentProduct({ terceirizados: currentProduct.terceirizados.map(i => i.id === t.id ? { ...i, valorUnitario: v } : i) }))}
-                          className={`${inputBase} text-right font-mono pr-9`}
+                          className={`${inputBase} text-right font-mono pr-12 h-11`}
                         />
-                        <button onClick={() => setActiveCalc({ id: t.id, field: 'tv' })} title="Abrir Calculadora para Valor Unitário" aria-label="Calculadora" className="absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-slate-300 hover:text-blue-500">
-                          <Calculator className="w-4 h-4" />
+                        <button onClick={() => setActiveCalc({ id: t.id, field: 'tv' })} title="Abrir Calculadora para Valor Unitário" aria-label="Calculadora" className="absolute right-1 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center text-slate-400 hover:text-blue-500 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                          <Calculator className="w-5 h-5" />
                         </button>
                       </div>
                     </div>
                   </div>
 
+
+                  {t.comentario && (
+                    <div className="mb-4 flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl px-3 py-2">
+                      <MessageSquare className="w-3.5 h-3.5 text-amber-500 mt-0.5 flex-shrink-0" />
+                      <span className="text-[10px] text-amber-700 dark:text-amber-300 font-medium leading-relaxed line-clamp-2">{t.comentario}</span>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
                     <div>
                       <span className="text-[9px] font-black text-slate-400 uppercase block mb-0.5">Subtotal</span>
-                      <span className="text-[15px] font-black text-orange-600 font-mono">{formatCurrency(t.quantidade * t.valorUnitario)}</span>
+                      <span className="text-[15px] font-black text-orange-600 font-mono">{formatCurrency((t.quantidade / (findUnitFactor(t.unidade, db.library.unidadesMedida) || 1)) * t.valorUnitario)}</span>
                     </div>
                     <div className="flex gap-2">
+                      <button
+                        onClick={() => setCommentingItem({ id: t.id, type: 'terceirizados', comment: t.comentario || '' })}
+                        title={t.comentario ? 'Ver / Editar Anotação' : 'Adicionar Anotação'}
+                        className={`flex items-center gap-1.5 px-3 py-2 text-[10px] font-bold rounded-lg hover:bg-amber-100 transition-colors print:hidden ${
+                          t.comentario ? 'text-amber-600 bg-amber-50 dark:bg-amber-900/20' : 'text-slate-400 bg-slate-50 dark:bg-slate-800'
+                        }`}
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                      </button>
                       <button onClick={() => setCopiedItem({ type: 'terceirizados', data: t })} className="flex items-center gap-2 px-3 py-2 text-[10px] font-bold text-blue-500 bg-blue-50 dark:bg-blue-900/10 rounded-lg hover:bg-blue-100 transition-colors print:hidden">
                         <Copy className="w-4 h-4" /> Copiar
                       </button>
@@ -1433,14 +2146,39 @@ const App: React.FC = () => {
               ))}
             </div>
 
-            {/* DESKTOP VIEW */}
             <div className="hidden md:block overflow-x-auto custom-scrollbar -mx-2 px-2">
               <div className="min-w-[780px] pb-4 space-y-2">
-                <div className="grid grid-cols-[2fr_1fr_1fr_1.5fr_1.2fr_0.5fr] gap-3 px-3 py-2.5 mb-2 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 dark:border-slate-800">
+                <div className="grid grid-cols-[40px_2fr_1fr_1fr_1.5fr_1.2fr_0.5fr] gap-3 px-3 py-2.5 mb-2 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex justify-center">
+                    <button 
+                      onClick={() => toggleSelectAll('terceirizados')}
+                      className={`w-4 h-4 rounded border transition-colors flex items-center justify-center ${
+                        selectedTerceirizadoIds.length === currentProduct.terceirizados.length && currentProduct.terceirizados.length > 0
+                          ? 'bg-orange-600 border-orange-600'
+                          : 'bg-white border-slate-300'
+                      }`}
+                    >
+                      {selectedTerceirizadoIds.length === currentProduct.terceirizados.length && currentProduct.terceirizados.length > 0 && (
+                        <Check className="w-3 h-3 text-white" />
+                      )}
+                    </button>
+                  </div>
                   <div className="pl-1">Serviço</div><div className="text-center">Unidade</div><div className="text-center">Quantidade</div><div className="text-center">V. Unitário</div><div className="text-right">V. Total</div><div className="text-center">Ações</div>
                 </div>
                 {currentProduct.terceirizados.map((t) => (
-                  <div key={t.id} className="grid grid-cols-[2fr_1fr_1fr_1.5fr_1.2fr_0.5fr] gap-3 p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl items-center shadow-sm hover:border-orange-400 transition-all">
+                  <div key={t.id} className={`grid grid-cols-[40px_2fr_1fr_1fr_1.5fr_1.2fr_0.5fr] gap-3 p-2 bg-white dark:bg-slate-900 border ${selectedTerceirizadoIds.includes(t.id) ? 'border-orange-500 bg-orange-50/20 shadow-sm relative z-10' : 'border-slate-200 dark:border-slate-800'} rounded-xl items-center shadow-sm hover:border-orange-400 transition-all`}>
+                    <div className="flex justify-center group-hover:scale-110 transition-transform">
+                      <button 
+                        onClick={() => toggleSelectItem('terceirizados', t.id)}
+                        className={`w-4 h-4 rounded border transition-all flex items-center justify-center ${
+                          selectedTerceirizadoIds.includes(t.id)
+                            ? 'bg-orange-600 border-orange-600 shadow-sm'
+                            : 'bg-white border-slate-300'
+                        }`}
+                      >
+                        {selectedTerceirizadoIds.includes(t.id) && <Check className="w-3 h-3 text-white" />}
+                      </button>
+                    </div>
                     <div className="relative group">
                       <AutocompleteInput
                         value={t.nome}
@@ -1485,16 +2223,48 @@ const App: React.FC = () => {
                         )}
                       </div>
                     </div>
-                    <input value={t.unidade} title="Unidade" onChange={(e) => updateCurrentProduct({ terceirizados: currentProduct.terceirizados.map(i => i.id === t.id ? { ...i, unidade: e.target.value } : i) })} className={`${inputBase} text-center uppercase text-[10px]`} />
+                     <div className="relative group/field">
+                       <AutocompleteInput
+                         id={`unid-terc-desktop-${t.id}`}
+                         value={t.unidade}
+                         suggestions={db.library.unidadesMedida}
+                         placeholder="Un..."
+                         hidePrice={true}
+                         className={`${inputBase} text-center uppercase text-[10px] !bg-transparent pr-7`}
+                         onChange={(val) => updateCurrentProduct({ terceirizados: currentProduct.terceirizados.map(i => i.id === t.id ? { ...i, unidade: val.toUpperCase() } : i) })}
+                         onSelect={(item) => updateCurrentProduct({
+                           terceirizados: currentProduct.terceirizados.map(i => i.id === t.id ? { ...i, unidade: item.nome.toUpperCase() } : i)
+                         })}
+                       />
+                       <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/field:opacity-100 transition-all z-10 flex gap-0.5">
+                         <button
+                           onClick={() => {
+                             setActiveLibraryTarget({ id: t.id, type: 'unidadesMedida' });
+                             setTimeout(() => setShowDatabase(true), 10);
+                           }}
+                           title="Buscar na Biblioteca de Unidades"
+                           className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-500"
+                         >
+                           <Database className="w-3.5 h-3.5" />
+                         </button>
+                       </div>
+                     </div>
                     <input type="text" value={getDisplayValue(t.quantidade, t.id, 'tq')} title="Quantidade" onBlur={() => setEditingValue(null)} onChange={(e) => handleNumericChange(t.id, 'tq', e.target.value, (v) => updateCurrentProduct({ terceirizados: currentProduct.terceirizados.map(i => i.id === t.id ? { ...i, quantidade: v } : i) }))} className={`${inputBase} text-center font-mono`} />
                     <div className="relative">
                       <input type="text" value={getDisplayValue(t.valorUnitario, t.id, 'tv')} onBlur={() => setEditingValue(null)} onChange={(e) => handleNumericChange(t.id, 'tv', e.target.value, (v) => updateCurrentProduct({ terceirizados: currentProduct.terceirizados.map(i => i.id === t.id ? { ...i, valorUnitario: v } : i) }))} className={`${inputBase} text-right font-mono pr-10`} />
                       <button onClick={() => setActiveCalc({ id: t.id, field: 'tv' })} title="Abrir Calculadora para Valor Unitário" aria-label="Calculadora" className="absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-slate-300 hover:text-blue-500"><Calculator className="w-4 h-4" /></button>
                     </div>
-                    <div className="text-right text-[12px] font-black text-orange-600 font-mono">{formatCurrency(t.quantidade * t.valorUnitario)}</div>
-                    <div className="flex justify-center gap-2 items-center print:hidden">
-                      <button onClick={() => setCopiedItem({ type: 'terceirizados', data: t })} title="Copiar Serviço" className="text-slate-300 hover:text-blue-500"><Copy className="w-4 h-4" /></button>
-                      <button onClick={() => updateCurrentProduct({ terceirizados: currentProduct.terceirizados.filter(i => i.id !== t.id) })} title="Excluir Serviço" aria-label="Excluir Serviço" className="text-slate-300 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                    <div className="text-right text-[12px] font-black text-orange-600 font-mono">{formatCurrency((t.quantidade / (findUnitFactor(t.unidade, db.library.unidadesMedida) || 1)) * t.valorUnitario)}</div>
+                    <div className="flex justify-center gap-1.5 items-center print:hidden">
+                      <button
+                        onClick={() => setCommentingItem({ id: t.id, type: 'terceirizados', comment: t.comentario || '' })}
+                        title={t.comentario ? 'Ver / Editar Anotação' : 'Adicionar Anotação'}
+                        className={`p-1.5 rounded transition-all ${t.comentario ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' : 'text-slate-300 hover:text-amber-500'}`}
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => setCopiedItem({ type: 'terceirizados', data: t })} title="Copiar Serviço" className="text-slate-300 hover:text-blue-500 p-1.5"><Copy className="w-4 h-4" /></button>
+                      <button onClick={() => updateCurrentProduct({ terceirizados: currentProduct.terceirizados.filter(i => i.id !== t.id) })} title="Excluir Serviço" aria-label="Excluir Serviço" className="text-slate-300 hover:text-red-500 p-1.5"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </div>
                 ))}
@@ -1512,7 +2282,7 @@ const App: React.FC = () => {
                   </div>
                   <div className="flex flex-col items-end">
                     <span className="text-xl font-black font-mono text-orange-600 dark:text-orange-400">
-                      {formatCurrency(currentProduct.terceirizados.reduce((acc, curr) => acc + (curr.quantidade * curr.valorUnitario), 0))}
+                      {formatCurrency(currentProduct.terceirizados.reduce((acc, curr) => acc + ((curr.quantidade / (findUnitFactor(curr.unidade, db.library.unidadesMedida) || 1)) * curr.valorUnitario), 0))}
                     </span>
                     <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter mt-0.5">Total Acumulado (Item 2)</span>
                   </div>
@@ -1533,7 +2303,7 @@ const App: React.FC = () => {
                     {copiedSection?.type === 'custosFixos' && (
                       <button onClick={() => {
                         if (confirm('Deseja substituir a lista atual pela lista copiada?')) {
-                          const newItems = copiedSection.data.map(i => ({...i, id: Math.random().toString(36)}));
+                          const newItems = copiedSection.data.map(i => ({ ...i, id: Math.random().toString(36) }));
                           updateCurrentProduct({ custosFixos: newItems });
                         }
                       }} className="flex items-center gap-1.5 px-2 py-1 text-[9px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:text-emerald-500 rounded-md transition-colors">
@@ -1555,13 +2325,22 @@ const App: React.FC = () => {
                     <div className="grid grid-cols-[1fr_auto] gap-3 mb-3">
                       <div className="flex-1 relative group">
                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1 block">Descrição do Custo Fixo</label>
-                        <input
+                        <AutocompleteInput
+                          id={`custo-fixo-${cf.id}`}
                           value={cf.nome}
-                          title="Nome do Custo Fixo"
-                          onChange={(e) => updateCurrentProduct({ custosFixos: currentProduct.custosFixos.map(i => i.id === cf.id ? { ...i, nome: e.target.value } : i) })}
+                          suggestions={db.library.custosFixos}
+                          placeholder="Ex: Aluguel..."
                           className={`${inputBase} !bg-transparent !py-2 pr-10`}
+                          onChange={(val) => updateCurrentProduct({ custosFixos: currentProduct.custosFixos.map(i => i.id === cf.id ? { ...i, nome: val } : i) })}
+                          onSelect={(item) => updateCurrentProduct({
+                            custosFixos: currentProduct.custosFixos.map(i => i.id === cf.id ? {
+                              ...i,
+                              nome: item.nome,
+                              valor: item.valor || i.valor
+                            } : i)
+                          })}
                         />
-                        <div className="absolute right-1 top-[22px] flex gap-1">
+                        <div className="absolute right-1 top-[22px] flex gap-1 z-10">
                           <button
                             onClick={() => setCommentingItem({ id: cf.id, type: 'custosFixos', comment: cf.comentario || '' })}
                             title={cf.comentario ? "Ver Comentário" : "Adicionar Comentário"}
@@ -1569,13 +2348,24 @@ const App: React.FC = () => {
                           >
                             <MessageSquare className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => { setActiveLibraryTarget({ id: cf.id, type: 'custosFixos' }); setShowDatabase(true); }}
-                            title="Buscar na Biblioteca"
-                            className="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded-md text-blue-500 transition-all"
-                          >
-                            <Database className="w-4 h-4" />
-                          </button>
+                          {cf.nome.trim().length > 2 && !db.library.custosFixos.find(s => s.nome.toLowerCase() === cf.nome.toLowerCase()) ? (
+                            <button
+                              onClick={() => handleSaveToLibrary('custosFixos', cf.nome)}
+                              title="Salvar no Cadastro"
+                              className="p-1.5 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/40 rounded-md transition-all relative"
+                            >
+                              <Database className="w-4 h-4" />
+                              <Plus className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-500 text-white rounded-full border border-white dark:border-slate-900" />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => { setActiveLibraryTarget({ id: cf.id, type: 'custosFixos' }); setShowDatabase(true); }}
+                              title="Buscar na Biblioteca"
+                              className="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded-md text-blue-500 transition-all"
+                            >
+                              <Database className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-end gap-1">
@@ -1630,7 +2420,7 @@ const App: React.FC = () => {
                     {copiedSection?.type === 'custosIndiretos' && (
                       <button onClick={() => {
                         if (confirm('Deseja substituir a lista atual pela lista copiada?')) {
-                          const newItems = copiedSection.data.map(i => ({...i, id: Math.random().toString(36)}));
+                          const newItems = copiedSection.data.map(i => ({ ...i, id: Math.random().toString(36) }));
                           updateCurrentProduct({ custosIndiretos: newItems });
                         }
                       }} className="flex items-center gap-1.5 px-2 py-1 text-[9px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:text-emerald-500 rounded-md transition-colors">
@@ -1652,13 +2442,22 @@ const App: React.FC = () => {
                     <div className="grid grid-cols-[1fr_auto] gap-3 mb-3">
                       <div className="flex-1 relative group">
                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1 block">Descrição do Custo Variável</label>
-                        <input
+                        <AutocompleteInput
+                          id={`custo-indireto-${ci.id}`}
                           value={ci.nome}
-                          title="Nome do Custo Variável"
-                          onChange={(e) => updateCurrentProduct({ custosIndiretos: currentProduct.custosIndiretos.map(i => i.id === ci.id ? { ...i, nome: e.target.value } : i) })}
+                          suggestions={db.library.custosIndiretos}
+                          placeholder="Ex: Manutenção..."
                           className={`${inputBase} !bg-transparent !py-2 pr-10`}
+                          onChange={(val) => updateCurrentProduct({ custosIndiretos: currentProduct.custosIndiretos.map(i => i.id === ci.id ? { ...i, nome: val } : i) })}
+                          onSelect={(item) => updateCurrentProduct({
+                            custosIndiretos: currentProduct.custosIndiretos.map(i => i.id === ci.id ? {
+                              ...i,
+                              nome: item.nome,
+                              valor: item.valor || i.valor
+                            } : i)
+                          })}
                         />
-                        <div className="absolute right-1 top-[22px] flex gap-1">
+                        <div className="absolute right-1 top-[22px] flex gap-1 z-10">
                           <button
                             onClick={() => setCommentingItem({ id: ci.id, type: 'custosIndiretos', comment: ci.comentario || '' })}
                             title={ci.comentario ? "Ver Comentário" : "Adicionar Comentário"}
@@ -1666,13 +2465,24 @@ const App: React.FC = () => {
                           >
                             <MessageSquare className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => { setActiveLibraryTarget({ id: ci.id, type: 'custosIndiretos' }); setShowDatabase(true); }}
-                            title="Buscar na Biblioteca"
-                            className="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded-md text-blue-500 transition-all"
-                          >
-                            <Database className="w-4 h-4" />
-                          </button>
+                          {ci.nome.trim().length > 2 && !db.library.custosIndiretos.find(s => s.nome.toLowerCase() === ci.nome.toLowerCase()) ? (
+                            <button
+                              onClick={() => handleSaveToLibrary('custosIndiretos', ci.nome)}
+                              title="Salvar no Cadastro"
+                              className="p-1.5 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/40 rounded-md transition-all relative"
+                            >
+                              <Database className="w-4 h-4" />
+                              <Plus className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-500 text-white rounded-full border border-white dark:border-slate-900" />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => { setActiveLibraryTarget({ id: ci.id, type: 'custosIndiretos' }); setShowDatabase(true); }}
+                              title="Buscar na Biblioteca"
+                              className="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded-md text-blue-500 transition-all"
+                            >
+                              <Database className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-end gap-1">
@@ -1730,7 +2540,7 @@ const App: React.FC = () => {
                   <div className="flex flex-col items-end">
                     <span className="text-xl font-black font-mono text-purple-600 dark:text-purple-400">
                       {formatCurrency(
-                        currentProduct.custosFixos.reduce((acc, curr) => acc + (curr.valor || 0), 0) + 
+                        currentProduct.custosFixos.reduce((acc, curr) => acc + (curr.valor || 0), 0) +
                         currentProduct.custosIndiretos.reduce((acc, curr) => acc + (curr.valor || 0), 0)
                       )}
                     </span>
@@ -1798,10 +2608,10 @@ const App: React.FC = () => {
                               key={imp.id}
                               onClick={() => {
                                 const selected = currentProduct.markup?.selectedImpostos || [];
-                                const newSelected = isSelected 
+                                const newSelected = isSelected
                                   ? selected.filter(id => id !== imp.id)
                                   : [...selected, imp.id];
-                                
+
                                 const totalTax = db.library.impostos
                                   .filter(i => newSelected.includes(i.id))
                                   .reduce((sum, i) => sum + i.aliquota, 0);
@@ -1979,10 +2789,10 @@ const App: React.FC = () => {
               <div className="flex justify-between text-xs font-medium text-slate-600 dark:text-slate-400"><span>Operacional</span><span className="font-mono">{formatCurrency(summary.custoFixoPorUnidade)}</span></div>
               <div className="flex justify-between text-xs font-medium text-red-400"><span>Perdas de Produção</span><span className="font-mono">+{formatCurrency(summary.valorPerdaUnitario)}</span></div>
               <div className="flex justify-between text-xs font-medium text-amber-500"><span>Impostos sobre Venda</span><span className="font-mono">+{formatCurrency(summary.valorImpostoUnitario)}</span></div>
-               <div className="flex justify-between text-xs font-medium text-blue-500"><span>Comissões de Venda</span><span className="font-mono">+{formatCurrency(summary.valorComissaoUnitaria)}</span></div>
+              <div className="flex justify-between text-xs font-medium text-blue-500"><span>Comissões de Venda</span><span className="font-mono">+{formatCurrency(summary.valorComissaoUnitaria)}</span></div>
               <div className="flex justify-between text-xs font-medium text-emerald-500"><span>Fretes de Venda</span><span className="font-mono">+{formatCurrency(summary.valorFreteUnitario)}</span></div>
 
-              
+
               {/* Detalhamento de Impostos da Biblioteca */}
               {currentProduct.markup?.selectedImpostos && currentProduct.markup.selectedImpostos.length > 0 && (
                 <div className="space-y-1 ml-4 border-l-2 border-slate-100 dark:border-slate-800 pl-3 mb-2">
@@ -2054,10 +2864,10 @@ const App: React.FC = () => {
                 <span className="text-[9px] font-black uppercase text-slate-400">Total de Encargos (Perda + Taxas)</span>
                 <span className="text-xs font-black font-mono text-slate-600 dark:text-slate-300">
                   {formatCurrency(
-                    summary.valorPerdaUnitario + 
-                    summary.valorImpostoUnitario + 
-                    summary.valorComissaoUnitaria + 
-                    summary.valorFreteUnitario + 
+                    summary.valorPerdaUnitario +
+                    summary.valorImpostoUnitario +
+                    summary.valorComissaoUnitaria +
+                    summary.valorFreteUnitario +
                     0
                   )}
                 </span>
@@ -2068,10 +2878,10 @@ const App: React.FC = () => {
                 <div className="text-right">
                   <span className="text-2xl font-black font-mono tracking-tighter block">
                     {formatCurrency(
-                      summary.custoProducaoUnitario + 
-                      summary.valorImpostoUnitario + 
-                      summary.valorComissaoUnitaria + 
-                      summary.valorFreteUnitario + 
+                      summary.custoProducaoUnitario +
+                      summary.valorImpostoUnitario +
+                      summary.valorComissaoUnitaria +
+                      summary.valorFreteUnitario +
                       0
                     )}
                   </span>
@@ -2139,6 +2949,106 @@ const App: React.FC = () => {
         />
       )}
 
+      {/* ====== BALLOON COMMENT MODAL ====== */}
+      {commentingItem && (() => {
+        const isInsumo = commentingItem.type === 'insumos';
+        const item = isInsumo
+          ? currentProduct.insumos.find(i => i.id === commentingItem.id)
+          : currentProduct.terceirizados.find(i => i.id === commentingItem.id);
+        const itemName = item ? (isInsumo ? (item.material || item.nome || 'Material') : item.nome) : 'Item';
+
+        const saveComment = () => {
+          if (isInsumo) {
+            updateCurrentProduct({
+              insumos: currentProduct.insumos.map(i =>
+                i.id === commentingItem.id ? { ...i, comentario: commentingItem.comment.trim() || undefined } : i
+              )
+            });
+          } else {
+            updateCurrentProduct({
+              terceirizados: currentProduct.terceirizados.map(i =>
+                i.id === commentingItem.id ? { ...i, comentario: commentingItem.comment.trim() || undefined } : i
+              )
+            });
+          }
+          setCommentingItem(null);
+        };
+
+        return (
+          <div className="fixed inset-0 z-[2000] flex items-end justify-center p-4 md:items-center">
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+              onClick={() => setCommentingItem(null)}
+            />
+
+            {/* Balloon panel */}
+            <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl shadow-amber-500/10 border border-amber-200 dark:border-amber-800/50 p-6 animate-in slide-in-from-bottom duration-300">
+              {/* Balloon tail */}
+              <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-6 h-3 overflow-hidden md:hidden">
+                <div className="w-4 h-4 bg-white dark:bg-slate-900 border-b border-r border-amber-200 dark:border-amber-800/50 rotate-45 mx-auto -mt-2" />
+              </div>
+
+              {/* Header */}
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                    <MessageSquare className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-widest">Anotação</h3>
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold truncate max-w-[200px]">{itemName}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setCommentingItem(null)}
+                  title="Fechar anotação"
+                  aria-label="Fechar anotação"
+                  className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Textarea */}
+              <div className="relative">
+                <textarea
+                  title="Anotação do item"
+                  placeholder="Escreva uma observação sobre este item...\n\nEx: Fornecedor preferido, condições de compra, observações técnicas..."
+                  value={commentingItem.comment}
+                  onChange={e => setCommentingItem({ ...commentingItem, comment: e.target.value })}
+                  autoFocus
+                  rows={5}
+                  className="w-full bg-amber-50/60 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/50 rounded-2xl px-4 py-3.5 text-[13px] text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 outline-none focus:ring-2 focus:ring-amber-400 resize-none leading-relaxed font-medium"
+                />
+                <span className="absolute bottom-3 right-3 text-[9px] text-slate-400 font-bold">
+                  {commentingItem.comment.length} car.
+                </span>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 mt-4">
+                {commentingItem.comment.trim() && (
+                  <button
+                    onClick={() => setCommentingItem({ ...commentingItem, comment: '' })}
+                    className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-red-500 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 rounded-xl transition-all"
+                    title="Limpar anotação"
+                  >
+                    Limpar
+                  </button>
+                )}
+                <button
+                  onClick={saveComment}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-amber-500/30 active:scale-95 transition-all"
+                >
+                  <Check className="w-4 h-4" /> Salvar Anotação
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {showDatabase && (
         <LibraryView
           library={db.library}
@@ -2149,12 +3059,16 @@ const App: React.FC = () => {
             ...currentProduct.custosFixos.map(i => i.nome),
             ...currentProduct.custosIndiretos.map(i => i.nome)
           ]}
-          onClose={() => setShowDatabase(false)}
+          initialTab={activeLibraryTarget?.type || undefined}
+          onClose={() => { setShowDatabase(false); setActiveLibraryTarget(null); }}
           onSelectItem={handleSelectItem}
+          onSelectMultipleItems={handleSelectMultipleItems}
           onAddItem={handleAddItemToLibrary}
           onDeleteItem={handleDeleteItemFromLibrary}
           onUpdateItem={handleUpdateItemInLibrary}
           onUpdateUnits={(newUnits) => setDb(prev => ({ ...prev, settings: { ...prev.settings, unidadesMedida: newUnits } }))}
+          onResetCloud={handleResetCloud}
+          isSyncing={syncStatus === 'syncing'}
         />
       )}
 
@@ -2173,13 +3087,13 @@ const App: React.FC = () => {
             <div className="flex-1 space-y-3 overflow-y-auto pr-2 custom-scrollbar">
               {db.products.map(p => (
                 <div key={p.id} className="group flex gap-2 animate-in fade-in duration-500">
-                  <div 
-                    onClick={() => { 
+                  <div
+                    onClick={() => {
                       if (editingProjectId !== p.id) {
-                        setDb(prev => ({ ...prev, lastSelectedProductId: p.id })); 
-                        setShowProjectList(false); 
+                        setDb(prev => ({ ...prev, lastSelectedProductId: p.id }));
+                        setShowProjectList(false);
                       }
-                    }} 
+                    }}
                     className={`flex-1 p-5 rounded-2xl cursor-pointer transition-all border-2 ${p.id === db.lastSelectedProductId ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30 shadow-lg shadow-blue-500/10' : 'border-slate-100 dark:border-slate-800 hover:border-slate-200'}`}
                   >
                     {editingProjectId === p.id ? (
@@ -2203,7 +3117,7 @@ const App: React.FC = () => {
                           }}
                           className="flex-1 bg-white dark:bg-slate-800 border border-blue-500 rounded px-2 py-1 text-xs font-black uppercase outline-none"
                         />
-                        <button 
+                        <button
                           onClick={() => {
                             setDb(prev => ({
                               ...prev,
@@ -2235,14 +3149,41 @@ const App: React.FC = () => {
                       setDb(prev => ({ ...prev, products: [...prev.products, duplicatedProduct], lastSelectedProductId: duplicatedProduct.id }));
                       setShowProjectList(false);
                     }} title="Duplicar Produto" aria-label="Duplicar Produto" className="p-2 text-slate-300 hover:text-blue-500 transition-colors"><Copy className="w-4 h-4" /></button>
-                    {db.products.length > 1 && <button onClick={() => { const id = p.id; setDb(prev => { const next = prev.products.filter(item => item.id !== id); return { ...prev, products: next, lastSelectedProductId: next[0].id }; }); }} title="Excluir Produto" aria-label="Excluir Produto" className="p-2 text-slate-300 hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>}
+                    {db.products.length > 1 && (
+                      <button
+                        onClick={async () => {
+                          if (confirm('Deseja realmente excluir este produto?')) {
+                            const id = p.id;
+                            // Update local state
+                            setDb(prev => {
+                              const next = prev.products.filter(item => item.id !== id);
+                              return { ...prev, products: next, lastSelectedProductId: next[0].id };
+                            });
+                            // Immediate cloud delete for consistency
+                            if (user) {
+                              try {
+                                await firebaseService.deleteProject(user.uid, id);
+                                console.log(`App: Project ${id} deleted from cloud.`);
+                              } catch (e) {
+                                console.error("App: Error deleting project from cloud:", e);
+                              }
+                            }
+                          }
+                        }}
+                        title="Excluir Produto"
+                        aria-label="Excluir Produto"
+                        className="p-2 text-slate-300 hover:text-red-500 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
-            </div>
+
 
             <div className="mt-8 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col">
-              <button 
+              <button
                 onClick={() => setShowExportOptions(!showExportOptions)}
                 className="flex items-center justify-between w-full p-4 bg-slate-50 dark:bg-slate-800/80 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shadow-sm border border-slate-200 dark:border-slate-700 active:scale-[0.98]"
               >
@@ -2259,17 +3200,26 @@ const App: React.FC = () => {
                     </span>
                   </div>
                 </div>
-                <ChevronDown 
-                  className={`w-5 h-5 text-slate-400 transition-transform duration-300 ease-in-out ${showExportOptions ? 'rotate-180 text-blue-500' : ''}`} 
+                <ChevronDown
+                  className={`w-5 h-5 text-slate-400 transition-transform duration-300 ease-in-out ${showExportOptions ? 'rotate-180 text-blue-500' : ''}`}
                 />
               </button>
 
-              <div 
+              <div
                 className={`overflow-hidden transition-all duration-300 ease-in-out flex flex-col ${showExportOptions ? 'max-h-[800px] opacity-100 mt-6' : 'max-h-0 opacity-0'}`}
               >
+                {/* Indicador de Conta Ativa solicitado pelo usuário */}
+                <div className="mb-6 p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-800/50 flex flex-col items-center">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                    <span className="text-[9px] font-black text-blue-500 uppercase tracking-widest">Sincronizado com:</span>
+                  </div>
+                  <span className="text-sm font-black text-slate-800 dark:text-white">{user.email}</span>
+                </div>
+
                 <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Exportar Atual: <span className="text-blue-500 truncate inline-block align-bottom max-w-[150px]">{currentProduct.name || 'Produto'}</span></h3>
                 <div className="grid grid-cols-4 gap-2 mb-8">
-                   <button
+                  <button
                     onClick={() => shareTextReport(
                       summary, currentProduct.name, currentProduct.type, currentProduct.markup?.selectedImpostos || [], db.library.impostos || [], currentProduct.markup?.selectedComissoes || [], db.library.comissoes || [], currentProduct.markup?.selectedFretes || [], db.library.fretes || []
                     )}
@@ -2333,11 +3283,22 @@ const App: React.FC = () => {
                     <Upload className="w-4 h-4 text-blue-500" />
                     <span className="text-[8px] font-black uppercase text-slate-500">Restaurar do Arquivo</span>
                   </button>
+
+                  <div className="pt-2">
+                    <button 
+                      onClick={handleLogout} 
+                      className="w-full p-3 bg-red-50 dark:bg-red-900/10 rounded-2xl border border-red-100 dark:border-red-900/20 hover:bg-red-100 dark:hover:bg-red-800/20 transition-all flex items-center justify-center gap-2 group shadow-sm shadow-red-500/5 active:scale-[0.98]"
+                    >
+                      <LogOut className="w-4 h-4 text-red-500 group-hover:scale-110 transition-transform" />
+                      <span className="text-[8px] font-black uppercase text-red-600 tracking-widest">Sair da Conta (Logout)</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
+      </div>
       )}
 
       <input
@@ -2387,6 +3348,7 @@ const App: React.FC = () => {
       {showMaterialPrices && (
         <MaterialPriceComparison
           prices={db.materialPrices || []}
+          libraryInsumos={db.library.insumos}
           suppliers={db.suppliers || []}
           units={db.settings.unidadesMedida || DEFAULT_UNITS}
           onAddPrice={(p) => {
@@ -2419,9 +3381,9 @@ const Section: React.FC<{ title: string; icon: React.ReactNode; children: React.
         <span className="font-black text-[13px] uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200">{title}</span>
       </div>
       <div className={`p-2 rounded-full transition-all duration-300 ${expanded ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
-        <ChevronDown 
-          className={`w-6 h-6 transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`} 
-          strokeWidth={3} 
+        <ChevronDown
+          className={`w-6 h-6 transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}
+          strokeWidth={3}
         />
       </div>
     </button>
@@ -2437,6 +3399,7 @@ const Section: React.FC<{ title: string; icon: React.ReactNode; children: React.
 
 const MaterialPriceComparison: React.FC<{
   prices: MaterialPriceRecord[];
+  libraryInsumos?: Insumo[];
   suppliers: Supplier[];
   units: string[];
   onAddPrice: (price: Omit<MaterialPriceRecord, 'id' | 'data'>) => void;
@@ -2447,37 +3410,39 @@ const MaterialPriceComparison: React.FC<{
   onDeleteSupplier: (id: string) => void;
   onUpdateUnits: (units: string[]) => void;
   onClose: () => void;
-}> = ({ prices, suppliers, units, onAddPrice, onUpdatePrice, onDeletePrice, onAddSupplier, onUpdateSupplier, onDeleteSupplier, onUpdateUnits, onClose }) => {
-  const [activeTab, setActiveTab] = useState<'prices' | 'suppliers' | 'analysis'>('prices');
+}> = ({ prices, libraryInsumos = [], suppliers, units, onAddPrice, onUpdatePrice, onDeletePrice, onAddSupplier, onUpdateSupplier, onDeleteSupplier, onUpdateUnits, onClose }) => {
+  const [activeTab, setActiveTab] = useState<'cadastro_precos' | 'historico_precos' | 'suppliers' | 'analysis'>('cadastro_precos');
   const [filter, setFilter] = useState('');
-  
+
   // States for Price CRUD
   const [editingPrice, setEditingPrice] = useState<MaterialPriceRecord | null>(null);
   const [newPrice, setNewPrice] = useState({ material: '', fornecedor: '', preco: '', unidade: 'Kg', largura: '' });
-  
+  const [showPriceCalc, setShowPriceCalc] = useState(false);
+
   // Converter State
   const [showConverter, setShowConverter] = useState(false);
   const [convM2Price, setConvM2Price] = useState('');
   const [convWidth, setConvWidth] = useState('');
-  
+
   // Units Management State
   const [showUnitManager, setShowUnitManager] = useState(false);
   const [newUnitName, setNewUnitName] = useState('');
-  
+
   // States for Supplier CRUD
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [newSupplier, setNewSupplier] = useState({ nome: '', telefone: '', email: '' });
+  const [showSupplierForm, setShowSupplierForm] = useState(false);
 
   // Filtered Data
   const filteredPrices = useMemo(() => {
-    return (prices || []).filter(p => 
+    return (prices || []).filter(p =>
       (p.material || '').toLowerCase().includes(filter.toLowerCase()) ||
       (p.fornecedor || '').toLowerCase().includes(filter.toLowerCase())
     ).sort((a, b) => b.data - a.data);
   }, [prices, filter]);
 
   const filteredSuppliers = useMemo(() => {
-    return (suppliers || []).filter(s => 
+    return (suppliers || []).filter(s =>
       (s.nome || '').toLowerCase().includes(filter.toLowerCase())
     );
   }, [suppliers, filter]);
@@ -2516,20 +3481,20 @@ const MaterialPriceComparison: React.FC<{
         </div>
 
         {/* Tabs */}
-        <div className="grid grid-cols-3 bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 shrink-0">
+        <div className="grid grid-cols-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 shrink-0">
           {[
-            { id: 'prices', label: 'Histórico', fullLabel: 'Histórico de Preços', icon: <TrendingUp className="w-3.5 h-3.5" /> },
+            { id: 'cadastro_precos', label: 'Cadastro', fullLabel: 'Cadastro de Materiais', icon: <Plus className="w-3.5 h-3.5" /> },
+            { id: 'historico_precos', label: 'Histórico', fullLabel: 'Histórico de Preços', icon: <TrendingUp className="w-3.5 h-3.5" /> },
             { id: 'suppliers', label: 'Fornecedores', fullLabel: 'Fornecedores', icon: <Users className="w-3.5 h-3.5" /> },
             { id: 'analysis', label: 'Análise', fullLabel: 'Análise de Variação', icon: <Layout className="w-3.5 h-3.5" /> }
           ].map(tab => (
             <button
               key={tab.id}
               onClick={() => { setActiveTab(tab.id as any); setFilter(''); }}
-              className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-4 text-[9px] sm:text-[10px] font-black uppercase tracking-tight sm:tracking-widest transition-all border-b-2 ${
-                activeTab === tab.id 
-                  ? 'border-blue-500 text-blue-600 bg-blue-50/30 dark:bg-blue-900/10' 
+              className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-4 text-[9px] sm:text-[10px] font-black uppercase tracking-tight sm:tracking-widest transition-all border-b-2 ${activeTab === tab.id
+                  ? 'border-blue-500 text-blue-600 bg-blue-50/30 dark:bg-blue-900/10'
                   : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-              }`}
+                }`}
             >
               {tab.icon}
               <span className="hidden sm:inline">{tab.fullLabel}</span>
@@ -2539,26 +3504,67 @@ const MaterialPriceComparison: React.FC<{
         </div>
 
         <div className="flex-1 overflow-hidden flex flex-col bg-slate-50/50 dark:bg-slate-950/20">
-          {activeTab === 'prices' && (
+          {activeTab === 'cadastro_precos' && (
             <>
               {/* Form Preços */}
-              <div className="p-4 md:p-8 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 shrink-0">
+              <div className="p-4 md:p-8 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 shrink-0 relative">
+                {showPriceCalc && (
+                  <div className="absolute right-4 top-4 md:right-8 z-50 shadow-2xl rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+                    <InlineCalculator
+                      initialValue={parseFloat(editingPrice ? editingPrice.preco.toString() : newPrice.preco || '0') || 0}
+                      onApply={(val) => {
+                        const roundedVal = Math.round(val * 100) / 100;
+                        if (editingPrice) {
+                          setEditingPrice({ ...editingPrice, preco: roundedVal });
+                        } else {
+                          setNewPrice({ ...newPrice, preco: roundedVal.toString() });
+                        }
+                        setShowPriceCalc(false);
+                      }}
+                      onClose={() => setShowPriceCalc(false)}
+                    />
+                  </div>
+                )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 items-end">
                   <div className="col-span-1 sm:col-span-2 lg:col-span-3">
                     <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5 px-1">Material</label>
-                    <input 
-                      type="text" 
-                      value={editingPrice ? editingPrice.material : newPrice.material} 
-                      onChange={e => editingPrice ? setEditingPrice({...editingPrice, material: e.target.value}) : setNewPrice({...newPrice, material: e.target.value})}
-                      placeholder="Ex: Couro Bovino"
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
-                    />
+                    <div className="relative group/library">
+                      <AutocompleteInput
+                        value={editingPrice ? editingPrice.material : newPrice.material}
+                        suggestions={libraryInsumos}
+                        onChange={(val) => {
+                          if (editingPrice) setEditingPrice({ ...editingPrice, material: val });
+                          else setNewPrice({ ...newPrice, material: val });
+                        }}
+                        onSelect={(item) => {
+                          if (editingPrice) {
+                            setEditingPrice({
+                              ...editingPrice,
+                              material: item.nome,
+                              unidade: item.unidade || editingPrice.unidade,
+                              preco: item.valorUnitario || item.valor_unitario || item.valor || editingPrice.preco
+                            });
+                          } else {
+                            setNewPrice({
+                              ...newPrice,
+                              material: item.nome,
+                              unidade: item.unidade || newPrice.unidade,
+                              preco: (item.valorUnitario || item.valor_unitario || item.valor || 0).toString()
+                            });
+                          }
+                        }}
+                        placeholder="Ex: Couro Bovino"
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                        <Database className="w-4 h-4 text-emerald-500/50" />
+                      </div>
+                    </div>
                   </div>
                   <div className="lg:col-span-2">
                     <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5 px-1">Fornecedor</label>
                     <select
                       value={editingPrice ? editingPrice.fornecedor : newPrice.fornecedor}
-                      onChange={e => editingPrice ? setEditingPrice({...editingPrice, fornecedor: e.target.value}) : setNewPrice({...newPrice, fornecedor: e.target.value})}
+                      onChange={e => editingPrice ? setEditingPrice({ ...editingPrice, fornecedor: e.target.value }) : setNewPrice({ ...newPrice, fornecedor: e.target.value })}
                       className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                       title="Selecionar fornecedor"
                     >
@@ -2574,17 +3580,25 @@ const MaterialPriceComparison: React.FC<{
                   <div className="lg:col-span-3">
                     <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5 px-1">Preço</label>
                     <div className="flex gap-1.5 items-center">
-                      <div className="flex-1 flex gap-2">
-                        <input 
-                          type="number" 
-                          value={editingPrice ? editingPrice.preco : newPrice.preco} 
-                          onChange={e => editingPrice ? setEditingPrice({...editingPrice, preco: parseFloat(e.target.value)}) : setNewPrice({...newPrice, preco: e.target.value})}
+                      <div className="flex-1 flex gap-2 relative">
+                        <input
+                          type="number"
+                          value={editingPrice ? editingPrice.preco : newPrice.preco}
+                          onChange={e => editingPrice ? setEditingPrice({ ...editingPrice, preco: parseFloat(e.target.value) }) : setNewPrice({ ...newPrice, preco: e.target.value })}
                           placeholder="0,00"
-                          className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none min-w-0" 
+                          className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none min-w-0"
                         />
+                        <button
+                          onClick={() => setShowPriceCalc(!showPriceCalc)}
+                          className={`absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-all ${showPriceCalc ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                            }`}
+                          title="Calculadora de Preço"
+                        >
+                          <Calculator className="w-3.5 h-3.5" />
+                        </button>
                         <select
                           value={editingPrice ? editingPrice.unidade || units[0] : newPrice.unidade}
-                          onChange={e => editingPrice ? setEditingPrice({...editingPrice, unidade: e.target.value}) : setNewPrice({...newPrice, unidade: e.target.value})}
+                          onChange={e => editingPrice ? setEditingPrice({ ...editingPrice, unidade: e.target.value }) : setNewPrice({ ...newPrice, unidade: e.target.value })}
                           className="w-20 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2 py-2.5 text-[10px] font-black uppercase outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                           title="Unidade"
                         >
@@ -2593,7 +3607,7 @@ const MaterialPriceComparison: React.FC<{
                           ))}
                         </select>
                       </div>
-                      <button 
+                      <button
                         onClick={() => setShowUnitManager(!showUnitManager)}
                         className={`p-2.5 rounded-xl transition-all ${showUnitManager ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
                         title="Gerenciar Unidades"
@@ -2605,15 +3619,15 @@ const MaterialPriceComparison: React.FC<{
                   <div className="lg:col-span-2">
                     <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5 px-1">Largura (m)</label>
                     <div className="flex gap-2">
-                      <input 
-                        type="number" 
+                      <input
+                        type="number"
                         step="0.01"
-                        value={editingPrice ? editingPrice.largura || '' : newPrice.largura} 
-                        onChange={e => editingPrice ? setEditingPrice({...editingPrice, largura: parseFloat(e.target.value)}) : setNewPrice({...newPrice, largura: e.target.value})}
+                        value={editingPrice ? editingPrice.largura || '' : newPrice.largura}
+                        onChange={e => editingPrice ? setEditingPrice({ ...editingPrice, largura: parseFloat(e.target.value) }) : setNewPrice({ ...newPrice, largura: e.target.value })}
                         placeholder="Ex: 1.40"
-                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                       />
-                      <button 
+                      <button
                         onClick={() => setShowConverter(!showConverter)}
                         className={`p-2.5 rounded-xl transition-all ${showConverter ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
                         title="Conversor M² ➜ ML"
@@ -2627,7 +3641,7 @@ const MaterialPriceComparison: React.FC<{
                     <div className="flex gap-2">
                       {editingPrice ? (
                         <>
-                          <button 
+                          <button
                             onClick={() => {
                               if (editingPrice.material && editingPrice.preco) {
                                 onUpdatePrice(editingPrice);
@@ -2638,7 +3652,7 @@ const MaterialPriceComparison: React.FC<{
                           >
                             <Check className="w-4 h-4" /> Salvar
                           </button>
-                          <button 
+                          <button
                             onClick={() => setEditingPrice(null)}
                             className="px-4 bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-300 rounded-xl hover:bg-slate-300 transition-all font-black text-[10px]"
                             title="Cancelar"
@@ -2647,12 +3661,12 @@ const MaterialPriceComparison: React.FC<{
                           </button>
                         </>
                       ) : (
-                        <button 
+                        <button
                           onClick={() => {
                             if (newPrice.material && newPrice.preco) {
-                              onAddPrice({ 
-                                material: newPrice.material, 
-                                fornecedor: newPrice.fornecedor, 
+                              onAddPrice({
+                                material: newPrice.material,
+                                fornecedor: newPrice.fornecedor,
                                 preco: parseFloat(newPrice.preco),
                                 unidade: newPrice.unidade,
                                 largura: newPrice.largura ? parseFloat(newPrice.largura) : undefined
@@ -2676,7 +3690,7 @@ const MaterialPriceComparison: React.FC<{
                       <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
                         <Settings className="w-3.5 h-3.5" /> Gerenciar Unidades de Medida
                       </h3>
-                      <button onClick={() => setShowUnitManager(false)} className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-all">
+                      <button onClick={() => setShowUnitManager(false)} className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-all" title="Fechar Gerenciador de Unidades">
                         <X className="w-4 h-4 text-slate-400" />
                       </button>
                     </div>
@@ -2684,7 +3698,7 @@ const MaterialPriceComparison: React.FC<{
                       {units.map(unit => (
                         <div key={unit} className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 pl-3 pr-1 py-1 rounded-lg shadow-sm">
                           <span className="text-[10px] font-bold uppercase">{unit}</span>
-                          <button 
+                          <button
                             onClick={() => onUpdateUnits(units.filter(u => u !== unit))}
                             className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-500 rounded-md transition-all"
                             title="Remover unidade"
@@ -2695,8 +3709,8 @@ const MaterialPriceComparison: React.FC<{
                       ))}
                     </div>
                     <div className="flex gap-2 max-w-sm">
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         value={newUnitName}
                         onChange={e => setNewUnitName(e.target.value)}
                         onKeyDown={e => {
@@ -2710,7 +3724,7 @@ const MaterialPriceComparison: React.FC<{
                         placeholder="Nova unidade (Ex: Pacote)"
                         className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
                       />
-                      <button 
+                      <button
                         onClick={() => {
                           if (newUnitName.trim() && !units.includes(newUnitName.trim())) {
                             onUpdateUnits([...units, newUnitName.trim()]);
@@ -2727,22 +3741,22 @@ const MaterialPriceComparison: React.FC<{
 
                 {/* Conversor de M2 para ML */}
                 <div className="mt-4 pt-4 border-t border-slate-50 dark:border-slate-800">
-                  <button 
-                    onClick={() => setShowConverter(!showConverter)} 
+                  <button
+                    onClick={() => setShowConverter(!showConverter)}
                     className="flex items-center gap-2 text-[10px] font-black uppercase text-blue-500 hover:text-blue-600 transition-colors"
                   >
-                    <Calculator className="w-3.5 h-3.5" /> 
+                    <Calculator className="w-3.5 h-3.5" />
                     {showConverter ? 'Fechar Conversor' : 'Conversor M² para Linear'}
                   </button>
-                  
+
                   {showConverter && (
                     <div className="mt-4 p-5 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-900/30 animate-in fade-in slide-in-from-top-2 duration-300">
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
                         <div>
                           <label className="text-[8px] font-black text-blue-400 uppercase block mb-1.5 px-1">Preço por M² (R$)</label>
-                          <input 
-                            type="number" 
-                            value={convM2Price} 
+                          <input
+                            type="number"
+                            value={convM2Price}
                             onChange={e => setConvM2Price(e.target.value)}
                             placeholder="0,00"
                             className="w-full bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-800 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
@@ -2750,16 +3764,16 @@ const MaterialPriceComparison: React.FC<{
                         </div>
                         <div>
                           <label className="text-[8px] font-black text-blue-400 uppercase block mb-1.5 px-1">Largura (Metros)</label>
-                          <input 
-                            type="number" 
+                          <input
+                            type="number"
                             step="0.01"
-                            value={convWidth} 
+                            value={convWidth}
                             onChange={e => setConvWidth(e.target.value)}
                             placeholder="Ex: 1.40"
                             className="w-full bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-800 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </div>
-                        <button 
+                        <button
                           onClick={() => {
                             const m2 = parseFloat(convM2Price);
                             const w = parseFloat(convWidth);
@@ -2783,14 +3797,18 @@ const MaterialPriceComparison: React.FC<{
                   )}
                 </div>
               </div>
+            </>
+          )}
 
+          {activeTab === 'historico_precos' && (
+            <>
               {/* Lista Preços */}
               <div className="p-4 md:p-8 md:pb-4 shrink-0 bg-slate-50/50 dark:bg-slate-900/50">
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input 
-                    type="text" 
-                    value={filter} 
+                  <input
+                    type="text"
+                    value={filter}
                     onChange={e => setFilter(e.target.value)}
                     placeholder="Filtrar por material ou fornecedor..."
                     className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl pl-11 pr-4 py-3.5 text-sm md:text-base font-bold focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
@@ -2822,8 +3840,8 @@ const MaterialPriceComparison: React.FC<{
                           <td className="px-6 py-4 text-[10px] text-slate-400 font-bold uppercase">{new Date(p.data).toLocaleDateString()}</td>
                           <td className="px-6 py-4 rounded-r-2xl text-right">
                             <div className="flex justify-end gap-1">
-                              <button onClick={() => { setNewPrice({ material: p.material, fornecedor: p.fornecedor, preco: p.preco.toString(), unidade: p.unidade || 'Kg', largura: p.largura?.toString() || '' }); setActiveTab('prices'); }} title="Copiar Dados" className="p-2 text-slate-300 hover:text-blue-500 transition-colors"><Copy className="w-4 h-4" /></button>
-                              <button onClick={() => setEditingPrice(p)} title="Editar Registro" className="p-2 text-slate-300 hover:text-amber-500 transition-colors"><Edit className="w-4 h-4" /></button>
+                              <button onClick={() => { setNewPrice({ material: p.material, fornecedor: p.fornecedor, preco: p.preco.toString(), unidade: p.unidade || 'Kg', largura: p.largura?.toString() || '' }); setActiveTab('cadastro_precos'); }} title="Copiar Dados" className="p-2 text-slate-300 hover:text-blue-500 transition-colors"><Copy className="w-4 h-4" /></button>
+                              <button onClick={() => { setEditingPrice(p); setActiveTab('cadastro_precos'); }} title="Editar Registro" className="p-2 text-slate-300 hover:text-amber-500 transition-colors"><Edit className="w-4 h-4" /></button>
                               <button onClick={() => onDeletePrice(p.id)} title="Excluir Registro" className="p-2 text-slate-300 hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
                             </div>
                           </td>
@@ -2837,7 +3855,7 @@ const MaterialPriceComparison: React.FC<{
                   {filteredPrices.map(p => (
                     <div key={p.id} className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
                       <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500/5 -mr-8 -mt-8 rounded-full" />
-                      
+
                       <div className="flex justify-between items-start mb-3 relative z-10">
                         <div className="flex-1 pr-12">
                           <h4 className="text-sm font-black text-slate-800 dark:text-white uppercase leading-tight tracking-tight">{p.material}</h4>
@@ -2846,12 +3864,12 @@ const MaterialPriceComparison: React.FC<{
                           </div>
                         </div>
                         <div className="flex gap-2">
-                           <button onClick={() => { setNewPrice({ material: p.material, fornecedor: p.fornecedor, preco: p.preco.toString(), unidade: p.unidade || 'Kg', largura: p.largura?.toString() || '' }); }} title="Copiar" className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 active:scale-90 transition-all"><Copy className="w-4 h-4" /></button>
-                           <button onClick={() => setEditingPrice(p)} title="Editar" className="p-2.5 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-100 active:scale-90 transition-all"><Edit className="w-4 h-4" /></button>
-                           <button onClick={() => onDeletePrice(p.id)} title="Excluir" className="p-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 active:scale-90 transition-all"><Trash2 className="w-4 h-4" /></button>
+                          <button onClick={() => { setNewPrice({ material: p.material, fornecedor: p.fornecedor, preco: p.preco.toString(), unidade: p.unidade || 'Kg', largura: p.largura?.toString() || '' }); setActiveTab('cadastro_precos'); }} title="Copiar" className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 active:scale-90 transition-all"><Copy className="w-4 h-4" /></button>
+                          <button onClick={() => { setEditingPrice(p); setActiveTab('cadastro_precos'); }} title="Editar" className="p-2.5 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-100 active:scale-90 transition-all"><Edit className="w-4 h-4" /></button>
+                          <button onClick={() => onDeletePrice(p.id)} title="Excluir" className="p-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 active:scale-90 transition-all"><Trash2 className="w-4 h-4" /></button>
                         </div>
                       </div>
-                      
+
                       <div className="flex justify-between items-end mt-4 pt-4 border-t border-slate-50 dark:border-slate-700/50 relative z-10">
                         <div>
                           <p className="text-[8px] font-black text-slate-300 uppercase tracking-[0.2em] mb-0.5">Valor Unitário</p>
@@ -2882,68 +3900,91 @@ const MaterialPriceComparison: React.FC<{
 
           {activeTab === 'suppliers' && (
             <>
-              {/* Form Fornecedores */}
+              {/* Form Fornecedores (Accordion) */}
               <div className="p-4 md:p-8 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 shrink-0">
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-end">
-                  <div className="md:col-span-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5 px-1">Nome do Fornecedor</label>
-                    <input 
-                      type="text" 
-                      value={editingSupplier ? editingSupplier.nome : newSupplier.nome} 
-                      onChange={e => editingSupplier ? setEditingSupplier({...editingSupplier, nome: e.target.value}) : setNewSupplier({...newSupplier, nome: e.target.value})}
-                      placeholder="Ex: Curtume Silva"
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
-                    />
+                <button
+                  onClick={() => setShowSupplierForm(!showSupplierForm)}
+                  className="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/80 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shadow-sm border border-slate-200 dark:border-slate-700 active:scale-[0.98] mb-4"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl">
+                      <Users className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <div className="flex flex-col items-start">
+                      <span className="text-[12px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
+                        {editingSupplier ? 'Editar Fornecedor' : 'Cadastrar Fornecedor'}
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5 px-1">Telefone</label>
-                    <input 
-                      type="text" 
-                      value={editingSupplier ? editingSupplier.telefone || '' : newSupplier.telefone} 
-                      onChange={e => editingSupplier ? setEditingSupplier({...editingSupplier, telefone: e.target.value}) : setNewSupplier({...newSupplier, telefone: e.target.value})}
-                      placeholder="(00) 00000-0000"
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5 px-1">Email</label>
-                    <input 
-                      type="email" 
-                      value={editingSupplier ? editingSupplier.email || '' : newSupplier.email} 
-                      onChange={e => editingSupplier ? setEditingSupplier({...editingSupplier, email: e.target.value}) : setNewSupplier({...newSupplier, email: e.target.value})}
-                      placeholder="contato@empresa.com"
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    {editingSupplier ? (
-                      <>
-                        <button 
+                  <ChevronDown
+                    className={`w-5 h-5 text-slate-400 transition-transform duration-300 ease-in-out ${showSupplierForm || editingSupplier ? 'rotate-180 text-emerald-500' : ''}`}
+                  />
+                </button>
+
+                <div className={`overflow-hidden transition-all duration-300 ease-in-out ${showSupplierForm || editingSupplier ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-end mt-2">
+                    <div className="md:col-span-1">
+                      <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5 px-1">Nome do Fornecedor</label>
+                      <input
+                        type="text"
+                        value={editingSupplier ? editingSupplier.nome : newSupplier.nome}
+                        onChange={e => editingSupplier ? setEditingSupplier({ ...editingSupplier, nome: e.target.value }) : setNewSupplier({ ...newSupplier, nome: e.target.value })}
+                        placeholder="Ex: Curtume Silva"
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5 px-1">Telefone</label>
+                      <input
+                        type="text"
+                        value={editingSupplier ? editingSupplier.telefone || '' : newSupplier.telefone}
+                        onChange={e => editingSupplier ? setEditingSupplier({ ...editingSupplier, telefone: e.target.value }) : setNewSupplier({ ...newSupplier, telefone: e.target.value })}
+                        placeholder="(00) 00000-0000"
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5 px-1">Email</label>
+                      <input
+                        type="email"
+                        value={editingSupplier ? editingSupplier.email || '' : newSupplier.email}
+                        onChange={e => editingSupplier ? setEditingSupplier({ ...editingSupplier, email: e.target.value }) : setNewSupplier({ ...newSupplier, email: e.target.value })}
+                        placeholder="contato@empresa.com"
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      {editingSupplier ? (
+                        <>
+                          <button
+                            onClick={() => {
+                              if (editingSupplier.nome) {
+                                onUpdateSupplier(editingSupplier);
+                                setEditingSupplier(null);
+                                setShowSupplierForm(false);
+                              }
+                            }}
+                            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase tracking-widest py-3 rounded-xl shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                          >
+                            <Check className="w-4 h-4" /> Salvar
+                          </button>
+                          <button onClick={() => { setEditingSupplier(null); setShowSupplierForm(false); }} title="Cancelar edição" className="px-4 bg-slate-200 rounded-xl"><X className="w-4 h-4" /></button>
+                        </>
+                      ) : (
+                        <button
                           onClick={() => {
-                            if (editingSupplier.nome) {
-                              onUpdateSupplier(editingSupplier);
-                              setEditingSupplier(null);
+                            if (newSupplier.nome) {
+                              onAddSupplier(newSupplier);
+                              setNewSupplier({ nome: '', telefone: '', email: '' });
+                              setShowSupplierForm(false);
                             }
                           }}
-                          className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase tracking-widest py-3 rounded-xl shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] uppercase tracking-widest py-3 rounded-xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
                         >
-                          <Check className="w-4 h-4" /> Salvar
+                          <Plus className="w-4 h-4" /> Cadastrar
                         </button>
-                        <button onClick={() => setEditingSupplier(null)} title="Cancelar edição" className="px-4 bg-slate-200 rounded-xl"><X className="w-4 h-4" /></button>
-                      </>
-                    ) : (
-                      <button 
-                        onClick={() => {
-                          if (newSupplier.nome) {
-                            onAddSupplier(newSupplier);
-                            setNewSupplier({ nome: '', telefone: '', email: '' });
-                          }
-                        }}
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] uppercase tracking-widest py-3 rounded-xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
-                      >
-                        <Plus className="w-4 h-4" /> Cadastrar
-                      </button>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2952,9 +3993,9 @@ const MaterialPriceComparison: React.FC<{
               <div className="p-4 md:p-8 md:pb-4 shrink-0">
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input 
-                    type="text" 
-                    value={filter} 
+                  <input
+                    type="text"
+                    value={filter}
                     onChange={e => setFilter(e.target.value)}
                     placeholder="Filtrar fornecedores..."
                     className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl pl-11 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
@@ -2967,7 +4008,7 @@ const MaterialPriceComparison: React.FC<{
                   {filteredSuppliers.map(s => (
                     <div key={s.id} className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-md group relative overflow-hidden transition-all active:scale-[0.98]">
                       <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 -mr-12 -mt-12 rounded-full" />
-                      
+
                       <div className="flex justify-between items-start mb-5 relative z-10">
                         <div className="p-3.5 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-500/20">
                           <Users className="w-5 h-5" />
@@ -2977,7 +4018,7 @@ const MaterialPriceComparison: React.FC<{
                           <button onClick={() => onDeleteSupplier(s.id)} title="Excluir fornecedor" className="p-2.5 bg-slate-50 dark:bg-slate-700 text-slate-400 hover:text-red-500 rounded-xl transition-colors"><Trash2 className="w-4 h-4" /></button>
                         </div>
                       </div>
-                      
+
                       <div className="relative z-10">
                         <h3 className="text-lg font-black uppercase tracking-tight text-slate-800 dark:text-white mb-3 leading-tight">{s.nome}</h3>
                         <div className="space-y-2">
@@ -3008,20 +4049,20 @@ const MaterialPriceComparison: React.FC<{
 
           {activeTab === 'analysis' && (
             <div className="p-4 md:p-8 h-full flex flex-col">
-              <div className="max-w-md mb-8">
-                <label className="text-[10px] font-black text-slate-400 uppercase block mb-2 px-1">Selecione o Material para Análise</label>
-                <select 
-                  value={analysisMaterial}
-                  onChange={e => setAnalysisMaterial(e.target.value)}
-                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 text-sm font-bold shadow-sm outline-none focus:ring-2 focus:ring-blue-500"
-                  title="Selecionar material para análise"
-                >
-                  <option value="">Escolha um material...</option>
-                  {uniqueMaterials.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-              </div>
+                <div className="max-w-md mb-8 shrink-0">
+                  <label className="text-[10px] font-black text-slate-400 uppercase block mb-2 px-1">Selecione o Material para Análise</label>
+                  <select
+                    value={analysisMaterial}
+                    onChange={e => setAnalysisMaterial(e.target.value)}
+                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 text-sm font-bold shadow-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    title="Selecionar material para análise"
+                  >
+                    <option value="">Escolha um material...</option>
+                    {uniqueMaterials.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
 
-              <div className="flex-1 overflow-y-auto custom-scrollbar">
+                <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0 pb-10">
                 {analysisMaterial ? (
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">

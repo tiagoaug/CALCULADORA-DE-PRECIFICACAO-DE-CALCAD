@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     X, Plus, Trash2, Search, Package, Users,
     TrendingUp, Calculator, Ruler, Download, Upload, Database, RefreshCw, Edit2, Check, XCircle,
-    DollarSign, Percent, Maximize, Settings
+    DollarSign, Percent, Maximize, Settings, Box, Cloud
 } from 'lucide-react';
-import { formatCurrency, calculateSolaAverageCost } from './utils/calculations';
+import { formatCurrency, calculateSolaAverageCost, findUnitFactor, calculateSolaMaterialsTotal, calculateSolaLaborTotal } from './utils/calculations';
 import { LibraryData, Sola, SolaMaterial, SolaLaborItem, SolaGradeItem } from './types';
 
 interface LibraryItem {
@@ -15,6 +15,9 @@ interface LibraryItem {
     valor?: number;
     valor_unitario?: number;
     valorUnitario?: number;
+    quantidadeCompra?: number;
+    fator?: number;
+    rendimento?: number;
     aliquota?: number;
 }
 
@@ -24,25 +27,128 @@ interface LibraryViewProps {
     units: string[];
     onClose: () => void;
     onSelectItem: (type: string, item: any) => void;
-    onAddItem: (type: keyof LibraryData, item: any) => void;
+    onSelectMultipleItems?: (type: string, items: any[]) => void;
+    onAddItem: (type: string, item: any) => void;
     onDeleteItem: (type: keyof LibraryData, id: string) => void;
     onUpdateItem: (type: keyof LibraryData, id: string, item: any) => void;
     onUpdateUnits: (units: string[]) => void;
+    onResetCloud?: () => void;
+    isSyncing?: boolean;
+    initialTab?: keyof LibraryData | null;
 }
 
-const LibraryView: React.FC<LibraryViewProps> = ({ library, existingItemsNames = [], units, onClose, onSelectItem, onAddItem, onDeleteItem, onUpdateItem, onUpdateUnits }) => {
-    const [activeTab, setActiveTab] = useState<keyof LibraryData>('insumos');
-    const [showDetails, setShowDetails] = useState(false);
+const InlineCalculator: React.FC<{
+    onApply: (val: number) => void;
+    onClose: () => void;
+    initialValue: number;
+    color?: string;
+}> = ({ onApply, onClose, initialValue, color = 'blue' }) => {
+    const [display, setDisplay] = useState(initialValue > 0 ? initialValue.toString() : '0');
+    const [prevValue, setPrevValue] = useState<number | null>(null);
+    const [operator, setOperator] = useState<string | null>(null);
+    const [waitingForOperand, setWaitingForOperand] = useState(false);
+
+    const clear = () => { setDisplay('0'); setPrevValue(null); setOperator(null); setWaitingForOperand(false); };
+
+    const inputDigit = (digit: string) => {
+        if (waitingForOperand) { setDisplay(digit); setWaitingForOperand(false); }
+        else { setDisplay(display === '0' ? digit : display + digit); }
+    };
+
+    const inputDot = () => {
+        if (waitingForOperand) { setDisplay('0.'); setWaitingForOperand(false); }
+        else if (!display.includes('.')) { setDisplay(display + '.'); }
+    };
+
+    const performOperation = (nextOperator: string) => {
+        const inputValue = parseFloat(display);
+        if (prevValue === null) { setPrevValue(inputValue); }
+        else if (operator) {
+            const currentValue = prevValue || 0;
+            let newValue = currentValue;
+            switch (operator) {
+                case '+': newValue = currentValue + inputValue; break;
+                case '-': newValue = currentValue - inputValue; break;
+                case '*': newValue = currentValue * inputValue; break;
+                case '/': newValue = inputValue !== 0 ? currentValue / inputValue : 0; break;
+            }
+            setPrevValue(newValue);
+            setDisplay(String(newValue));
+        }
+        setWaitingForOperand(true);
+        setOperator(nextOperator === '=' ? null : nextOperator);
+    };
+
+    return (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-md" onClick={onClose} />
+            <div className="relative w-full max-w-[340px] bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 shadow-[0_30px_90px_rgba(0,0,0,0.6)] rounded-xl p-7 animate-in fade-in zoom-in duration-300">
+                <div className="flex justify-between items-center mb-6">
+                    <div className="flex items-center gap-2.5">
+                        <Calculator className={`w-5 h-5 text-${color}-500`} />
+                        <span className="text-[12px] font-black text-slate-500 uppercase tracking-widest">Calculadora Biblioteca</span>
+                    </div>
+                    <button onClick={onClose} title="Fechar Calculadora" aria-label="Fechar Calculadora" className="p-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400"><X className="w-5 h-5" /></button>
+                </div>
+                <div className="bg-slate-100 dark:bg-slate-950 p-6 rounded-lg mb-6 text-right border border-slate-200 dark:border-slate-800 shadow-inner">
+                    <div className="text-[11px] text-slate-400 h-4 font-mono truncate mb-1">{prevValue !== null ? `${prevValue} ${operator || ''}` : '\u00A0'}</div>
+                    <div className="text-4xl font-black text-slate-900 dark:text-white truncate font-mono tracking-tighter">{display.replace('.', ',')}</div>
+                </div>
+                <div className="grid grid-cols-4 gap-3">
+                    {['7', '8', '9', '/'].map(btn => <button key={btn} onClick={() => isNaN(Number(btn)) ? performOperation(btn) : inputDigit(btn)} className="p-4 rounded-2xl text-lg font-bold bg-slate-50 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-90 transition-all">{btn}</button>)}
+                    {['4', '5', '6', '*'].map(btn => <button key={btn} onClick={() => isNaN(Number(btn)) ? performOperation(btn) : inputDigit(btn)} className="p-4 rounded-2xl text-lg font-bold bg-slate-50 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-90 transition-all">{btn}</button>)}
+                    {['1', '2', '3', '-'].map(btn => <button key={btn} onClick={() => isNaN(Number(btn)) ? performOperation(btn) : inputDigit(btn)} className="p-4 rounded-2xl text-lg font-bold bg-slate-50 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-90 transition-all">{btn}</button>)}
+                    <button onClick={clear} className="p-4 rounded-2xl text-lg font-bold bg-red-100 text-red-600 active:scale-90 transition-all">C</button>
+                    <button onClick={() => inputDigit('0')} className="p-4 rounded-2xl text-lg font-bold bg-slate-50 dark:bg-slate-800 active:scale-90 transition-all">0</button>
+                    <button onClick={inputDot} className="p-4 rounded-2xl text-lg font-bold bg-slate-50 dark:bg-slate-800 active:scale-90 transition-all">,</button>
+                    <button onClick={() => performOperation('+')} className={`p-4 rounded-2xl text-lg font-bold bg-${color}-100 text-${color}-600 active:scale-90 transition-all`}>+</button>
+                    <button onClick={() => performOperation('=')} className="col-span-2 p-4 rounded-2xl text-xl font-black bg-slate-200 dark:bg-slate-700 active:scale-95 transition-all">=</button>
+                    <button onClick={() => onApply(parseFloat(display))} className={`col-span-2 p-4 rounded-2xl text-xs font-black bg-${color}-600 text-white flex items-center justify-center gap-2 uppercase tracking-widest shadow-lg active:scale-95 transition-all`}><Check className="w-5 h-5" /> Aplicar</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const LibraryView: React.FC<LibraryViewProps> = ({ 
+    library, 
+    existingItemsNames = [], 
+    units, 
+    onClose, 
+    onSelectItem, 
+    onSelectMultipleItems,
+    onAddItem, 
+    onDeleteItem, 
+    onUpdateItem, 
+    onUpdateUnits, 
+    onResetCloud,
+    isSyncing,
+    initialTab 
+}) => {
+    const [activeTab, setActiveTab] = useState<keyof LibraryData>(initialTab || 'insumos');
+    const [showDetails, setShowDetails] = useState(!!initialTab);
     const [searchTerm, setSearchTerm] = useState('');
     const [newItem, setNewItem] = useState<Partial<LibraryItem>>({});
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editForm, setEditForm] = useState<Partial<LibraryItem & Sola>>({});
+    const [activeCalc, setActiveCalc] = useState<{ mode: 'new' | 'edit', field: string } | null>(null);
     
     // States specifically for Sola complex form
     const [solaMaterials, setSolaMaterials] = useState<SolaMaterial[]>([]);
     const [solaGrades, setSolaGrades] = useState<SolaGradeItem[]>([]);
     const [solaLabor, setSolaLabor] = useState<SolaLaborItem[]>([]);
     const [solaFornecedor, setSolaFornecedor] = useState('');
+    
+    // Multi-select state
+    const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+    
+    // Sync activeTab with initialTab when it changes
+    useEffect(() => {
+        if (initialTab) {
+            setActiveTab(initialTab);
+            setShowDetails(true);
+        }
+    }, [initialTab]);
 
     // Units Management State
     const [showUnitManager, setShowUnitManager] = useState(false);
@@ -69,7 +175,11 @@ const LibraryView: React.FC<LibraryViewProps> = ({ library, existingItemsNames =
             setSolaMaterials([...sola.materiais]);
             setSolaGrades([...sola.grade]);
             setSolaLabor([...sola.maoDeObra]);
-            setNewItem({ nome: sola.nome });
+            setNewItem({ 
+                nome: sola.nome,
+                valor: sola.valor,
+                valorUnitario: sola.valor 
+            });
             // Scroll to top to see the form
             document.querySelector('.overflow-y-auto')?.scrollTo({ top: 0, behavior: 'smooth' });
         } else {
@@ -86,6 +196,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({ library, existingItemsNames =
         setSolaGrades([]);
         setSolaLabor([]);
         setNewItem({});
+        setSelectedItemIds([]);
     };
 
     const handleSaveEdit = () => {
@@ -100,6 +211,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({ library, existingItemsNames =
         const props = { className: `${sizeClasses} shrink-0`, fill: "currentColor", fillOpacity: 0.2 };
         
         switch (tab) {
+            case 'pecas': return <Box {...props} />;
             case 'insumos': return <Package {...props} />;
             case 'terceirizados': return <Users {...props} />;
             case 'custosFixos': return <Calculator {...props} />;
@@ -108,12 +220,14 @@ const LibraryView: React.FC<LibraryViewProps> = ({ library, existingItemsNames =
             case 'comissoes': return <Users {...props} />;
             case 'fretes': return <Download {...props} />;
             case 'solados': return <Database {...props} />;
+            case 'unidadesMedida': return <Ruler {...props} />;
             default: return <Database {...props} />;
         }
     };
 
     const getThemeColor = (tab: keyof LibraryData) => {
         switch (tab) {
+            case 'pecas': return 'amber';
             case 'insumos': return 'blue';
             case 'terceirizados': return 'purple';
             case 'custosFixos': return 'orange';
@@ -122,6 +236,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({ library, existingItemsNames =
             case 'comissoes': return 'indigo';
             case 'fretes': return 'cyan';
             case 'solados': return 'teal';
+            case 'unidadesMedida': return 'blue';
             default: return 'slate';
         }
     };
@@ -134,7 +249,8 @@ const LibraryView: React.FC<LibraryViewProps> = ({ library, existingItemsNames =
 
     const getTabLabel = (tab: keyof LibraryData) => {
         switch (tab) {
-            case 'insumos': return 'Materiais e Peças';
+            case 'pecas': return 'Peças';
+            case 'insumos': return 'Materiais';
             case 'terceirizados': return 'Serviços';
             case 'custosFixos': return 'Fixos';
             case 'custosIndiretos': return 'Variáveis';
@@ -142,15 +258,89 @@ const LibraryView: React.FC<LibraryViewProps> = ({ library, existingItemsNames =
             case 'comissoes': return 'Comissões';
             case 'fretes': return 'Fretes';
             case 'solados': return 'Solados';
+            case 'unidadesMedida': return 'Unidades';
             default: return tab;
         }
     };
 
-    const items = library[activeTab] || [];
+    const items = useMemo(() => {
+        if (activeTab === 'insumos') {
+            const insumos = (library.insumos || []).map(i => ({ ...i, _type: 'insumos' }));
+            const solados = (library.solados || []).map(s => ({ ...s, _type: 'solados' }));
+            return [...insumos, ...solados];
+        }
+        return (library[activeTab] || []).map(i => ({ ...i, _type: activeTab }));
+    }, [library, activeTab]);
 
     const filteredItems = items.filter(item =>
         item.nome.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    const toggleSelectItem = (type: string, id: string) => {
+        const compositeId = `${type}:${id}`;
+        setSelectedItemIds(prev => 
+            prev.includes(compositeId) ? prev.filter(i => i !== compositeId) : [...prev, compositeId]
+        );
+    };
+
+    const handleSelectAll = () => {
+        const itemIds = filteredItems.map(i => `${i._type || activeTab}:${i.id}`);
+        if (itemIds.every(id => selectedItemIds.includes(id))) {
+            setSelectedItemIds(prev => prev.filter(id => !itemIds.includes(id)));
+        } else {
+            setSelectedItemIds(prev => Array.from(new Set([...prev, ...itemIds])));
+        }
+    };
+
+    const handleCopySelected = () => {
+        // Collect all items from all relevant categories
+        const allItems = [
+            ...(library.pecas || []).map(i => ({ ...i, _type: 'pecas' })),
+            ...(library.insumos || []).map(i => ({ ...i, _type: 'insumos' })),
+            ...(library.solados || []).map(s => ({ ...s, _type: 'solados' })),
+            ...(library.terceirizados || []).map(t => ({ ...t, _type: 'terceirizados' })),
+            ...(library.custosFixos || []).map(t => ({ ...t, _type: 'custosFixos' })),
+            ...(library.custosIndiretos || []).map(t => ({ ...t, _type: 'custosIndiretos' })),
+            ...(library.impostos || []).map(t => ({ ...t, _type: 'impostos' })),
+            ...(library.comissoes || []).map(t => ({ ...t, _type: 'comissoes' })),
+            ...(library.fretes || []).map(t => ({ ...t, _type: 'fretes' }))
+        ];
+
+        // Group selected items by type
+        const selectedByType: Record<string, any[]> = {};
+        
+        selectedItemIds.forEach(compositeId => {
+            const [type, id] = compositeId.split(':');
+            const item = allItems.find(i => i.id === id && i._type === type);
+            
+            if (item) {
+                const isAlreadyInProject = existingItemsNames.some(name => name.toLowerCase() === item.nome.toLowerCase());
+                if (!isAlreadyInProject) {
+                    if (!selectedByType[type]) selectedByType[type] = [];
+                    selectedByType[type].push(item);
+                }
+            }
+        });
+
+        // Call multi-select if available, otherwise fallback to single select loop
+        Object.entries(selectedByType).forEach(([type, items]) => {
+            if (onSelectMultipleItems) {
+                onSelectMultipleItems(type, items);
+            } else {
+                items.forEach(item => onSelectItem(type, item));
+            }
+        });
+
+        setSelectedItemIds([]);
+    };
+
+    const currentSolaForCalculation = useMemo(() => ({
+        ...newItem,
+        materiais: solaMaterials,
+        maoDeObra: solaLabor,
+        grade: solaGrades,
+        fornecedor: solaFornecedor
+    } as Sola), [newItem, solaMaterials, solaLabor, solaGrades, solaFornecedor]);
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -180,24 +370,15 @@ const LibraryView: React.FC<LibraryViewProps> = ({ library, existingItemsNames =
                             </p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <button 
-                            onClick={() => setShowUnitManager(!showUnitManager)}
-                            className={`p-2.5 rounded-xl transition-all ${showUnitManager ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-blue-500'}`}
-                            title="Gerenciar Unidades de Medida"
-                        >
-                            <Settings className="w-6 h-6" />
-                        </button>
-                        <button onClick={onClose} title="Fechar Biblioteca" className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400">
-                            <X className="w-6 h-6" />
-                        </button>
-                    </div>
+                    <button onClick={onClose} title="Fechar Biblioteca" className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400">
+                        <X className="w-6 h-6" />
+                    </button>
                 </div>
 
                 {!showDetails ? (
                     <div className="p-6 flex-1 overflow-y-auto">
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-3 mb-6">
-                            {(['insumos', 'terceirizados', 'custosFixos', 'custosIndiretos', 'impostos', 'comissoes', 'fretes', 'solados'] as const).map(tab => (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-10 gap-3 mb-6">
+                            {(['pecas', 'insumos', 'terceirizados', 'custosFixos', 'custosIndiretos', 'impostos', 'comissoes', 'fretes', 'solados', 'unidadesMedida'] as const).map(tab => (
                                 <button
                                     key={tab}
                                     id={`tab-${tab}`}
@@ -224,53 +405,159 @@ const LibraryView: React.FC<LibraryViewProps> = ({ library, existingItemsNames =
                         {/* Tema dinâmico para o formulário */}
                         <div className={`flex flex-wrap gap-4 mb-8 bg-${getThemeColor(activeTab)}-50 dark:bg-${getThemeColor(activeTab)}-900/10 p-5 rounded-2xl border border-${getThemeColor(activeTab)}-100 dark:border-${getThemeColor(activeTab)}-800/50`}>
                             <div className="flex-1 min-w-[200px]">
-                                <label className={`text-[9px] font-black text-${getThemeColor(activeTab)}-600 uppercase mb-1.5 block`}>Nome do Item</label>
+                                <label className={`text-[9px] font-black text-${getThemeColor(activeTab)}-600 uppercase mb-1.5 block`}>
+                                    {activeTab === 'pecas' ? 'Nome da Peça' : activeTab === 'insumos' ? 'Nome do Material' : 'Nome do Item'}
+                                </label>
                                 <input
                                     type="text"
                                     value={newItem.nome || ''}
-                                    onChange={e => setNewItem({ ...newItem, nome: e.target.value })}
-                                    placeholder="Ex: Cabedal, Forro, Sola..."
+                                    onChange={e => {
+                                        const name = e.target.value;
+                                        setNewItem({ 
+                                            ...newItem, 
+                                            nome: name,
+                                            peca: activeTab === 'pecas' ? name : undefined,
+                                            material: activeTab === 'insumos' ? name : undefined
+                                        });
+                                    }}
+                                    placeholder={activeTab === 'pecas' ? "Ex: Cabedal, Traseira..." : "Ex: Couro, Sintético, Lona..."}
                                     className={`w-full bg-white dark:bg-slate-800 border-none rounded-xl px-4 py-2.5 text-sm font-bold shadow-sm focus:ring-2 focus:ring-${getThemeColor(activeTab)}-500`}
                                 />
                             </div>
 
                             {(activeTab === 'insumos' || activeTab === 'terceirizados') && (
-                                <div className="w-32">
-                                    <label className={`text-[9px] font-black text-${getThemeColor(activeTab)}-600 uppercase mb-1.5 block`}>Unidade</label>
-                                    <select
-                                        value={newItem.unidade || units[0]}
-                                        onChange={e => setNewItem({ ...newItem, unidade: e.target.value })}
-                                        className={`w-full bg-white dark:bg-slate-800 border-none rounded-xl px-4 py-2.5 text-sm font-bold shadow-sm focus:ring-2 focus:ring-${getThemeColor(activeTab)}-500`}
-                                        title="Selecionar unidade"
-                                    >
-                                        {units.map(u => <option key={u} value={u}>{u}</option>)}
-                                    </select>
-                                </div>
+                                <>
+                                    <div className="flex-1 min-w-[120px]">
+                                        <label className={`text-[9px] font-black text-${getThemeColor(activeTab)}-600 uppercase mb-1.5 block`}>Unidade</label>
+                                        <select
+                                            value={newItem.unidade || ''}
+                                            onChange={e => setNewItem({ ...newItem, unidade: e.target.value })}
+                                            className={`w-full bg-white dark:bg-slate-800 border-none rounded-xl px-4 py-2.5 text-sm font-bold shadow-sm focus:ring-2 focus:ring-${getThemeColor(activeTab)}-500`}
+                                            title="Selecione a unidade de medida"
+                                        >
+                                            <option value="">Selecione</option>
+                                            {library.unidadesMedida && library.unidadesMedida.length > 0 
+                                                ? library.unidadesMedida.map(u => (
+                                                    <option key={u.id} value={u.nome}>{u.nome}</option>
+                                                  ))
+                                                : units.map((u, i) => {
+                                                    const value = typeof u === 'string' ? u : (u as any).nome || '';
+                                                    return <option key={i} value={value}>{value}</option>
+                                                  })
+                                            }
+                                        </select>
+                                    </div>
+
+                                    <div className="flex-1 min-w-[120px]">
+                                        <label className={`text-[9px] font-black text-${getThemeColor(activeTab)}-600 uppercase mb-1.5 block`}>Preço de Compra (Embalagem)</label>
+                                        <div className="relative">
+                                            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                                            <input
+                                                type="number"
+                                                value={newItem.valorUnitario || ''}
+                                                onChange={e => setNewItem({ ...newItem, valorUnitario: Number(e.target.value) })}
+                                                placeholder="0,00"
+                                                className={`w-full bg-white dark:bg-slate-800 border-none rounded-xl pl-9 pr-4 py-2.5 text-sm font-bold shadow-sm focus:ring-2 focus:ring-${getThemeColor(activeTab)}-500`}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="flex-1 min-w-[120px]">
+                                        <label className={`text-[9px] font-black text-${getThemeColor(activeTab)}-600 uppercase mb-1.5 block`}>Qtd na Embalagem</label>
+                                        <input
+                                            type="number"
+                                            value={newItem.quantidadeCompra || ''}
+                                            onChange={e => {
+                                                const val = Number(e.target.value);
+                                                setNewItem({ ...newItem, quantidadeCompra: val, fator: val });
+                                            }}
+                                            placeholder="Ex: 1000"
+                                            className={`w-full bg-white dark:bg-slate-800 border-none rounded-xl px-4 py-2.5 text-sm font-bold shadow-sm focus:ring-2 focus:ring-${getThemeColor(activeTab)}-500`}
+                                        />
+                                        {newItem.valorUnitario && newItem.quantidadeCompra ? (
+                                            <div className="mt-1.5 text-[8px] font-bold text-slate-400 uppercase tracking-tight">
+                                                Custo Unitário: <span className={`text-${getThemeColor(activeTab)}-500`}>{formatCurrency(newItem.valorUnitario / newItem.quantidadeCompra)}</span>
+                                            </div>
+                                        ) : null}
+                                    </div>
+
+                                    <div className="flex-1 min-w-[150px]">
+                                        <label className={`text-[9px] font-black text-${getThemeColor(activeTab)}-600 uppercase mb-1.5 block flex items-center gap-2`}>
+                                            Fator de Conversão
+                                            <div className="group relative">
+                                                <Settings className="w-3 h-3 text-slate-400 cursor-help" />
+                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-800 text-white text-[8px] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                                                    Calculado automaticamente pela Quantidade na Embalagem. Ex: 1 Milheiro = 1000 unidades.
+                                                </div>
+                                            </div>
+                                        </label>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="number"
+                                                value={newItem.fator || ''}
+                                                onChange={e => setNewItem({ ...newItem, fator: Number(e.target.value) })}
+                                                placeholder="Ex: 1000"
+                                                className={`flex-1 bg-white dark:bg-slate-800 border-none rounded-xl px-4 py-2.5 text-sm font-bold shadow-sm focus:ring-2 focus:ring-${getThemeColor(activeTab)}-500`}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="flex-1 min-w-[110px]">
+                                        <label className={`text-[9px] font-black text-${getThemeColor(activeTab)}-600 uppercase mb-1.5 block`}>Rendimento (Pares)</label>
+                                        <div className="relative">
+                                            <input
+                                                type="number"
+                                                value={newItem.rendimento || ''}
+                                                onChange={e => setNewItem({ ...newItem, rendimento: Number(e.target.value) })}
+                                                placeholder=""
+                                                title="Quantos pares este item rende?"
+                                                className={`w-full bg-white dark:bg-slate-800 border-none rounded-xl pl-4 pr-10 py-2.5 text-sm font-bold shadow-sm focus:ring-2 focus:ring-${getThemeColor(activeTab)}-500`}
+                                            />
+                                            <button 
+                                                onClick={() => setActiveCalc({ mode: 'new', field: 'rendimento' })}
+                                                className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-${getThemeColor(activeTab)}-500 hover:bg-${getThemeColor(activeTab)}-50 dark:hover:bg-${getThemeColor(activeTab)}-900/30 rounded-lg transition-colors`}
+                                                title="Abrir Calculadora"
+                                            >
+                                                <Calculator className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </>
                             )}
 
-                            <div>
-                                <label className={`text-[9px] font-black text-${getThemeColor(activeTab)}-600 uppercase mb-1.5 block`}>
-                                    {(activeTab === 'impostos' || activeTab === 'comissoes') ? 'Alíquota (%)' : 'Valor'}
-                                </label>
-                                <div className="relative">
-                                    {(activeTab === 'impostos' || activeTab === 'comissoes') ? (
-                                        <Percent className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-${getThemeColor(activeTab)}-400`} />
-                                    ) : (
-                                        <DollarSign className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-${getThemeColor(activeTab)}-400`} />
-                                    )}
+
+                            {activeTab !== 'solados' && activeTab !== 'unidadesMedida' && activeTab !== 'insumos' && activeTab !== 'terceirizados' && activeTab !== 'pecas' && (
+                                <div className="flex-1 min-w-[120px]">
+                                    <label className={`text-[9px] font-black text-${getThemeColor(activeTab)}-600 uppercase mb-1.5 block`}>
+                                        {(activeTab === 'impostos' || activeTab === 'comissoes') ? 'Alíquota (%)' : 'Valor'}
+                                    </label>
                                     <input
                                         type="number"
-                                        value={newItem.aliquota || newItem.valorUnitario || newItem.valor || ''}
+                                        value={newItem.aliquota || newItem.valor || ''}
                                         onChange={e => {
                                             const val = Number(e.target.value);
-                                            const key = (activeTab === 'impostos' || activeTab === 'comissoes') ? 'aliquota' : (activeTab === 'custosFixos' || activeTab === 'custosIndiretos' || activeTab === 'fretes') ? 'valor' : 'valorUnitario';
+                                            const key = (activeTab === 'impostos' || activeTab === 'comissoes') ? 'aliquota' : 'valor';
                                             setNewItem({ ...newItem, [key]: val });
                                         }}
                                         placeholder="0,00"
-                                        className={`w-full bg-white dark:bg-slate-800 border-none rounded-xl pl-10 pr-4 py-2.5 text-sm font-bold shadow-sm focus:ring-2 focus:ring-${getThemeColor(activeTab)}-500`}
+                                        className={`w-full bg-white dark:bg-slate-800 border-none rounded-xl px-4 py-2.5 text-sm font-bold shadow-sm focus:ring-2 focus:ring-${getThemeColor(activeTab)}-500`}
                                     />
                                 </div>
-                            </div>
+                            )}
+
+                            {activeTab !== 'solados' && (
+                                <div className="flex items-end">
+                                    <button
+                                        onClick={handleAddItem}
+                                        className={`h-[42px] px-8 bg-${getThemeColor(activeTab)}-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-${getThemeColor(activeTab)}-700 transition-all shadow-lg shadow-${getThemeColor(activeTab)}-500/30 flex items-center gap-2 active:scale-95`}
+                                    >
+                                        <Plus className="w-4 h-4" /> Cadastrar
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+
 
                         {activeTab === 'solados' && (
                             <div className="w-full space-y-6">
@@ -306,7 +593,8 @@ const LibraryView: React.FC<LibraryViewProps> = ({ library, existingItemsNames =
                                         {solaMaterials.map((mat, idx) => {
                                             const selectedMat = library.insumos.find(i => i.id === mat.materialId);
                                             const effectivePrice = mat.precoAlternativo !== undefined ? mat.precoAlternativo : (selectedMat?.valorUnitario || 0);
-                                            const matCost = (mat.pesoGrams / 1000) * effectivePrice;
+                                            const factor = selectedMat ? findUnitFactor(selectedMat.unidade, library.unidadesMedida) : 1;
+                                            const matCost = (mat.pesoGrams / (factor || 1)) * effectivePrice;
                                             const averageWeight = solaGrades.length > 0 
                                                 ? solaGrades.reduce((acc, curr) => acc + (curr.peso || 0), 0) / solaGrades.length 
                                                 : 0;
@@ -538,6 +826,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({ library, existingItemsNames =
                                                 id: editingId || Math.random().toString(36),
                                                 nome: newItem.nome,
                                                 fornecedor: solaFornecedor,
+                                                valor: newItem.valorUnitario || newItem.valor,
                                                 materiais: solaMaterials,
                                                 grade: solaGrades,
                                                 maoDeObra: solaLabor,
@@ -552,7 +841,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({ library, existingItemsNames =
                                         }}
                                         className={`px-10 py-4 bg-${getThemeColor(activeTab)}-600 text-white rounded-2xl font-black text-xs uppercase shadow-xl shadow-${getThemeColor(activeTab)}-500/30 hover:bg-${getThemeColor(activeTab)}-700 transition-all flex items-center gap-3 hover:scale-[1.05] active:scale-95`}
                                     >
-                                        <Database className="w-5 h-5" /> {editingId ? 'Salvar Alterações Sola' : 'Cadastrar Sola de Fabricação'}
+                                        <Database className="w-5 h-5" /> {editingId ? 'Salvar Alterações Sola' : 'Cadastrar Sola'}
                                     </button>
                                 </div>
 
@@ -562,23 +851,27 @@ const LibraryView: React.FC<LibraryViewProps> = ({ library, existingItemsNames =
                                         <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
                                             <Calculator className="w-5 h-5" />
                                         </div>
-                                        <div>
+                                        <div className="flex-1">
                                             <h4 className="text-[11px] font-black uppercase tracking-[0.2em] leading-tight">Formação do Preço de Custo</h4>
                                             <p className={`text-[9px] font-bold text-${getThemeColor(activeTab)}-100 uppercase tracking-widest leading-none mt-1 opacity-70`}>Total por par de calçado</p>
                                         </div>
+                                        {(newItem.valorUnitario || 0) > 0 && (
+                                            <div className="bg-amber-500/30 px-3 py-1.5 rounded-lg border border-amber-500/30 backdrop-blur-sm">
+                                                <span className="text-[8px] font-black uppercase tracking-widest text-white">Usando Valor Fixo</span>
+                                            </div>
+                                        )}
                                     </div>
                                     
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                         <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-sm border border-white/5 group hover:bg-white/20 transition-all cursor-default">
                                             <p className={`text-[9px] font-black text-${getThemeColor(activeTab)}-200 uppercase mb-1 flex items-center gap-1.5`}>
-                                                <Package className="w-3 h-3" /> Materiais
+                                                <Package className="w-3 h-3" /> Materials
                                             </p>
                                             <p className="text-xl font-mono font-black tracking-tight">
-                                                {formatCurrency(solaMaterials.reduce((acc, mat) => {
-                                                    const selectedMat = library.insumos.find(i => i.id === mat.materialId);
-                                                    const price = mat.precoAlternativo !== undefined ? mat.precoAlternativo : (selectedMat?.valorUnitario || 0);
-                                                    return acc + ((mat.pesoGrams / 1000) * price);
-                                                }, 0))}
+                                                {(newItem.valorUnitario || 0) > 0 
+                                                    ? formatCurrency(newItem.valorUnitario || 0) 
+                                                    : formatCurrency(calculateSolaMaterialsTotal(currentSolaForCalculation, library.insumos, library.unidadesMedida))
+                                                }
                                             </p>
                                         </div>
                                         <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-sm border border-white/5 group hover:bg-white/20 transition-all cursor-default">
@@ -586,7 +879,10 @@ const LibraryView: React.FC<LibraryViewProps> = ({ library, existingItemsNames =
                                                 <Users className="w-3 h-3" /> Mão de Obra
                                             </p>
                                             <p className="text-xl font-mono font-black tracking-tight">
-                                                {formatCurrency(solaLabor.reduce((acc, l) => acc + (l.valor || 0), 0))}
+                                                {(newItem.valorUnitario || 0) > 0 
+                                                    ? formatCurrency(0) 
+                                                    : formatCurrency(calculateSolaLaborTotal(currentSolaForCalculation))
+                                                }
                                             </p>
                                         </div>
                                         <div className={`p-4 bg-${getThemeColor(activeTab)}-500/40 rounded-2xl backdrop-blur-md border border-white/20 relative overflow-hidden group hover:scale-[1.02] transition-all cursor-default lg:col-span-1 sm:col-span-3`}>
@@ -595,12 +891,9 @@ const LibraryView: React.FC<LibraryViewProps> = ({ library, existingItemsNames =
                                             </p>
                                             <p className="text-2xl font-mono font-black tracking-tighter text-white z-10 relative">
                                                 {formatCurrency(
-                                                    solaMaterials.reduce((acc, mat) => {
-                                                        const selectedMat = library.insumos.find(i => i.id === mat.materialId);
-                                                        const price = mat.precoAlternativo !== undefined ? mat.precoAlternativo : (selectedMat?.valorUnitario || 0);
-                                                        return acc + ((mat.pesoGrams / 1000) * price);
-                                                    }, 0) + 
-                                                    solaLabor.reduce((acc, l) => acc + (l.valor || 0), 0)
+                                                    (newItem.valorUnitario || 0) > 0 
+                                                        ? (newItem.valorUnitario || 0)
+                                                        : calculateSolaAverageCost(currentSolaForCalculation, library.insumos, library.unidadesMedida)
                                                 )}
                                             </p>
                                         </div>
@@ -609,205 +902,378 @@ const LibraryView: React.FC<LibraryViewProps> = ({ library, existingItemsNames =
                             </div>
                         )}
 
-                        {activeTab !== 'solados' && (
-                            <button
-                                onClick={handleAddItem}
-                                className={`self-end px-8 py-2.5 bg-${getThemeColor(activeTab)}-600 text-white rounded-xl font-black text-xs uppercase shadow-lg shadow-${getThemeColor(activeTab)}-500/20 hover:bg-${getThemeColor(activeTab)}-700 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-95`}
-                            >
-                                <Plus className="w-5 h-5" /> Cadastrar
-                            </button>
-                        )}
-                    </div>
 
-                    {/* Units Manager UI */}
-                    {showUnitManager && (
-                        <div className="mb-6 p-5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-800 animate-in fade-in slide-in-from-top-2 duration-300">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                                    <Settings className="w-3.5 h-3.5" /> Gerenciar Unidades de Medida
-                                </h3>
-                                <button onClick={() => setShowUnitManager(false)} title="Fechar" className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-all">
-                                    <X className="w-4 h-4 text-slate-400" />
-                                </button>
-                            </div>
-                            
-                            <div className="flex gap-2 mb-4">
-                                <input 
-                                    type="text" 
-                                    value={newUnitName}
-                                    onChange={e => setNewUnitName(e.target.value)}
-                                    placeholder="Nova unidade (Ex: Galão)"
-                                    className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500"
-                                />
-                                <button 
-                                    onClick={() => {
-                                        if (newUnitName && !units.includes(newUnitName)) {
-                                            onUpdateUnits([...units, newUnitName]);
-                                            setNewUnitName('');
-                                        }
-                                    }}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all flex items-center gap-2"
-                                >
-                                    <Plus className="w-3.5 h-3.5" /> Adicionar
-                                </button>
-                            </div>
+                        <div className="relative my-6">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                            <input
+                                 type="text"
+                                placeholder="Buscar na biblioteca local..."
+                                value={searchTerm}
+                                onChange={e => {
+                                    setSearchTerm(e.target.value);
+                                }}
+                                className={`w-full bg-slate-100/50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-2xl pl-10 pr-4 py-3.5 text-sm outline-none focus:ring-2 focus:ring-${getThemeColor(activeTab)}-500 transition-all`}
+                            />
+                            {filteredItems.length > 0 && (['pecas', 'insumos', 'terceirizados', 'solados', 'custosFixos', 'custosIndiretos', 'impostos', 'comissoes', 'fretes'].includes(activeTab)) && (
+                                <div className="mt-4 flex items-center gap-3">
+                                    <button
+                                        onClick={handleSelectAll}
+                                        className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors flex items-center gap-1.5"
+                                    >
+                                        <div className={`w-4 h-4 rounded border flex items-center justify-center ${filteredItems.length > 0 && filteredItems.every(i => selectedItemIds.includes(`${i._type || activeTab}:${i.id}`)) ? `bg-${getThemeColor(activeTab)}-500 border-${getThemeColor(activeTab)}-500 text-white` : 'border-slate-300 dark:border-slate-700'}`}>
+                                            {filteredItems.length > 0 && filteredItems.every(i => selectedItemIds.includes(`${i._type || activeTab}:${i.id}`)) && <Check className="w-3 h-3" />}
+                                        </div>
+                                        {filteredItems.length > 0 && filteredItems.every(i => selectedItemIds.includes(`${i._type || activeTab}:${i.id}`)) ? 'Desmarcar Filtro' : 'Selecionar Filtro'}
+                                    </button>
+                                    <span className="text-[10px] font-bold text-slate-300">|</span>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase">{selectedItemIds.length} selecionados</span>
+                                </div>
+                            )}
+                        </div>
 
-                            <div className="flex flex-wrap gap-2">
-                                {units.map(u => (
-                                    <div key={u} className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 pl-3 pr-1 py-1 rounded-lg shadow-sm">
-                                        <span className="text-[10px] font-bold uppercase">{u}</span>
-                                        <button 
-                                            onClick={() => onUpdateUnits(units.filter(unit => unit !== u))}
-                                            className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-500 rounded-md transition-all"
-                                            title="Remover unidade"
+                        {filteredItems.length === 0 ? (
+                            <div className="text-center py-20 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-2xl">
+                                <p className="text-slate-400 text-sm font-bold">Nenhum item cadastrado nesta categoria.</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {filteredItems.map(item => {
+                                    const itemType = (item as any)._type || activeTab;
+                                    const themeColor = getThemeColor(itemType as keyof LibraryData);
+                                    const isSola = itemType === 'solados';
+                                    const isAdded = existingItemsNames.some(name => name.toLowerCase() === item.nome.toLowerCase());
+                                    const compositeId = `${itemType}:${item.id}`;
+                                    const isSelected = selectedItemIds.includes(compositeId);
+                                    
+                                    return (
+                                        <div 
+                                            key={compositeId} 
+                                            onClick={() => !isAdded && editingId !== item.id && toggleSelectItem(itemType, item.id)}
+                                            className={`group bg-white dark:bg-slate-900 border ${editingId === item.id ? `border-${themeColor}-500 ring-2 ring-${themeColor}-500/10` : isSelected ? `border-${themeColor}-500 bg-${themeColor}-50/30 ring-1 ring-${themeColor}-500/10` : isAdded ? 'border-slate-100 dark:border-slate-800 opacity-40 grayscale' : 'border-slate-200 dark:border-slate-800'} p-4 rounded-2xl transition-all shadow-sm ${!isAdded ? `hover:shadow-md cursor-pointer hover:border-${themeColor}-200 dark:hover:border-${themeColor}-900/40` : 'pointer-events-none'}`}
                                         >
-                                            <Trash2 className="w-3 h-3" />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="relative mb-6">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input
-                            type="text"
-                            placeholder="Buscar na biblioteca local..."
-                            value={searchTerm}
-                            onChange={e => setSearchTerm(e.target.value)}
-                            className={`w-full bg-slate-100/50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-2xl pl-10 pr-4 py-3.5 text-sm outline-none focus:ring-2 focus:ring-${getThemeColor(activeTab)}-500 transition-all`}
-                        />
-                    </div>
-
-                    {filteredItems.length === 0 ? (
-                        <div className="text-center py-20 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-2xl">
-                            <p className="text-slate-400 text-sm font-bold">Nenhum item cadastrado nesta categoria.</p>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {filteredItems.map(item => {
-                                const isAdded = existingItemsNames.some(name => name.toLowerCase() === item.nome.toLowerCase());
-                                return (
-                                    <div key={item.id} className={`group bg-white dark:bg-slate-900 border ${editingId === item.id ? `border-${getThemeColor(activeTab)}-500 ring-2 ring-${getThemeColor(activeTab)}-500/10` : isAdded ? 'border-slate-100 dark:border-slate-800 opacity-40 grayscale' : 'border-slate-200 dark:border-slate-800'} p-4 rounded-2xl transition-all shadow-sm ${!isAdded ? `hover:shadow-md hover:border-${getThemeColor(activeTab)}-200 dark:hover:border-${getThemeColor(activeTab)}-900/40` : 'pointer-events-none'}`}>
-                                        {editingId === item.id ? (
-                                            <div className="space-y-3">
-                                                <input
-                                                    className="w-full bg-slate-100 dark:bg-slate-950 border-none rounded-xl px-3 py-2.5 text-sm font-black uppercase text-slate-800 dark:text-white"
-                                                    value={editForm.nome || ''}
-                                                    title="Nome do item"
-                                                    placeholder="Nome do item"
-                                                    onChange={e => setEditForm({ ...editForm, nome: e.target.value })}
-                                                    autoFocus
-                                                />
-                                                <div className="flex gap-2">
-                                                    {(activeTab === 'insumos' || activeTab === 'terceirizados') && (
-                                                        <select
-                                                            className="w-24 bg-slate-100 dark:bg-slate-950 border-none rounded-xl px-2 py-2.5 text-[10px] font-black uppercase text-slate-600 dark:text-slate-300 outline-none"
-                                                            value={editForm.unidade || ''}
-                                                            onChange={e => setEditForm({ ...editForm, unidade: e.target.value })}
-                                                            title="Unidade"
-                                                        >
-                                                            {units.map(u => <option key={u} value={u}>{u}</option>)}
-                                                        </select>
-                                                    )}
-                                                            <div className="flex-1 relative">
-                                                                {(activeTab === 'impostos' || activeTab === 'comissoes') ? (
-                                                                    <Percent className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-${getThemeColor(activeTab)}-600`} />
-                                                                ) : (
-                                                                    <DollarSign className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-${getThemeColor(activeTab)}-600`} />
-                                                                )}
-                                                                <input
-                                                                    type="number"
-                                                                    className={`w-full bg-slate-100 dark:bg-slate-950 border-none rounded-xl pl-8 pr-3 py-2.5 text-sm font-mono font-bold text-right text-${getThemeColor(activeTab)}-600`}
-                                                                    value={editForm.aliquota || editForm.valorUnitario || editForm.valor || ''}
-                                                            title="Valor do item"
-                                                            placeholder="0,00"
-                                                            onChange={e => setEditForm({ ...editForm, [(activeTab === 'impostos' || activeTab === 'comissoes') ? 'aliquota' : (activeTab === 'custosFixos' || activeTab === 'custosIndiretos' || activeTab === 'fretes') ? 'valor' : 'valorUnitario']: Number(e.target.value) })}
+                                            {editingId === item.id ? (
+                                                <div className="space-y-4 bg-slate-50 dark:bg-slate-950/50 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-inner">
+                                                    {/* Nome principal */}
+                                                    <div>
+                                                        <label className={`text-[10px] font-black text-${themeColor}-600 uppercase mb-1.5 block tracking-widest`}>
+                                                            {activeTab === 'pecas' ? 'Nome da Peça' : activeTab === 'insumos' ? 'Nome do Material' : 'Nome do Item'}
+                                                        </label>
+                                                        <input
+                                                            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm font-black uppercase text-slate-800 dark:text-white shadow-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
+                                                            value={editForm.nome || ''}
+                                                            title={activeTab === 'pecas' ? 'Nome da Peça' : 'Nome do Item'}
+                                                            placeholder={activeTab === 'pecas' ? 'Nome da Peça' : 'Nome do Item'}
+                                                            onChange={e => {
+                                                                const name = e.target.value;
+                                                                setEditForm({ 
+                                                                    ...editForm, 
+                                                                    nome: name,
+                                                                    peca: activeTab === 'pecas' ? name : undefined,
+                                                                    material: activeTab === 'insumos' ? name : undefined
+                                                                });
+                                                            }}
+                                                            autoFocus
                                                         />
                                                     </div>
-                                                </div>
-                                                <div className="flex justify-end gap-2 pt-2">
-                                                    <button onClick={cancelEditing} className="p-2 text-slate-400 hover:text-slate-600 transition-colors" title="Cancelar"><XCircle className="w-5 h-5" /></button>
-                                                    <button onClick={handleSaveEdit} className={`px-6 py-2.5 bg-${getThemeColor(activeTab)}-600 text-white rounded-xl text-xs font-black uppercase flex items-center gap-2 hover:bg-${getThemeColor(activeTab)}-700 transition-all shadow-md shadow-${getThemeColor(activeTab)}-500/20`}><Check className="w-4 h-4" /> Salvar</button>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex-1 min-w-0 pr-4 cursor-pointer flex items-center gap-3" onClick={() => !isAdded && onSelectItem(activeTab, item)}>
-                                                    <div className={`p-2 rounded-xl bg-${getThemeColor(activeTab)}-500/10 shrink-0 text-${getThemeColor(activeTab)}-600`}>
-                                                        {getTabIcon(activeTab, "w-4 h-4")}
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <div className="flex items-center gap-2">
-                                                            <h4 className="font-black text-slate-800 dark:text-white text-sm truncate uppercase">{item.nome}</h4>
-                                                            {isAdded && (
-                                                                <span className="bg-slate-100 dark:bg-slate-800 text-[8px] font-black text-slate-500 px-1.5 py-0.5 rounded uppercase tracking-tighter">JÁ NO PROJETO</span>
-                                                            )}
-                                                        </div>
-                                                        <div className="flex items-center gap-3 mt-1">
-                                                            {activeTab === 'solados' ? (
-                                                                <>
-                                                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{(item as Sola).fornecedor || 'Fab. Própria'}</span>
-                                                                    <span className={`text-[12px] font-black text-${getThemeColor(activeTab)}-600 font-mono`}>
-                                                                        {formatCurrency(calculateSolaAverageCost(item as Sola, library.insumos))} / par (médio)
-                                                                    </span>
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    {item.unidade && <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{item.unidade}</span>}
-                                                                    <span className={`text-[12px] font-black text-${getThemeColor(activeTab)}-600 font-mono`}>
-                                                                        {(activeTab === 'impostos' || activeTab === 'comissoes') 
-                                                                            ? `${item.aliquota?.toFixed(2)}%`
-                                                                            : formatCurrency(item.valor_unitario || item.valorUnitario || item.valor || 0)
+
+                                                    <div className="grid grid-cols-1 gap-4">
+                                                        {(activeTab === 'insumos' || activeTab === 'terceirizados') && (
+                                                            <div>
+                                                                <label className="text-[10px] font-black text-slate-400 uppercase mb-1.5 block tracking-widest">Unidade de Compra</label>
+                                                                <select
+                                                                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm font-bold uppercase text-slate-800 dark:text-slate-100 shadow-sm outline-none"
+                                                                    value={editForm.unidade || ''}
+                                                                    onChange={e => setEditForm({ ...editForm, unidade: e.target.value })}
+                                                                    title="Unidade de Medida"
+                                                                >
+                                                                    <option value="">Selecione uma unidade</option>
+                                                                    {(() => {
+                                                                        let options = (library.unidadesMedida && library.unidadesMedida.length > 0) 
+                                                                            ? library.unidadesMedida.map(u => ({ label: u.nome, value: u.nome.toUpperCase() }))
+                                                                            : (units && units.length > 0)
+                                                                                ? units.map(u => {
+                                                                                    const value = typeof u === 'string' ? u : (u as any).nome || '';
+                                                                                    return { label: value, value };
+                                                                                  })
+                                                                                : [
+                                                                                    { label: 'Kg', value: 'Kg' },
+                                                                                    { label: 'Un', value: 'Un' },
+                                                                                    { label: 'M', value: 'M' },
+                                                                                    { label: 'ML', value: 'ML' },
+                                                                                    { label: 'Par', value: 'Par' }
+                                                                                  ];
+
+                                                                        if (editForm.unidade && !options.some(o => o.value === editForm.unidade)) {
+                                                                            options.unshift({ label: editForm.unidade, value: editForm.unidade });
                                                                         }
-                                                                    </span>
-                                                                </>
-                                                            )}
-                                                        </div>
+
+                                                                        return options.map((opt, i) => (
+                                                                            <option key={`${opt.value}-${i}`} value={opt.value}>
+                                                                                {opt.label}
+                                                                            </option>
+                                                                        ));
+                                                                    })()}
+                                                                </select>
+                                                            </div>
+                                                        )}
+
+                                                        {activeTab !== 'unidadesMedida' && activeTab !== 'pecas' && (
+                                                            <div className="space-y-4">
+                                                                <div>
+                                                                    <label className="text-[10px] font-black text-slate-400 uppercase mb-1.5 block tracking-widest">
+                                                                        {(activeTab === 'impostos' || activeTab === 'comissoes') ? 'Alíquota de Cálculo (%)' : 'Preço de Compra (Embalagem)'}
+                                                                    </label>
+                                                                    <div className="relative">
+                                                                        {(activeTab === 'impostos' || activeTab === 'comissoes') ? (
+                                                                            <Percent className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-${themeColor}-600`} />
+                                                                        ) : (
+                                                                            <DollarSign className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-${themeColor}-600`} />
+                                                                        )}
+                                                                        <input
+                                                                            type="number"
+                                                                            className={`w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-3 text-sm font-mono font-bold text-right text-${themeColor}-600 shadow-sm outline-none`}
+                                                                            value={editForm.aliquota || editForm.valorUnitario || editForm.valor || ''}
+                                                                            title="Valor do item"
+                                                                            placeholder="0,00"
+                                                                            onChange={e => setEditForm({ ...editForm, [(activeTab === 'impostos' || activeTab === 'comissoes') ? 'aliquota' : (activeTab === 'custosFixos' || activeTab === 'custosIndiretos' || activeTab === 'fretes') ? 'valor' : 'valorUnitario']: Number(e.target.value) })}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+
+                                                                {(activeTab === 'insumos' || activeTab === 'terceirizados') && (
+                                                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                                                        <div>
+                                                                            <label className="text-[10px] font-black text-slate-400 uppercase mb-1.5 block tracking-widest">Qtd na Embalagem</label>
+                                                                            <input
+                                                                                type="number"
+                                                                                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 dark:text-slate-300"
+                                                                                value={editForm.quantidadeCompra || ''}
+                                                                                onChange={e => {
+                                                                                    const val = Number(e.target.value);
+                                                                                    setEditForm({ ...editForm, quantidadeCompra: val, fator: val });
+                                                                                }}
+                                                                                title="Quantidade contida na embalagem comprada"
+                                                                                placeholder="Ex: 1000"
+                                                                            />
+                                                                            {editForm.valorUnitario && editForm.quantidadeCompra ? (
+                                                                                <div className="mt-1 text-[8px] font-bold text-emerald-500 uppercase">
+                                                                                    Unitário: {formatCurrency(editForm.valorUnitario / editForm.quantidadeCompra)}
+                                                                                </div>
+                                                                            ) : null}
+                                                                        </div>
+                                                                        <div>
+                                                                            <label className="text-[10px] font-black text-slate-400 uppercase mb-1.5 block tracking-widest">Fator Conv.</label>
+                                                                            <input
+                                                                                type="number"
+                                                                                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 dark:text-slate-300"
+                                                                                value={editForm.fator || ''}
+                                                                                onChange={e => setEditForm({ ...editForm, fator: Number(e.target.value) })}
+                                                                                title="Fator de conversão (Calculado pela Qtd na Embalagem)"
+                                                                                placeholder="1000"
+                                                                            />
+                                                                        </div>
+                                                                        <div>
+                                                                            <label className="text-[10px] font-black text-slate-400 uppercase mb-1.5 block tracking-widest">Rendimento</label>
+                                                                            <div className="relative">
+                                                                                <input
+                                                                                    type="number"
+                                                                                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-4 pr-10 py-3 text-sm font-bold text-slate-600 dark:text-slate-300"
+                                                                                    value={editForm.rendimento || ''}
+                                                                                    onChange={e => setEditForm({ ...editForm, rendimento: Number(e.target.value) })}
+                                                                                    title="Rendimento em pares por unidade"
+                                                                                    placeholder=""
+                                                                                />
+                                                                                <button 
+                                                                                    onClick={() => setActiveCalc({ mode: 'edit', field: 'rendimento' })}
+                                                                                    className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-${themeColor}-500 hover:bg-${themeColor}-50 dark:hover:bg-${themeColor}-900/30 rounded-lg transition-colors`}
+                                                                                    title="Abrir Calculadora"
+                                                                                >
+                                                                                    <Calculator className="w-4 h-4" />
+                                                                                </button>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+                                                        <button 
+                                                            onClick={cancelEditing} 
+                                                            className="px-4 py-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold text-xs uppercase flex items-center gap-2 transition-colors"
+                                                            title="Cancelar"
+                                                        >
+                                                            <XCircle className="w-4 h-4" /> Cancelar
+                                                        </button>
+                                                        <button 
+                                                            onClick={handleSaveEdit} 
+                                                            className={`px-8 py-2.5 bg-${themeColor}-600 text-white rounded-xl text-xs font-black uppercase flex items-center gap-2 hover:bg-${themeColor}-700 transition-all shadow-md shadow-${themeColor}-500/20 active:scale-95`}
+                                                        >
+                                                            <Check className="w-4 h-4" /> Salvar Alterações
+                                                        </button>
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center gap-2 md:opacity-0 group-hover:opacity-100 transition-all">
-                                                    {!isAdded && (
-                                                        <>
-                                                            <button
-                                                                onClick={() => startEditing(item)}
-                                                                className="p-2.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded-lg hover:bg-blue-100 transition-all shrink-0"
-                                                                title="Editar item"
+                                            ) : (
+                                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-3">
+                                                    {/* Nome e Informações principais */}
+                                                    <div className="flex-1 min-w-0 flex items-center gap-3">
+                                                        {(['pecas', 'insumos', 'terceirizados', 'solados', 'custosFixos', 'custosIndiretos', 'impostos', 'comissoes', 'fretes'].includes(itemType)) && !isAdded && (
+                                                            <div 
+                                                                onClick={(e) => { e.stopPropagation(); toggleSelectItem(itemType, item.id); }}
+                                                                className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all cursor-pointer ${isSelected ? `bg-${themeColor}-500 border-${themeColor}-500 text-white shadow-lg shadow-${themeColor}-500/30` : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-slate-400'}`}
                                                             >
-                                                                <Edit2 className="w-4 h-4 shrink-0" />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => onSelectItem(activeTab, item)}
-                                                                className={`p-2.5 bg-${getThemeColor(activeTab)}-50 dark:bg-${getThemeColor(activeTab)}-900/20 text-${getThemeColor(activeTab)}-600 rounded-lg hover:bg-${getThemeColor(activeTab)}-100 transition-all shrink-0`}
-                                                                title="Usar no cálculo"
-                                                            >
-                                                                <Plus className="w-4 h-4 shrink-0" />
-                                                            </button>
-                                                        </>
-                                                    )}
-                                                    <button
-                                                        onClick={() => onDeleteItem(activeTab, item.id)}
-                                                        className="p-2.5 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-lg hover:bg-red-100 transition-all shrink-0"
-                                                        title="Remover permanentemente"
-                                                    >
-                                                        <Trash2 className="w-4 h-4 shrink-0" />
-                                                    </button>
+                                                                {isSelected && <Check className="w-3.5 h-3.5" />}
+                                                            </div>
+                                                        )}
+                                                        <div 
+                                                            className={`p-3 rounded-xl bg-${themeColor}-500/10 shrink-0 text-${themeColor}-600 shadow-sm border border-${themeColor}-500/20 cursor-pointer`}
+                                                            onClick={(e) => { e.stopPropagation(); !isAdded && onSelectItem(itemType, item); }}
+                                                        >
+                                                            {getTabIcon(itemType, "w-6 h-6")}
+                                                        </div>
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="flex items-center justify-between mb-1">
+                                                                <h4 className="font-black text-slate-800 dark:text-white text-sm uppercase flex items-center">
+                                                                    <span className="opacity-40 mr-1.5 italic text-[10px] shrink-0">
+                                                                        {itemType === 'pecas' ? 'Peça:' : (itemType === 'insumos' || itemType === 'solados') ? 'Mat:' : ''}
+                                                                    </span>
+                                                                    <span className="truncate">{item.nome}</span>
+                                                                    {isSola && (
+                                                                        <span className="ml-2 bg-teal-100 dark:bg-teal-900/30 text-[8px] font-black text-teal-600 px-1.5 py-0.5 rounded uppercase tracking-tighter shrink-0 border border-teal-500/20">SOLADO</span>
+                                                                    )}
+                                                                </h4>
+                                                                {isAdded && (
+                                                                    <span className="bg-emerald-100 dark:bg-emerald-900/30 text-[7px] font-black text-emerald-600 px-1.5 py-0.5 rounded uppercase tracking-tighter shrink-0 border border-emerald-500/20">NO PROJETO</span>
+                                                                )}
+                                                            </div>
+                                                            <div className="flex items-baseline gap-2 flex-wrap">
+                                                                {isSola ? (
+                                                                    <>
+                                                                        <span className="text-[10px] font-bold text-slate-400 uppercase truncate max-w-[120px]">{(item as any).fornecedor || 'Fab. Própria'}</span>
+                                                                        <span className={`text-[11px] font-black text-${themeColor}-600 font-mono`}>
+                                                                            {formatCurrency(calculateSolaAverageCost(item as Sola, library.insumos, library.unidadesMedida))} <span className="text-[9px] opacity-60">/ par</span>
+                                                                        </span>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        {item.unidade && itemType !== 'pecas' && itemType !== 'unidadesMedida' && (
+                                                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                                                {item.unidade}
+                                                                            </span>
+                                                                        )}
+                                                                        <span className={`text-[10px] font-black text-${themeColor}-600 font-mono`}>
+                                                                            {activeTab === 'unidadesMedida' 
+                                                                                ? (
+                                                                                    <div className="flex items-center gap-1 opacity-70">
+                                                                                        <span className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-[8px]">UNIDADE DE MEDIDA</span>
+                                                                                    </div>
+                                                                                )
+                                                                                : (activeTab === 'impostos' || activeTab === 'comissoes') 
+                                                                                    ? `${item.aliquota?.toFixed(2)}%`
+                                                                                    : (item.valorUnitario && item.quantidadeCompra && item.quantidadeCompra > 1)
+                                                                                        ? (
+                                                                                            <span className="flex flex-col items-end">
+                                                                                                <span>{formatCurrency(item.valorUnitario)} <span className="text-[8px] opacity-40">c/ {item.quantidadeCompra}</span></span>
+                                                                                                <span className="text-[8px] opacity-60">Unitário: {formatCurrency(item.valorUnitario / item.quantidadeCompra)}</span>
+                                                                                            </span>
+                                                                                        )
+                                                                                        : formatCurrency(item.valorUnitario || item.valor || 0)
+                                                                            }
+                                                                        </span>
+                                                                        {item.rendimento && item.rendimento > 1 && (activeTab === 'insumos' || activeTab === 'terceirizados') && (
+                                                                            <span className="text-[8px] font-black text-green-600 bg-green-50 dark:bg-green-900/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                                                                <RefreshCw className="w-2.5 h-2.5" /> RENDE {item.rendimento} PARES
+                                                                            </span>
+                                                                        )}
+                                                                        {item.fator && item.fator !== 1 && (itemType === 'insumos' || itemType === 'terceirizados') && (
+                                                                            <span className="text-[8px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                                                                <Settings className="w-2 h-2" /> FATOR: {item.fator}
+                                                                            </span>
+                                                                        )}
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Ações (CRUD) */}
+                                                    <div className="flex items-center gap-1.5 sm:gap-2 justify-end sm:opacity-0 group-hover:opacity-100 transition-all pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800/50">
+                                                        {!isAdded && (
+                                                            <>
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); startEditing(item); }}
+                                                                    className="flex-1 sm:flex-none py-2 px-2.5 sm:p-2.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded-xl hover:bg-blue-100 transition-all flex items-center justify-center gap-1 sm:gap-2 shadow-sm border border-blue-200 dark:border-blue-800/50"
+                                                                    title="Editar item"
+                                                                >
+                                                                    <Edit2 className="w-3.5 h-3.5 shrink-0" />
+                                                                    <span className="text-[10px] font-black uppercase sm:hidden">Editar</span>
+                                                                </button>
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); onSelectItem(itemType, item); }}
+                                                                    className={`flex-1 sm:flex-none py-2 px-2.5 sm:p-2.5 bg-${themeColor}-50 dark:bg-${themeColor}-900/20 text-${themeColor}-600 rounded-xl hover:bg-${themeColor}-100 transition-all flex items-center justify-center gap-1 sm:gap-2 shadow-sm border border-${themeColor}-200 dark:border-${themeColor}-800/50`}
+                                                                    title="Usar no cálculo"
+                                                                >
+                                                                    <Plus className="w-3.5 h-3.5 shrink-0" />
+                                                                    <span className="text-[10px] font-black uppercase sm:hidden">Usar</span>
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); onDeleteItem(activeTab, item.id); }}
+                                                            className="flex-1 sm:flex-none py-2 px-2.5 sm:p-2.5 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-xl hover:bg-red-100 transition-all flex items-center justify-center gap-1 sm:gap-2 shadow-sm border border-red-200 dark:border-red-800/50"
+                                                            title="Remover permanentemente"
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                                                            <span className="text-[10px] font-black uppercase sm:hidden">Excluir</span>
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
                 )}
 
-                <div className="p-4 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                <div className="p-4 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest relative">
                     <span>{filteredItems.length} itens no seu dispositivo</span>
+                    
+                    {selectedItemIds.length > 0 && (
+                        <div className="absolute left-1/2 -translate-x-1/2 -top-8 px-6 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl shadow-2xl flex items-center gap-4 border border-white/10 animate-in fade-in slide-in-from-bottom-4">
+                            <span className="font-black text-[9px] uppercase tracking-wider">{selectedItemIds.length} selecionados</span>
+                            <button
+                                onClick={handleCopySelected}
+                                className={`px-4 py-1.5 bg-${getTabColor(activeTab).split(' ')[0].replace('text-', '')}-500 text-white rounded-lg font-black text-[9px] uppercase hover:opacity-90 active:scale-95 transition-all flex items-center gap-2`}
+                            >
+                                <Plus className="w-3.5 h-3.5" /> Copiar para Projeto
+                            </button>
+                            <button onClick={() => setSelectedItemIds([])} title="Limpar seleção" className="p-1 hover:bg-white/10 dark:hover:bg-slate-100 rounded-full transition-colors">
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                    )}
+                    
                     <span className="flex items-center gap-2"><div className={`w-1.5 h-1.5 bg-${getThemeColor(showDetails ? activeTab : 'solados')}-500 rounded-full animate-pulse`}></div> Armazenamento Local Ativo</span>
                 </div>
+
+                {activeCalc && (
+                    <InlineCalculator
+                        initialValue={Number(activeCalc.mode === 'new' ? newItem.rendimento : editForm.rendimento) || 0}
+                        color={getThemeColor(activeTab)}
+                        onClose={() => setActiveCalc(null)}
+                        onApply={(val) => {
+                            if (activeCalc.mode === 'new') {
+                                setNewItem({ ...newItem, rendimento: val });
+                            } else {
+                                setEditForm({ ...editForm, rendimento: val });
+                            }
+                            setActiveCalc(null);
+                        }}
+                    />
+                )}
             </div>
         </div>
     );

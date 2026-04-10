@@ -1,5 +1,5 @@
 {
-  "appId": "com.example.calculadoraprecopro",
+  "appId": "com.calculadora.precopro",
   "appName": "CalculadoraPrecoPRO",
   "webDir": "dist",
   "bundledWebRuntime": false,

@@ -2,6 +2,6 @@
 <resources>
     <string name="app_name">CalculadoraPrecoPRO</string>
     <string name="title_activity_main">CalculadoraPrecoPRO</string>
-    <string name="package_name">com.example.calculadoraprecopro</string>
-    <string name="custom_url_scheme">com.example.calculadoraprecopro</string>
+    <string name="package_name">com.calculadora.precopro</string>
+    <string name="custom_url_scheme">com.calculadora.precopro</string>
 </resources>

@@ -1,41 +1,41 @@
 {
   "project_info": {
-    "project_number": "182719093690",
-    "project_id": "calc-custos-sapatos",
-    "storage_bucket": "calc-custos-sapatos.firebasestorage.app"
+    "project_number": "56750808130",
+    "project_id": "calc-custos-sapatos-pro",
+    "storage_bucket": "calc-custos-sapatos-pro.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:182719093690:android:5ab54fe6baccdb928c9b83",
+        "mobilesdk_app_id": "1:56750808130:android:69e45ea9311a4de64ee1db",
         "android_client_info": {
-          "package_name": "com.example.calculadoraprecopro"
+          "package_name": "com.calculadora.precopro"
         }
       },
       "oauth_client": [
         {
-          "client_id": "182719093690-pgv8cbf313ee5s4stn2c18409uhdqaca.apps.googleusercontent.com",
+          "client_id": "56750808130-4dqe9r4v43671306scob3j8cc9o75k3a.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.example.calculadoraprecopro",
+            "package_name": "com.calculadora.precopro",
             "certificate_hash": "25fcf1dae29d867dc7f67fa7291354451a2ee78b"
           }
         },
         {
-          "client_id": "182719093690-7b1ftrvh3v00vrrd2lah4kf0okgh01pm.apps.googleusercontent.com",
+          "client_id": "56750808130-fj6iia1jntubnf7u68f5fagpa87oippk.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyDX2WtO0d4frtX8_wEXe8j5gsJYRACFE7Q"
+          "current_key": "AIzaSyCUrN1R4t6DpiDZH45zS_3RRhMZffyGPmM"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "182719093690-7b1ftrvh3v00vrrd2lah4kf0okgh01pm.apps.googleusercontent.com",
+              "client_id": "56750808130-fj6iia1jntubnf7u68f5fagpa87oippk.apps.googleusercontent.com",
               "client_type": 3
             }
           ]

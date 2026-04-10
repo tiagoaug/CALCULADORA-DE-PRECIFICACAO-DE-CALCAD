@@ -2,9 +2,14 @@
 export interface Insumo {
   id: string;
   nome: string;
+  peca?: string;
+  material?: string;
   quantidade: number;
   unidade: string;
   valorUnitario: number;
+  quantidadeCompra?: number;
+  fator?: number; // Fator de conversão específico para este material
+  rendimento?: number; // Rendimento do material (quantos pares produz)
   comentario?: string;
 }
 
@@ -71,18 +76,26 @@ export interface AppSettings {
   dailyProduction: number;
   currency: string;
   theme: 'light' | 'dark';
-  unidadesMedida?: string[]; // Adicionado para unidades personalizáveis
+  unidadesMedida?: UnidadeMedida[]; // Adicionado para unidades personalizáveis
+}
+
+export interface UnidadeMedida {
+    id: string;
+    nome: string;
+    fator?: number; // Fator de conversão (ex: 1000 para Kg)
 }
 
 export interface LibraryData {
-  insumos: Insumo[];
-  terceirizados: Insumo[];
-  custosFixos: CustoFixo[];
-  custosIndiretos: CustoFixo[];
-  impostos: Imposto[];
-  comissoes: Comissao[];
-  fretes: Frete[];
-  solados?: Sola[];
+    pecas: Insumo[];
+    insumos: Insumo[];
+    terceirizados: Insumo[];
+    custosFixos: CustoFixo[];
+    custosIndiretos: CustoFixo[];
+    impostos: Imposto[];
+    comissoes: Comissao[];
+    fretes: Frete[];
+    solados: Sola[];
+    unidadesMedida: UnidadeMedida[];
 }
 
 export interface MaterialPriceRecord {
@@ -118,6 +131,7 @@ export interface Sola {
   id: string;
   nome: string;
   fornecedor: string;
+  valor?: number; // Preço do solado pronto (opcional)
   materiais: SolaMaterial[]; // Lista de materiais usados
   grade: SolaGradeItem[];
   maoDeObra: SolaLaborItem[];
@@ -133,6 +147,7 @@ export interface Supplier {
 }
 
 export interface AppDatabase {
+  uid?: string; // UID Pinning to prevent cross-account data leakage
   products: ProductData[];
   library: LibraryData;
   settings: AppSettings;

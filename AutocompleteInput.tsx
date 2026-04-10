@@ -11,21 +11,25 @@ interface Suggestion {
 }
 
 interface AutocompleteInputProps {
+  id?: string;
   value: string;
   suggestions: Suggestion[];
   placeholder?: string;
   className?: string;
   onSelect: (item: Suggestion) => void;
   onChange: (value: string) => void;
+  hidePrice?: boolean;
 }
 
 const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
+  id,
   value,
-  suggestions,
+  suggestions = [],
   placeholder,
   className,
   onSelect,
-  onChange
+  onChange,
+  hidePrice = false
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [filtered, setFiltered] = useState<Suggestion[]>([]);
@@ -33,9 +37,11 @@ const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (value.trim().length > 0 && isOpen) {
+    if (isOpen && Array.isArray(suggestions)) {
       const searchTerm = value.toLowerCase();
       const matches = suggestions.filter(s => {
+        if (!s || !s.nome) return false;
+        if (searchTerm.length === 0) return true;
         const name = s.nome.toLowerCase();
         const words = name.split(' ');
         return name.startsWith(searchTerm) || words.some(word => word.startsWith(searchTerm));
@@ -75,6 +81,7 @@ const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
   return (
     <div className="relative w-full" ref={containerRef} onKeyDown={handleKeyDown}>
       <input
+        id={id}
         type="text"
         value={value}
         onChange={(e) => {
@@ -84,11 +91,11 @@ const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
         onFocus={() => setIsOpen(true)}
         placeholder={placeholder}
         title={placeholder || "Buscar item"}
-        className={`${className} w-full`}
+        className={`w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-4 pr-12 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all ${className}`}
       />
       
       {isOpen && filtered.length > 0 && (
-        <div className="absolute z-[100] w-full mt-2 bg-white/90 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.2)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="absolute z-[9999] w-full mt-2 bg-white/90 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.2)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
           <ul className="py-2">
             {filtered.map((item, index) => (
               <li
@@ -104,10 +111,13 @@ const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
                     : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/50'
                 }`}
               >
-                <div className="flex flex-col">
-                   <span className="text-sm font-black uppercase tracking-tight">{item.nome}</span>
-                   {item.unidade && (
+                <div className="flex flex-col min-w-0 flex-1">
+                   <span className="block font-bold text-slate-800 dark:text-white truncate" title={item.nome}>{item.nome}</span>
+                   {item.unidade && !hidePrice && (
                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.unidade} • R$ {(item.valor_unitario || item.valorUnitario || item.valor || 0).toFixed(2).replace('.', ',')}</span>
+                   )}
+                   {item.unidade && hidePrice && (
+                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.unidade}</span>
                    )}
                 </div>
                 {highlightedIndex === index && <Check className="w-4 h-4" />}
