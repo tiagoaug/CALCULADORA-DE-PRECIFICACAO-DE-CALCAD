@@ -454,6 +454,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                             <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                                             <input
                                                 type="number"
+                                                step="0.0001"
                                                 value={newItem.valorUnitario || ''}
                                                 onChange={e => setNewItem({ ...newItem, valorUnitario: Number(e.target.value) })}
                                                 placeholder="0,00"
@@ -476,7 +477,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                         />
                                         {newItem.valorUnitario && newItem.quantidadeCompra ? (
                                             <div className="mt-1.5 text-[8px] font-bold text-slate-400 uppercase tracking-tight">
-                                                Custo Unitário: <span className={`text-${getThemeColor(activeTab)}-500`}>{formatCurrency(newItem.valorUnitario / newItem.quantidadeCompra)}</span>
+                                                Custo Unitário: <span className={`text-[11px] font-black text-${getThemeColor(activeTab)}-600`}>{formatCurrency(newItem.valorUnitario / newItem.quantidadeCompra, 4)}</span>
                                             </div>
                                         ) : null}
                                     </div>
@@ -507,6 +508,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                         <div className="relative">
                                             <input
                                                 type="number"
+                                                step="0.0001"
                                                 value={newItem.rendimento || ''}
                                                 onChange={e => setNewItem({ ...newItem, rendimento: Number(e.target.value) })}
                                                 placeholder=""
@@ -1031,6 +1033,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                                                         )}
                                                                         <input
                                                                             type="number"
+                                                                            step="0.0001"
                                                                             className={`w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-3 text-sm font-mono font-bold text-right text-${themeColor}-600 shadow-sm outline-none`}
                                                                             value={editForm.aliquota || editForm.valorUnitario || editForm.valor || ''}
                                                                             title="Valor do item"
@@ -1057,7 +1060,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                                                             />
                                                                             {editForm.valorUnitario && editForm.quantidadeCompra ? (
                                                                                 <div className="mt-1 text-[8px] font-bold text-emerald-500 uppercase">
-                                                                                    Unitário: {formatCurrency(editForm.valorUnitario / editForm.quantidadeCompra)}
+                                                                                    Unitário: {formatCurrency(editForm.valorUnitario / editForm.quantidadeCompra, 4)}
                                                                                 </div>
                                                                             ) : null}
                                                                         </div>
@@ -1077,6 +1080,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                                                             <div className="relative">
                                                                                 <input
                                                                                     type="number"
+                                                                                    step="0.0001"
                                                                                     className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-4 pr-10 py-3 text-sm font-bold text-slate-600 dark:text-slate-300"
                                                                                     value={editForm.rendimento || ''}
                                                                                     onChange={e => setEditForm({ ...editForm, rendimento: Number(e.target.value) })}
@@ -1115,7 +1119,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-3">
+                                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-3 min-w-0 w-full overflow-hidden">
                                                     {/* Nome e Informações principais */}
                                                     <div className="flex-1 min-w-0 flex items-center gap-3">
                                                         {(['pecas', 'insumos', 'terceirizados', 'solados', 'custosFixos', 'custosIndiretos', 'impostos', 'comissoes', 'fretes'].includes(itemType)) && !isAdded && (
@@ -1134,11 +1138,8 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                                         </div>
                                                         <div className="min-w-0 flex-1">
                                                             <div className="flex items-center justify-between mb-1">
-                                                                <h4 className="font-black text-slate-800 dark:text-white text-sm uppercase flex items-center">
-                                                                    <span className="opacity-40 mr-1.5 italic text-[10px] shrink-0">
-                                                                        {itemType === 'pecas' ? 'Peça:' : (itemType === 'insumos' || itemType === 'solados') ? 'Mat:' : ''}
-                                                                    </span>
-                                                                    <span className="truncate">{item.nome}</span>
+                                                                <h4 className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight truncate flex items-center gap-1">
+                                                                    <span className="truncate max-w-[150px] sm:max-w-none">{item.nome}</span>
                                                                     {isSola && (
                                                                         <span className="ml-2 bg-teal-100 dark:bg-teal-900/30 text-[8px] font-black text-teal-600 px-1.5 py-0.5 rounded uppercase tracking-tighter shrink-0 border border-teal-500/20">SOLADO</span>
                                                                     )}
@@ -1150,7 +1151,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                                             <div className="flex items-baseline gap-2 flex-wrap">
                                                                 {isSola ? (
                                                                     <>
-                                                                        <span className="text-[10px] font-bold text-slate-400 uppercase truncate max-w-[120px]">{(item as any).fornecedor || 'Fab. Própria'}</span>
+                                                                        <span className="text-[10px] font-bold text-slate-400 uppercase truncate max-w-[80px] sm:max-w-[120px]">{(item as any).fornecedor || 'Fab. Própria'}</span>
                                                                         <span className={`text-[11px] font-black text-${themeColor}-600 font-mono`}>
                                                                             {formatCurrency(calculateSolaAverageCost(item as Sola, library.insumos, library.unidadesMedida))} <span className="text-[9px] opacity-60">/ par</span>
                                                                         </span>
@@ -1175,15 +1176,15 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                                                                         ? (
                                                                                             <span className="flex flex-col items-end">
                                                                                                 <span>{formatCurrency(item.valorUnitario)} <span className="text-[8px] opacity-40">c/ {item.quantidadeCompra}</span></span>
-                                                                                                <span className="text-[8px] opacity-60">Unitário: {formatCurrency(item.valorUnitario / item.quantidadeCompra)}</span>
+                                                                                                <span className="text-[8px] opacity-60">Unitário: {formatCurrency(item.valorUnitario / item.quantidadeCompra, 4)}</span>
                                                                                             </span>
                                                                                         )
                                                                                         : formatCurrency(item.valorUnitario || item.valor || 0)
                                                                             }
                                                                         </span>
                                                                         {item.rendimento && item.rendimento > 1 && (activeTab === 'insumos' || activeTab === 'terceirizados') && (
-                                                                            <span className="text-[8px] font-black text-green-600 bg-green-50 dark:bg-green-900/20 px-1.5 py-0.5 rounded flex items-center gap-1">
-                                                                                <RefreshCw className="w-2.5 h-2.5" /> RENDE {item.rendimento} PARES
+                                                                            <span className="text-[8px] font-black text-green-600 bg-green-50 dark:bg-green-900/20 px-1.5 py-0.5 rounded flex items-center gap-1 whitespace-nowrap">
+                                                                                <RefreshCw className="w-2.5 h-2.5" /> RENDE {Number(item.rendimento).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} PARES
                                                                             </span>
                                                                         )}
                                                                         {item.fator && item.fator !== 1 && (itemType === 'insumos' || itemType === 'terceirizados') && (

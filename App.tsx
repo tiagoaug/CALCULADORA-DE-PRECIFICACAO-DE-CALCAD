@@ -32,16 +32,22 @@ import {
   Edit,
   Calendar,
   Phone,
-  Mail,
-  ArrowDownCircle,
-  ArrowUpCircle,
-  AlertCircle,
-  ArrowRight,
-  LogOut
+  LogOut,
+  ChevronRight
 } from 'lucide-react';
 import { ProductData, AppDatabase, LibraryData, Insumo, MaterialPriceRecord, Sola, Supplier, UnidadeMedida } from './types';
 import { calculateSummary, formatCurrency, calculateSolaAverageCost, findUnitFactor } from './utils/calculations';
-import { downloadPDF, sharePDF, shareFile, copyBackupToClipboard, shareTextReport, exportToXLS } from './utils/export';
+import {
+  downloadPDF,
+  generatePDFBlob,
+  sharePDF,
+  shareTextReport,
+  copyToClipboard,
+  readFromClipboard,
+  shareFile,
+  exportToXLS,
+  copyBackupToClipboard
+} from './utils/export';
 import LibraryView from './LibraryView';
 import AutocompleteInput from './AutocompleteInput';
 import { auth } from './firebase';
@@ -438,15 +444,15 @@ const App: React.FC = () => {
       comissoes: incomingLibrary.comissoes || [],
       fretes: incomingLibrary.fretes || [],
       solados: incomingLibrary.solados || [],
-      unidadesMedida: (incomingLibrary.unidadesMedida && incomingLibrary.unidadesMedida.length > 0 
-        ? incomingLibrary.unidadesMedida 
+      unidadesMedida: (incomingLibrary.unidadesMedida && incomingLibrary.unidadesMedida.length > 0
+        ? incomingLibrary.unidadesMedida
         : DEFAULT_UNITS).map((u: any) => ({
-        ...u,
-        compraEm: u.compraEm || (u.nome.toLowerCase() === 'milheiro' ? 'Un' : u.nome),
-        quantidadeCompra: u.quantidadeCompra || (u.nome.toLowerCase() === 'milheiro' ? 1000 : u.fator || 1),
-        rendimento: u.rendimento || u.fator || 1,
-        fator: u.fator || 1
-      }))
+          ...u,
+          compraEm: u.compraEm || (u.nome.toLowerCase() === 'milheiro' ? 'Un' : u.nome),
+          quantidadeCompra: u.quantidadeCompra || (u.nome.toLowerCase() === 'milheiro' ? 1000 : u.fator || 1),
+          rendimento: u.rendimento || u.fator || 1,
+          fator: u.fator || 1
+        }))
     };
 
     const migratedProducts = (data.products || []).map((p: ProductData) => ({
@@ -491,7 +497,7 @@ const App: React.FC = () => {
         try {
           console.log(`App: Loading cloud data for user ${user.uid}...`);
           const cloudData = await firebaseService.loadFullDatabase(user.uid);
-          
+
           if (cloudData) {
             setDb(migrateDb(cloudData));
           } else {
@@ -499,7 +505,7 @@ const App: React.FC = () => {
             // We NO LONGER migrate the generic DB_KEY to new users to prevent data leaks.
             const scopedKey = getScopedDbKey(user.uid);
             const localData = localStorage.getItem(scopedKey);
-            
+
             if (localData) {
               const parsed = JSON.parse(localData);
               const migrated = migrateDb(parsed);
@@ -529,7 +535,7 @@ const App: React.FC = () => {
     // SECURITY: CRITICAL CHECK
     // 1. Don't persist if no user
     // 2. Don't persist if we are still doing the initial cloud load (prevent wiping data)
-    if (!user || isInitialLoad) return; 
+    if (!user || isInitialLoad) return;
 
     // 3. PIN CHECK: Don't persist if the DB state doesn't belong to this user
     // CRITICAL: Must have a UID and it MUST match the user.uid
@@ -543,10 +549,10 @@ const App: React.FC = () => {
 
     try {
       const scopedKey = getScopedDbKey(user.uid);
-      
+
       // Local backup (Immediate)
       localStorage.setItem(scopedKey, JSON.stringify(db));
-      
+
       // Sync to Cloud (Always pinned to user.uid)
       await firebaseService.syncLocalToFirebase(user.uid, db);
       setSyncStatus('synced');
@@ -563,14 +569,15 @@ const App: React.FC = () => {
 
   // Trigger persistence when DB changes
   useEffect(() => {
-    const debounceTimer = setTimeout(persistData, 2000); 
+    const debounceTimer = setTimeout(persistData, 2000);
     return () => clearTimeout(debounceTimer);
   }, [db, persistData]);
 
   const [activeLibraryTarget, setActiveLibraryTarget] = useState<{ id: string, type: string } | null>(null);
-  const [copiedSection, setCopiedSection] = useState<{ type: string, data: any[] } | null>(null);
-  const [copiedItem, setCopiedItem] = useState<{ type: string, data: any } | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+
+
+
   const [editingValue, setEditingValue] = useState<{ id: string, field: string, val: string } | null>(null);
   const [activeCalc, setActiveCalc] = useState<{ id: string, field: string } | null>(null);
   const [activeConsumptionCalc, setActiveConsumptionCalc] = useState<string | null>(null);
@@ -588,6 +595,11 @@ const App: React.FC = () => {
   const [selectedCustoFixoIds, setSelectedCustoFixoIds] = useState<string[]>([]);
   const [selectedCustoIndiretoIds, setSelectedCustoIndiretoIds] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
+
+  const toggleItemExpansion = (id: string) => {
+    setExpandedItems(prev => ({ ...prev, [id]: !prev[id] }));
+  };
 
   // Limpar seleção ao trocar de projeto
   useEffect(() => {
@@ -652,15 +664,76 @@ const App: React.FC = () => {
     }));
   }, [db.lastSelectedProductId]);
 
+  const handleCopyToClipboard = useCallback(async (type: string, data: any) => {
+    const payload = {
+      type,
+      data,
+      source: 'preco-pro-app',
+      timestamp: Date.now()
+    };
+    await copyToClipboard(JSON.stringify(payload), 'Copiado para a área de transferência!');
+  }, []);
+
+  const handlePasteFromClipboard = useCallback(async (targetSection: 'insumos' | 'terceirizados' | 'custosFixos' | 'custosIndiretos') => {
+    try {
+      const text = await readFromClipboard();
+      if (!text) {
+        alert('Área de transferência vazia.');
+        return;
+      }
+
+      let payload;
+      try {
+        payload = JSON.parse(text);
+      } catch (e) {
+        alert('Os dados na área de transferência não são do Preço PRO ou estão corrompidos.');
+        return;
+      }
+
+      if (payload.source !== 'preco-pro-app') {
+        alert('Dados inválidos. Copie um item ou seção dentro do aplicativo primeiro.');
+        return;
+      }
+
+      const { data } = payload;
+
+      if (Array.isArray(data)) {
+        if (!confirm(`Deseja adicionar ${data.length} itens à seção atual?`)) return;
+
+        const newItems = data.map(item => ({
+          ...item,
+          id: Math.random().toString(36)
+        }));
+
+        updateCurrentProduct({
+          [targetSection]: [...(currentProduct[targetSection] as any[]), ...newItems]
+        });
+      } else {
+        const newItem = {
+          ...data,
+          id: Math.random().toString(36)
+        };
+
+        updateCurrentProduct({
+          [targetSection]: [...(currentProduct[targetSection] as any[]), ...newItem]
+        });
+      }
+      alert('Dados colados com sucesso!');
+    } catch (error) {
+      console.error('Erro ao colar:', error);
+      alert('Erro ao tentar colar dados.');
+    }
+  }, [currentProduct, updateCurrentProduct]);
+
   const handleAddItemToLibrary = useCallback((type: keyof LibraryData, item: any) => {
     // Auto-calculate fator for unidades de medida: rendimento / quantidadeCompra
     const processedItem = type === 'unidadesMedida'
       ? {
-          ...item,
-          fator: item.rendimento && item.quantidadeCompra
-            ? Number(item.rendimento) / Number(item.quantidadeCompra)
-            : item.rendimento || item.fator || 1
-        }
+        ...item,
+        fator: item.rendimento && item.quantidadeCompra
+          ? Number(item.rendimento) / Number(item.quantidadeCompra)
+          : item.rendimento || item.fator || 1
+      }
       : item;
     setDb(prev => ({
       ...prev,
@@ -685,11 +758,11 @@ const App: React.FC = () => {
     // Auto-calculate fator for unidades de medida: rendimento / quantidadeCompra
     const processedItem = type === 'unidadesMedida'
       ? {
-          ...updatedItem,
-          fator: updatedItem.rendimento && updatedItem.quantidadeCompra
-            ? Number(updatedItem.rendimento) / Number(updatedItem.quantidadeCompra)
-            : updatedItem.rendimento || updatedItem.fator || 1
-        }
+        ...updatedItem,
+        fator: updatedItem.rendimento && updatedItem.quantidadeCompra
+          ? Number(updatedItem.rendimento) / Number(updatedItem.quantidadeCompra)
+          : updatedItem.rendimento || updatedItem.fator || 1
+      }
       : updatedItem;
     setDb(prev => ({
       ...prev,
@@ -748,7 +821,7 @@ const App: React.FC = () => {
           updateCurrentProduct({
             insumos: currentProduct.insumos.map(i => {
               if (i.id === id) {
-                const resolvedUnit = db.library.unidadesMedida.find(u => 
+                const resolvedUnit = db.library.unidadesMedida.find(u =>
                   (u.nome && u.nome.toLowerCase() === (item.unidade || '').toLowerCase())
                 );
                 return {
@@ -767,7 +840,7 @@ const App: React.FC = () => {
           updateCurrentProduct({
             terceirizados: currentProduct.terceirizados.map(i => {
               if (i.id === id) {
-                const resolvedUnit = db.library.unidadesMedida.find(u => 
+                const resolvedUnit = db.library.unidadesMedida.find(u =>
                   (u.nome && u.nome.toLowerCase() === (item.unidade || '').toLowerCase())
                 );
                 return {
@@ -841,7 +914,7 @@ const App: React.FC = () => {
           });
           break;
         case 'insumos': {
-          const resolvedUnitInsumo = db.library.unidadesMedida.find(u => 
+          const resolvedUnitInsumo = db.library.unidadesMedida.find(u =>
             (u.nome && u.nome.toLowerCase() === (item.unidade || '').toLowerCase())
           );
           const finalCost = (item.quantidadeCompra && item.quantidadeCompra > 0)
@@ -856,8 +929,8 @@ const App: React.FC = () => {
                 nome: item.nome,
                 peca: '',
                 material: item.nome,
-                quantidade: item.rendimento && item.rendimento > 1 
-                  ? Math.round(((item.fator || 1) / item.rendimento) * 10000) / 10000 
+                quantidade: item.rendimento && item.rendimento > 1
+                  ? Math.round(((item.fator || 1) / item.rendimento) * 10000) / 10000
                   : Math.round((item.quantidade || 1) * 10000) / 10000,
                 unidade: resolvedUnitInsumo ? resolvedUnitInsumo.nome.toUpperCase() : (item.unidade || 'UN').toUpperCase(),
                 valorUnitario: finalCost
@@ -867,7 +940,7 @@ const App: React.FC = () => {
           break;
         }
         case 'terceirizados': {
-          const resolvedUnitTerceirizado = db.library.unidadesMedida.find(u => 
+          const resolvedUnitTerceirizado = db.library.unidadesMedida.find(u =>
             (u.nome && u.nome.toLowerCase() === (item.unidade || '').toLowerCase())
           );
           updateCurrentProduct({
@@ -876,8 +949,8 @@ const App: React.FC = () => {
               {
                 id: Math.random().toString(36),
                 nome: item.nome,
-                quantidade: item.rendimento && item.rendimento > 1 
-                  ? Math.round(((item.fator || 1) / item.rendimento) * 10000) / 10000 
+                quantidade: item.rendimento && item.rendimento > 1
+                  ? Math.round(((item.fator || 1) / item.rendimento) * 10000) / 10000
                   : 1,
                 unidade: resolvedUnitTerceirizado ? resolvedUnitTerceirizado.nome.toUpperCase() : (item.unidade || 'UN').toUpperCase(),
                 valorUnitario: item.valor_unitario || item.valorUnitario || item.valor || 0
@@ -971,8 +1044,8 @@ const App: React.FC = () => {
               nome: item.nome,
               peca: '',
               material: item.nome,
-              quantidade: item.rendimento && item.rendimento > 1 
-                ? Math.round(((item.fator || 1) / item.rendimento) * 10000) / 10000 
+              quantidade: item.rendimento && item.rendimento > 1
+                ? Math.round(((item.fator || 1) / item.rendimento) * 10000) / 10000
                 : Math.round((item.quantidade || 1) * 10000) / 10000,
               unidade: (item.unidade || 'un').toUpperCase(),
               valorUnitario: finalCost
@@ -1084,7 +1157,7 @@ const App: React.FC = () => {
   const handleLogout = async () => {
     if (window.confirm("Deseja realmente sair da sua conta? Todas as alterações sincronizadas estão seguras na nuvem. Os dados locais deste dispositivo serão limpos para sua segurança.")) {
       const targetUid = user?.uid; // Store current UID before resetting state
-      
+
       try {
         // Reset App State immediately to prevent flashing old data
         // Pinned to null/undefined to disable sync until new login
@@ -1099,19 +1172,19 @@ const App: React.FC = () => {
           localStorage.removeItem(scopedKey);
           localStorage.removeItem(scopedKey + '_lastId');
         }
-        
+
         // Clear Generic Storage (just in case)
         localStorage.removeItem(DB_KEY);
         localStorage.removeItem(DB_KEY + '_lastId');
 
         // Clear Firebase session (JS SDK)
         await signOut(auth);
-        
+
         // Clear native session if on mobile (Capacitor plugin)
         if (Capacitor.isNativePlatform()) {
           await FirebaseAuthentication.signOut();
         }
-        
+
         console.log("App: User signed out and local state cleared.");
       } catch (error) {
         console.error("App: Logout error:", error);
@@ -1170,8 +1243,8 @@ const App: React.FC = () => {
     const normalized = normalizedVal.replace(',', '.');
     let parsed = parseFloat(normalized);
 
-    // Limitar a 4 casas decimais para campos de quantidade
-    if (['q', 'tq', 'u', 'd'].includes(field) && !isNaN(parsed)) {
+    // Limitar a 4 casas decimais para campos de quantidade ou valor unitário
+    if (['q', 'tq', 'u', 'd', 'v', 'tv'].includes(field) && !isNaN(parsed)) {
       parsed = Math.round(parsed * 10000) / 10000;
     }
 
@@ -1188,14 +1261,16 @@ const App: React.FC = () => {
       case 'custosIndiretos': itemsToCopy = currentProduct.custosIndiretos.filter(i => selectedCustoIndiretoIds.includes(i.id)); break;
     }
     if (itemsToCopy.length === 0) return;
-    const newItems = itemsToCopy.map(item => ({ ...item, id: Math.random().toString(36).substr(2, 9) }));
+
+    handleCopyToClipboard(type, itemsToCopy);
+
+    // Clear selections
     switch (type) {
-      case 'insumos': updateCurrentProduct({ insumos: [...currentProduct.insumos, ...newItems] }); setSelectedInsumoIds([]); break;
-      case 'terceirizados': updateCurrentProduct({ terceirizados: [...currentProduct.terceirizados, ...newItems] }); setSelectedTerceirizadoIds([]); break;
-      case 'custosFixos': updateCurrentProduct({ custosFixos: [...currentProduct.custosFixos, ...newItems] }); setSelectedCustoFixoIds([]); break;
-      case 'custosIndiretos': updateCurrentProduct({ custosIndiretos: [...currentProduct.custosIndiretos, ...newItems] }); setSelectedCustoIndiretoIds([]); break;
+      case 'insumos': setSelectedInsumoIds([]); break;
+      case 'terceirizados': setSelectedTerceirizadoIds([]); break;
+      case 'custosFixos': setSelectedCustoFixoIds([]); break;
+      case 'custosIndiretos': setSelectedCustoIndiretoIds([]); break;
     }
-    alert(`${newItems.length} itens duplicados com sucesso!`);
   };
 
   const handleBulkDelete = (type: 'insumos' | 'terceirizados' | 'custosFixos' | 'custosIndiretos') => {
@@ -1266,8 +1341,8 @@ const App: React.FC = () => {
     if (editingValue?.id === id && editingValue?.field === field) return editingValue.val;
     if (val === 0) return '';
 
-    // Para campos de quantidade, garantir no máximo 4 casas decimais na exibição
-    if (['q', 'tq', 'u', 'd'].includes(field)) {
+    // Para campos de quantidade e valor unitário, garantir no máximo 4 casas decimais na exibição
+    if (['q', 'tq', 'u', 'd', 'v', 'tv'].includes(field)) {
       return (Math.round(val * 10000) / 10000).toString().replace('.', ',');
     }
 
@@ -1321,8 +1396,8 @@ const App: React.FC = () => {
                 disabled={syncStatus === 'syncing'}
                 title="Clique para sincronizar com a nuvem agora"
                 className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 ${syncStatus === 'synced' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-900/50' :
-                    syncStatus === 'syncing' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 cursor-wait' :
-                      'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50'
+                  syncStatus === 'syncing' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 cursor-wait' :
+                    'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50'
                   }`}>
                 {syncStatus === 'synced' ? <><Cloud className="w-3 h-3" /> Nuvem Ativa</> :
                   syncStatus === 'syncing' ? <><RefreshCw className="w-3 h-3 animate-spin" /> Sincronizando</> :
@@ -1405,27 +1480,12 @@ const App: React.FC = () => {
               <>
                 {/* Toolbar Copiar/Colar */}
                 <div className="flex justify-end gap-2 mb-4 print:hidden">
-                  <button onClick={() => setCopiedSection({ type: 'insumos', data: currentProduct.insumos })} className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-500 rounded-md transition-colors">
-                    <Copy className="w-3.5 h-3.5" /> Copiar Lista
+                  <button
+                    onClick={() => handlePasteFromClipboard('insumos')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-900/10 hover:bg-blue-100 dark:hover:bg-blue-900/20 rounded-md transition-colors border border-blue-200 dark:border-blue-800"
+                  >
+                    <ClipboardPaste className="w-3.5 h-3.5" /> Colar da Área de Transferência
                   </button>
-                  {copiedSection?.type === 'insumos' && (
-                    <button onClick={() => {
-                      if (confirm('Deseja substituir a lista atual pela lista copiada?')) {
-                        const newItems = copiedSection.data.map(i => ({ ...i, id: Math.random().toString(36) }));
-                        updateCurrentProduct({ insumos: newItems });
-                      }
-                    }} className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:text-emerald-500 rounded-md transition-colors">
-                      <ClipboardPaste className="w-3.5 h-3.5" /> Colar Lista
-                    </button>
-                  )}
-                  {copiedItem?.type === 'insumos' && (
-                    <button onClick={() => {
-                      const newItem = { ...copiedItem.data, id: Math.random().toString(36) };
-                      updateCurrentProduct({ insumos: [...currentProduct.insumos, newItem] });
-                    }} className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 rounded-md transition-colors border border-emerald-200 dark:border-emerald-800">
-                      <ClipboardPaste className="w-3.5 h-3.5" /> Colar Material Copiado
-                    </button>
-                  )}
                 </div>
 
                 {/* Bulk Selection Toolbar for Materials */}
@@ -1433,8 +1493,8 @@ const App: React.FC = () => {
                   <div className="sticky top-20 z-[45] flex items-center justify-between bg-emerald-600 text-white px-2 sm:px-4 py-2 rounded-xl shadow-lg mb-4 animate-in fade-in slide-in-from-top-4 duration-300 border border-emerald-500/50">
                     <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                       <div className="relative flex-shrink-0 flex items-center">
-                        <input 
-                          type="checkbox" 
+                        <input
+                          type="checkbox"
                           id="bulk-select-all-insumos"
                           title="Selecionar todos os materiais"
                           checked={selectedInsumoIds.length === currentProduct.insumos.length && currentProduct.insumos.length > 0}
@@ -1447,20 +1507,20 @@ const App: React.FC = () => {
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5 sm:gap-2">
-                      <button 
-                        onClick={() => handleBulkCopy('insumos')} 
+                      <button
+                        onClick={() => handleBulkCopy('insumos')}
                         className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 bg-white/20 hover:bg-white/30 active:scale-95 rounded-lg text-[10px] font-bold uppercase transition-all"
                       >
                         <Copy className="w-3.5 h-3.5" /> <span className="hidden xs:inline">Copiar</span>
                       </button>
-                      <button 
-                        onClick={() => handleBulkDelete('insumos')} 
+                      <button
+                        onClick={() => handleBulkDelete('insumos')}
                         className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 bg-red-500 hover:bg-red-600 active:scale-95 rounded-lg text-[10px] font-bold uppercase transition-all shadow-sm"
                       >
                         <Trash2 className="w-3.5 h-3.5" /> <span className="hidden xs:inline">Excluir</span>
                       </button>
-                      <button 
-                        onClick={() => setSelectedInsumoIds([])} 
+                      <button
+                        onClick={() => setSelectedInsumoIds([])}
                         title="Limpar seleção"
                         className="flex-shrink-0 p-1.5 hover:bg-white/10 rounded-full transition-colors"
                       >
@@ -1477,7 +1537,7 @@ const App: React.FC = () => {
                       {/* Checkbox and Header */}
                       <div className="flex items-center justify-between mb-3 border-b border-slate-100 dark:border-slate-800/50 pb-2">
                         <div className="flex items-center gap-2">
-                          <input 
+                          <input
                             type="checkbox"
                             id={`insumo-select-${insumo.id}`}
                             title="Selecionar item"
@@ -1487,8 +1547,15 @@ const App: React.FC = () => {
                           />
                           <label htmlFor={`insumo-select-${insumo.id}`} className="text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-pointer">Selecionar</label>
                         </div>
-                        <div className="flex gap-1.5">
-                          <button onClick={() => setCopiedItem({ type: 'insumos', data: insumo })} title="Copiar Material" className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors">
+                        <div className="flex gap-1.5 items-center">
+                          <button
+                            onClick={() => toggleItemExpansion(insumo.id)}
+                            title={expandedItems[insumo.id] ? "Recolher detalhes" : "Expandir detalhes"}
+                            className={`p-1.5 rounded-lg transition-all ${expandedItems[insumo.id] ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 rotate-180' : 'text-slate-400'}`}
+                          >
+                            <ChevronDown className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => handleCopyToClipboard('insumos', insumo)} title="Copiar Material" className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors">
                             <Copy className="w-4 h-4" />
                           </button>
                           <button onClick={() => updateCurrentProduct({ insumos: currentProduct.insumos.filter(i => i.id !== insumo.id) })} title="Excluir Material" className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
@@ -1547,7 +1614,10 @@ const App: React.FC = () => {
                             <AutocompleteInput
                               id={`material-${insumo.id}`}
                               value={insumo.material || ''}
-                              suggestions={combinedMaterialsSuggestions}
+                              suggestions={combinedMaterialsSuggestions.filter(s => {
+                                const sName = (s as any)._type === 'solados' ? `SOLA: ${s.nome}` : s.nome;
+                                return !currentProduct.insumos.some(i => i.material === sName && i.id !== insumo.id);
+                              })}
                               placeholder="Ex: Couro ou Sola..."
                               className={`${inputBase} w-full pr-10`}
                               onChange={(val) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, material: val, nome: `${i.peca ? i.peca + ' - ' : ''}${val}` } : i) })}
@@ -1555,9 +1625,9 @@ const App: React.FC = () => {
                                 const isSola = (item as any)._type === 'solados';
                                 const finalCost = isSola
                                   ? calculateSolaAverageCost(item as any, db.library.insumos, db.settings.unidadesMedida)
-                                  : ((item.quantidadeCompra && item.quantidadeCompra > 0) 
-                                      ? Math.round((item.valorUnitario / item.quantidadeCompra) * 100) / 100 
-                                      : Math.round((item.valor_unitario || item.valorUnitario || 0) * 100) / 100);
+                                  : ((item.quantidadeCompra && item.quantidadeCompra > 0)
+                                    ? Math.round((item.valorUnitario / item.quantidadeCompra) * 100) / 100
+                                    : Math.round((item.valor_unitario || item.valorUnitario || 0) * 100) / 100);
                                 const materialName = isSola ? `SOLA: ${item.nome}` : item.nome;
                                 updateCurrentProduct({
                                   insumos: currentProduct.insumos.map(i => i.id === insumo.id ? {
@@ -1595,108 +1665,110 @@ const App: React.FC = () => {
                         </div>
                       </div>
 
+                      {expandedItems[insumo.id] && (
+                        <div className="pt-4 border-t border-slate-100 dark:border-slate-800/50 animate-in fade-in slide-in-from-top-2 duration-200">
+                          {/* Detalhes de Quantidade e Valor */}
 
-                      {/* Detalhes de Quantidade e Valor */}
-
-                      <div className="mb-3">
-                        <div className="relative group/field">
-                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1.5 block ml-1">Unid.</label>
-                          <AutocompleteInput
-                            id={`unid-${insumo.id}`}
-                            value={insumo.unidade}
-                            suggestions={db.library.unidadesMedida}
-                            placeholder="Un..."
-                            hidePrice={true}
-                            className={`${inputBase} text-center uppercase px-1 h-11 pr-7`}
-                            onChange={(val) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, unidade: val.toUpperCase() } : i) })}
-                            onSelect={(item) => updateCurrentProduct({
-                              insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, unidade: item.nome.toUpperCase() } : i)
-                            })}
-                          />
-                          <div className="absolute right-1 top-1/2 translate-y-[-2px] opacity-0 group-hover/field:opacity-100 transition-all z-10">
-                            <button
-                              onClick={() => {
-                                setActiveLibraryTarget({ id: insumo.id, type: 'unidadesMedida' });
-                                setTimeout(() => setShowDatabase(true), 10);
-                              }}
-                              title="Buscar na Biblioteca de Unidades"
-                              className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-500"
-                            >
-                              <Database className="w-3.5 h-3.5" />
-                            </button>
+                          <div className="mb-3">
+                            <div className="relative group/field">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1.5 block ml-1">Unid.</label>
+                              <AutocompleteInput
+                                id={`unid-${insumo.id}`}
+                                value={insumo.unidade}
+                                suggestions={db.library.unidadesMedida}
+                                placeholder="Un..."
+                                hidePrice={true}
+                                className={`${inputBase} text-center uppercase px-1 h-11 pr-7`}
+                                onChange={(val) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, unidade: val.toUpperCase() } : i) })}
+                                onSelect={(item) => updateCurrentProduct({
+                                  insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, unidade: item.nome.toUpperCase() } : i)
+                                })}
+                              />
+                              <div className="absolute right-1 top-1/2 translate-y-[-2px] opacity-0 group-hover/field:opacity-100 transition-all z-10">
+                                <button
+                                  onClick={() => {
+                                    setActiveLibraryTarget({ id: insumo.id, type: 'unidadesMedida' });
+                                    setTimeout(() => setShowDatabase(true), 10);
+                                  }}
+                                  title="Buscar na Biblioteca de Unidades"
+                                  className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-500"
+                                >
+                                  <Database className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
 
-                      <div className="grid grid-cols-2 gap-3 mb-4">
-                        <div>
-                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1.5 block ml-1">Quantidade</label>
-                          <div className="relative">
-                            <input
-                              type="text"
-                              value={getDisplayValue(insumo.quantidade, insumo.id, 'q')}
-                              title="Quantidade"
-                              onBlur={() => setEditingValue(null)}
-                              onChange={(e) => handleNumericChange(insumo.id, 'q', e.target.value, (v) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, quantidade: v } : i) }))}
-                              className={`${inputBase} text-center font-mono pr-16 h-11`}
-                            />
-                            <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-                              <button onClick={() => setActiveConsumptionCalc(insumo.id)} title="Calculador de Consumo" className="w-7 h-7 flex items-center justify-center text-emerald-500 hover:text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg"><Ruler className="w-3.5 h-3.5" /></button>
-                              <button onClick={() => setActiveCalc({ id: insumo.id, field: 'q' })} title="Abrir Calculadora para Quantidade" aria-label="Calculadora" className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-blue-500 bg-slate-50 dark:bg-slate-800 rounded-lg"><Calculator className="w-3.5 h-3.5" /></button>
+                          <div className="grid grid-cols-2 gap-3 mb-4">
+                            <div>
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1.5 block ml-1">Quantidade</label>
+                              <div className="relative">
+                                <input
+                                  type="text"
+                                  value={getDisplayValue(insumo.quantidade, insumo.id, 'q')}
+                                  title="Quantidade"
+                                  onBlur={() => setEditingValue(null)}
+                                  onChange={(e) => handleNumericChange(insumo.id, 'q', e.target.value, (v) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, quantidade: v } : i) }))}
+                                  className={`${inputBase} text-center font-mono pr-16 h-11`}
+                                />
+                                <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                                  <button onClick={() => setActiveConsumptionCalc(insumo.id)} title="Calculador de Consumo" className="w-7 h-7 flex items-center justify-center text-emerald-500 hover:text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg"><Ruler className="w-3.5 h-3.5" /></button>
+                                  <button onClick={() => setActiveCalc({ id: insumo.id, field: 'q' })} title="Abrir Calculadora para Quantidade" aria-label="Calculadora" className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-blue-500 bg-slate-50 dark:bg-slate-800 rounded-lg"><Calculator className="w-3.5 h-3.5" /></button>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1.5 block ml-1">Valor Unitário</label>
+                              <div className="relative">
+                                <input
+                                  type="text"
+                                  value={getDisplayValue(insumo.valorUnitario, insumo.id, 'v')}
+                                  title="Valor Unitário"
+                                  onBlur={() => setEditingValue(null)}
+                                  onChange={(e) => handleNumericChange(insumo.id, 'v', e.target.value, (v) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, valorUnitario: v } : i) }))}
+                                  className={`${inputBase} text-right font-mono pr-12 h-11`}
+                                />
+                                <button onClick={() => setActiveCalc({ id: insumo.id, field: 'v' })} title="Abrir Calculadora para Valor Unitário" aria-label="Calculadora" className="absolute right-1 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center text-slate-400 hover:text-blue-500 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                                  <Calculator className="w-5 h-5" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+
+                          {/* Nota do item */}
+                          {insumo.comentario && (
+                            <div className="mt-3 flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl px-3 py-2">
+                              <MessageSquare className="w-3.5 h-3.5 text-amber-500 mt-0.5 flex-shrink-0" />
+                              <span className="text-[10px] text-amber-700 dark:text-amber-300 font-medium leading-relaxed line-clamp-2">{insumo.comentario}</span>
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
+                            <div>
+                              <span className="text-[9px] font-black text-slate-400 uppercase block mb-0.5">Subtotal</span>
+                              <span className="text-[15px] font-black text-blue-600 font-mono">{formatCurrency((insumo.quantidade / (findUnitFactor(insumo.unidade, db.library.unidadesMedida) || 1)) * insumo.valorUnitario)}</span>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => setCommentingItem({ id: insumo.id, type: 'insumos', comment: insumo.comentario || '' })}
+                                title={insumo.comentario ? 'Ver / Editar Anotação' : 'Adicionar Anotação'}
+                                className={`flex items-center gap-1.5 px-3 py-2 text-[10px] font-bold rounded-lg hover:bg-amber-100 transition-colors print:hidden ${insumo.comentario ? 'text-amber-600 bg-amber-50 dark:bg-amber-900/20' : 'text-slate-400 bg-slate-50 dark:bg-slate-800'
+                                  }`}
+                              >
+                                <MessageSquare className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => handleCopyToClipboard('insumos', insumo)} className="flex items-center gap-2 px-3 py-2 text-[10px] font-bold text-blue-500 bg-blue-50 dark:bg-blue-900/10 rounded-lg hover:bg-blue-100 transition-colors print:hidden">
+                                <Copy className="w-4 h-4" /> Copiar
+                              </button>
+                              <button onClick={() => updateCurrentProduct({ insumos: currentProduct.insumos.filter(i => i.id !== insumo.id) })} className="flex items-center gap-2 px-3 py-2 text-[10px] font-bold text-red-500 bg-red-50 dark:bg-red-900/10 rounded-lg hover:bg-red-100 transition-colors print:hidden">
+                                <Trash2 className="w-4 h-4" /> Excluir
+                              </button>
                             </div>
                           </div>
                         </div>
-
-                        <div>
-                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1.5 block ml-1">Valor Unitário</label>
-                          <div className="relative">
-                            <input
-                              type="text"
-                              value={getDisplayValue(insumo.valorUnitario, insumo.id, 'v')}
-                              title="Valor Unitário"
-                              onBlur={() => setEditingValue(null)}
-                              onChange={(e) => handleNumericChange(insumo.id, 'v', e.target.value, (v) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, valorUnitario: v } : i) }))}
-                              className={`${inputBase} text-right font-mono pr-12 h-11`}
-                            />
-                            <button onClick={() => setActiveCalc({ id: insumo.id, field: 'v' })} title="Abrir Calculadora para Valor Unitário" aria-label="Calculadora" className="absolute right-1 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center text-slate-400 hover:text-blue-500 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                              <Calculator className="w-5 h-5" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-
-                      {/* Nota do item */}
-                      {insumo.comentario && (
-                        <div className="mt-3 flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl px-3 py-2">
-                          <MessageSquare className="w-3.5 h-3.5 text-amber-500 mt-0.5 flex-shrink-0" />
-                          <span className="text-[10px] text-amber-700 dark:text-amber-300 font-medium leading-relaxed line-clamp-2">{insumo.comentario}</span>
-                        </div>
                       )}
-
-                      <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
-                        <div>
-                          <span className="text-[9px] font-black text-slate-400 uppercase block mb-0.5">Subtotal</span>
-                          <span className="text-[15px] font-black text-blue-600 font-mono">{formatCurrency((insumo.quantidade / (findUnitFactor(insumo.unidade, db.library.unidadesMedida) || 1)) * insumo.valorUnitario)}</span>
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => setCommentingItem({ id: insumo.id, type: 'insumos', comment: insumo.comentario || '' })}
-                            title={insumo.comentario ? 'Ver / Editar Anotação' : 'Adicionar Anotação'}
-                            className={`flex items-center gap-1.5 px-3 py-2 text-[10px] font-bold rounded-lg hover:bg-amber-100 transition-colors print:hidden ${
-                              insumo.comentario ? 'text-amber-600 bg-amber-50 dark:bg-amber-900/20' : 'text-slate-400 bg-slate-50 dark:bg-slate-800'
-                            }`}
-                          >
-                            <MessageSquare className="w-4 h-4" />
-                          </button>
-                          <button onClick={() => setCopiedItem({ type: 'insumos', data: insumo })} className="flex items-center gap-2 px-3 py-2 text-[10px] font-bold text-blue-500 bg-blue-50 dark:bg-blue-900/10 rounded-lg hover:bg-blue-100 transition-colors print:hidden">
-                            <Copy className="w-4 h-4" /> Copiar
-                          </button>
-                          <button onClick={() => updateCurrentProduct({ insumos: currentProduct.insumos.filter(i => i.id !== insumo.id) })} className="flex items-center gap-2 px-3 py-2 text-[10px] font-bold text-red-500 bg-red-50 dark:bg-red-900/10 rounded-lg hover:bg-red-100 transition-colors print:hidden">
-                            <Trash2 className="w-4 h-4" /> Excluir
-                          </button>
-                        </div>
-                      </div>
                     </div>
                   ))}
                 </div>
@@ -1706,8 +1778,8 @@ const App: React.FC = () => {
                   <div className="min-w-[780px] pb-4">
                     <div className="grid grid-cols-[40px_1.5fr_1.5fr_0.8fr_0.8fr_1.2fr_1.2fr_0.5fr] gap-3 px-3 py-2.5 mb-2 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 dark:border-slate-800">
                       <div className="flex justify-center">
-                        <input 
-                          type="checkbox" 
+                        <input
+                          type="checkbox"
                           checked={selectedInsumoIds.length === currentProduct.insumos.length && currentProduct.insumos.length > 0}
                           onChange={() => toggleSelectAll('insumos')}
                           className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
@@ -1719,8 +1791,8 @@ const App: React.FC = () => {
                       {currentProduct.insumos.map((insumo) => (
                         <div key={insumo.id} className={`grid grid-cols-[40px_1.5fr_1.5fr_0.8fr_0.8fr_1.2fr_1.2fr_0.5fr] gap-3 p-2 border rounded-xl items-center transition-all shadow-sm group ${selectedInsumoIds.includes(insumo.id) ? 'bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-400 dark:border-emerald-700' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-blue-400'}`}>
                           <div className="flex justify-center">
-                            <input 
-                              type="checkbox" 
+                            <input
+                              type="checkbox"
                               id={`insumo-desktop-select-${insumo.id}`}
                               title="Selecionar material"
                               checked={selectedInsumoIds.includes(insumo.id)}
@@ -1777,7 +1849,10 @@ const App: React.FC = () => {
                             <AutocompleteInput
                               id={`material-desktop-${insumo.id}`}
                               value={insumo.material || ''}
-                              suggestions={combinedMaterialsSuggestions}
+                              suggestions={combinedMaterialsSuggestions.filter(s => {
+                                const sName = (s as any)._type === 'solados' ? `SOLA: ${s.nome}` : s.nome;
+                                return !currentProduct.insumos.some(i => i.material === sName && i.id !== insumo.id);
+                              })}
                               placeholder="Ex: Couro ou Sola..."
                               className={`${inputBase} !bg-transparent truncate pr-14`}
                               onChange={(val) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, material: val, nome: `${i.peca ? i.peca + ' - ' : ''}${val}` } : i) })}
@@ -1785,9 +1860,9 @@ const App: React.FC = () => {
                                 const isSola = (item as any)._type === 'solados';
                                 const finalCost = isSola
                                   ? calculateSolaAverageCost(item as any, db.library.insumos, db.settings.unidadesMedida)
-                                  : ((item.quantidadeCompra && item.quantidadeCompra > 0) 
-                                      ? Math.round((item.valorUnitario / item.quantidadeCompra) * 100) / 100 
-                                      : Math.round((item.valor_unitario || item.valorUnitario || 0) * 100) / 100);
+                                  : ((item.quantidadeCompra && item.quantidadeCompra > 0)
+                                    ? Math.round((item.valorUnitario / item.quantidadeCompra) * 100) / 100
+                                    : Math.round((item.valor_unitario || item.valorUnitario || 0) * 100) / 100);
                                 const materialName = isSola ? `SOLA: ${item.nome}` : item.nome;
                                 updateCurrentProduct({
                                   insumos: currentProduct.insumos.map(i => i.id === insumo.id ? {
@@ -1832,37 +1907,37 @@ const App: React.FC = () => {
                               )}
                             </div>
                           </div>
-                           <div className="relative group/field">
-                             <AutocompleteInput
-                               id={`unid-desktop-${insumo.id}`}
-                               value={insumo.unidade}
-                               suggestions={db.library.unidadesMedida}
-                               placeholder="Un..."
-                               hidePrice={true}
-                               className={`${inputBase} text-center uppercase text-[10px] !bg-transparent pr-7`}
-                               onChange={(val) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, unidade: val.toUpperCase() } : i) })}
-                               onSelect={(item) => updateCurrentProduct({
-                                 insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, unidade: item.nome.toUpperCase() } : i)
-                               })}
-                             />
-                             <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/field:opacity-100 transition-all z-10 flex gap-0.5">
-                               <button
-                                 onClick={() => {
-                                   setActiveLibraryTarget({ id: insumo.id, type: 'unidadesMedida' });
-                                   setTimeout(() => setShowDatabase(true), 10);
-                                 }}
-                                 title="Buscar na Biblioteca de Unidades"
-                                 className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-500"
-                               >
-                                 <Database className="w-3.5 h-3.5" />
-                               </button>
-                             </div>
-                           </div>
+                          <div className="relative group/field">
+                            <AutocompleteInput
+                              id={`unid-desktop-${insumo.id}`}
+                              value={insumo.unidade}
+                              suggestions={db.library.unidadesMedida}
+                              placeholder="Un..."
+                              hidePrice={true}
+                              className={`${inputBase} text-center uppercase text-[10px] !bg-transparent pr-7`}
+                              onChange={(val) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, unidade: val.toUpperCase() } : i) })}
+                              onSelect={(item) => updateCurrentProduct({
+                                insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, unidade: item.nome.toUpperCase() } : i)
+                              })}
+                            />
+                            <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/field:opacity-100 transition-all z-10 flex gap-0.5">
+                              <button
+                                onClick={() => {
+                                  setActiveLibraryTarget({ id: insumo.id, type: 'unidadesMedida' });
+                                  setTimeout(() => setShowDatabase(true), 10);
+                                }}
+                                title="Buscar na Biblioteca de Unidades"
+                                className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-500"
+                              >
+                                <Database className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
                           <div className="relative">
                             <input type="text" value={getDisplayValue(insumo.quantidade, insumo.id, 'q')} title="Quantidade" onBlur={() => setEditingValue(null)} onChange={(e) => handleNumericChange(insumo.id, 'q', e.target.value, (v) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, quantidade: v } : i) }))} className={`${inputBase} text-center font-mono pr-12`} />
                             <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
                               <button onClick={() => setActiveConsumptionCalc(insumo.id)} title="Calculador de Consumo" className="w-6 h-6 flex items-center justify-center text-emerald-500 hover:text-emerald-600"><Ruler className="w-3.5 h-3.5" /></button>
-                                  <button onClick={() => setActiveCalc({ id: insumo.id, field: 'q' })} title="Abrir Calculadora para Quantidade" aria-label="Calculadora" className="w-6 h-6 flex items-center justify-center text-slate-300 hover:text-blue-500"><Calculator className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => setActiveCalc({ id: insumo.id, field: 'q' })} title="Abrir Calculadora para Quantidade" aria-label="Calculadora" className="w-6 h-6 flex items-center justify-center text-slate-300 hover:text-blue-500"><Calculator className="w-3.5 h-3.5" /></button>
                             </div>
                           </div>
                           <div className="relative">
@@ -1898,41 +1973,25 @@ const App: React.FC = () => {
                         <h4 className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1">Total de Materiais</h4>
                         <p className="text-[9px] text-slate-500 dark:text-slate-400 font-medium italic">Soma total de todos os insumos aplicados por par.</p>
                       </div>
-                        <span className="text-xl font-black font-mono text-blue-600 dark:text-blue-400">
-                          {formatCurrency(currentProduct.insumos.reduce((acc, curr) => acc + ((curr.quantidade / (findUnitFactor(curr.unidade, db.library.unidadesMedida) || 1)) * curr.valorUnitario), 0))}
-                        </span>
-                      </div>
+                      <span className="text-xl font-black font-mono text-blue-600 dark:text-blue-400">
+                        {formatCurrency(currentProduct.insumos.reduce((acc, curr) => acc + ((curr.quantidade / (findUnitFactor(curr.unidade, db.library.unidadesMedida) || 1)) * curr.valorUnitario), 0))}
+                      </span>
                     </div>
                   </div>
+                </div>
               </>
             )}
           </Section>
 
           <Section title="2. Mão de Obra e Serviços" icon={<Users className="text-orange-500 w-5 h-5" />} expanded={expandedSection === 'terceirizados'} onToggle={() => toggleSection('terceirizados')}>
 
-            {/* Toolbar Copiar/Colar */}
             <div className="flex justify-end gap-2 mb-4 print:hidden">
-              <button onClick={() => setCopiedSection({ type: 'terceirizados', data: currentProduct.terceirizados })} className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 hover:bg-orange-50 dark:hover:bg-orange-900/30 hover:text-orange-500 rounded-md transition-colors">
-                <Copy className="w-3.5 h-3.5" /> Copiar Lista
+              <button
+                onClick={() => handlePasteFromClipboard('terceirizados')}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-900/10 hover:bg-blue-100 dark:hover:bg-blue-900/20 rounded-md transition-colors border border-blue-200 dark:border-blue-800"
+              >
+                <ClipboardPaste className="w-3.5 h-3.5" /> Colar da Área de Transferência
               </button>
-              {copiedSection?.type === 'terceirizados' && (
-                <button onClick={() => {
-                  if (confirm('Deseja substituir a lista atual pela lista copiada?')) {
-                    const newItems = copiedSection.data.map(i => ({ ...i, id: Math.random().toString(36) }));
-                    updateCurrentProduct({ terceirizados: newItems });
-                  }
-                }} className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:text-emerald-500 rounded-md transition-colors">
-                  <ClipboardPaste className="w-3.5 h-3.5" /> Colar Lista
-                </button>
-              )}
-              {copiedItem?.type === 'terceirizados' && (
-                <button onClick={() => {
-                  const newItem = { ...copiedItem.data, id: Math.random().toString(36) };
-                  updateCurrentProduct({ terceirizados: [...currentProduct.terceirizados, newItem] });
-                }} className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 rounded-md transition-colors border border-emerald-200 dark:border-emerald-800">
-                  <ClipboardPaste className="w-3.5 h-3.5" /> Colar Serviço Copiado
-                </button>
-              )}
             </div>
 
             {/* Toolbar de Seleção em Massa (Terceirizados) */}
@@ -1962,8 +2021,8 @@ const App: React.FC = () => {
                   >
                     <Trash2 className="w-3.5 h-3.5" /> <span className="hidden xs:inline">Excluir</span>
                   </button>
-                  <button 
-                    onClick={() => setSelectedTerceirizadoIds([])} 
+                  <button
+                    onClick={() => setSelectedTerceirizadoIds([])}
                     title="Limpar seleção"
                     className="flex-shrink-0 p-1.5 hover:bg-white/10 rounded-full transition-colors text-white"
                   >
@@ -1981,15 +2040,13 @@ const App: React.FC = () => {
                   <div className="mb-3">
                     <button
                       onClick={() => toggleSelectItem('terceirizados', t.id)}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${
-                        selectedTerceirizadoIds.includes(t.id)
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${selectedTerceirizadoIds.includes(t.id)
                           ? 'bg-orange-600 text-white shadow-md'
                           : 'bg-slate-100 text-slate-400 dark:bg-slate-800'
-                      }`}
+                        }`}
                     >
-                      <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${
-                        selectedTerceirizadoIds.includes(t.id) ? 'border-transparent bg-white' : 'border-slate-400'
-                      }`}>
+                      <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${selectedTerceirizadoIds.includes(t.id) ? 'border-transparent bg-white' : 'border-slate-400'
+                        }`}>
                         {selectedTerceirizadoIds.includes(t.id) && <Check className="w-2.5 h-2.5 text-orange-600" />}
                       </div>
                       {selectedTerceirizadoIds.includes(t.id) ? 'Selecionado' : 'Selecionar'}
@@ -1999,7 +2056,7 @@ const App: React.FC = () => {
                     <div className="relative group">
                       <AutocompleteInput
                         value={t.nome}
-                        suggestions={db.library.terceirizados}
+                        suggestions={db.library.terceirizados.filter(s => !currentProduct.terceirizados.some(i => i.nome === s.nome && i.id !== t.id))}
                         placeholder="Ex: Corte, Costura, Montagem..."
                         className={`${inputBase} w-full pr-16`}
                         onChange={(val) => updateCurrentProduct({ terceirizados: currentProduct.terceirizados.map(i => i.id === t.id ? { ...i, nome: val } : i) })}
@@ -2046,33 +2103,33 @@ const App: React.FC = () => {
                   </div>
 
                   <div className="mb-3">
-                     <div className="relative group/field">
-                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1.5 block ml-1">Unid.</label>
-                       <AutocompleteInput
-                         id={`unid-terc-${t.id}`}
-                         value={t.unidade}
-                         suggestions={db.library.unidadesMedida}
-                         placeholder="Un..."
-                         hidePrice={true}
-                         className={`${inputBase} text-center uppercase px-1 h-11 pr-7`}
-                         onChange={(val) => updateCurrentProduct({ terceirizados: currentProduct.terceirizados.map(i => i.id === t.id ? { ...i, unidade: val.toUpperCase() } : i) })}
-                         onSelect={(item) => updateCurrentProduct({
-                           terceirizados: currentProduct.terceirizados.map(i => i.id === t.id ? { ...i, unidade: item.nome.toUpperCase() } : i)
-                         })}
-                       />
-                       <div className="absolute right-1 top-1/2 translate-y-[-2px] opacity-0 group-hover/field:opacity-100 transition-all z-10">
-                         <button
-                           onClick={() => {
-                             setActiveLibraryTarget({ id: t.id, type: 'unidadesMedida' });
-                             setTimeout(() => setShowDatabase(true), 10);
-                           }}
-                           title="Buscar na Biblioteca de Unidades"
-                           className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-500"
-                         >
-                           <Database className="w-3.5 h-3.5" />
-                         </button>
-                       </div>
-                     </div>
+                    <div className="relative group/field">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1.5 block ml-1">Unid.</label>
+                      <AutocompleteInput
+                        id={`unid-terc-${t.id}`}
+                        value={t.unidade}
+                        suggestions={db.library.unidadesMedida}
+                        placeholder="Un..."
+                        hidePrice={true}
+                        className={`${inputBase} text-center uppercase px-1 h-11 pr-7`}
+                        onChange={(val) => updateCurrentProduct({ terceirizados: currentProduct.terceirizados.map(i => i.id === t.id ? { ...i, unidade: val.toUpperCase() } : i) })}
+                        onSelect={(item) => updateCurrentProduct({
+                          terceirizados: currentProduct.terceirizados.map(i => i.id === t.id ? { ...i, unidade: item.nome.toUpperCase() } : i)
+                        })}
+                      />
+                      <div className="absolute right-1 top-1/2 translate-y-[-2px] opacity-0 group-hover/field:opacity-100 transition-all z-10">
+                        <button
+                          onClick={() => {
+                            setActiveLibraryTarget({ id: t.id, type: 'unidadesMedida' });
+                            setTimeout(() => setShowDatabase(true), 10);
+                          }}
+                          title="Buscar na Biblioteca de Unidades"
+                          className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-500"
+                        >
+                          <Database className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 mb-4">
@@ -2128,13 +2185,12 @@ const App: React.FC = () => {
                       <button
                         onClick={() => setCommentingItem({ id: t.id, type: 'terceirizados', comment: t.comentario || '' })}
                         title={t.comentario ? 'Ver / Editar Anotação' : 'Adicionar Anotação'}
-                        className={`flex items-center gap-1.5 px-3 py-2 text-[10px] font-bold rounded-lg hover:bg-amber-100 transition-colors print:hidden ${
-                          t.comentario ? 'text-amber-600 bg-amber-50 dark:bg-amber-900/20' : 'text-slate-400 bg-slate-50 dark:bg-slate-800'
-                        }`}
+                        className={`flex items-center gap-1.5 px-3 py-2 text-[10px] font-bold rounded-lg hover:bg-amber-100 transition-colors print:hidden ${t.comentario ? 'text-amber-600 bg-amber-50 dark:bg-amber-900/20' : 'text-slate-400 bg-slate-50 dark:bg-slate-800'
+                          }`}
                       >
                         <MessageSquare className="w-4 h-4" />
                       </button>
-                      <button onClick={() => setCopiedItem({ type: 'terceirizados', data: t })} className="flex items-center gap-2 px-3 py-2 text-[10px] font-bold text-blue-500 bg-blue-50 dark:bg-blue-900/10 rounded-lg hover:bg-blue-100 transition-colors print:hidden">
+                      <button onClick={() => handleCopyToClipboard('terceirizados', t)} className="flex items-center gap-2 px-3 py-2 text-[10px] font-bold text-blue-500 bg-blue-50 dark:bg-blue-900/10 rounded-lg hover:bg-blue-100 transition-colors print:hidden">
                         <Copy className="w-4 h-4" /> Copiar
                       </button>
                       <button onClick={() => updateCurrentProduct({ terceirizados: currentProduct.terceirizados.filter(i => i.id !== t.id) })} className="flex items-center gap-2 px-3 py-2 text-[10px] font-bold text-red-500 bg-red-50 dark:bg-red-900/10 rounded-lg hover:bg-red-100 transition-colors print:hidden">
@@ -2150,13 +2206,12 @@ const App: React.FC = () => {
               <div className="min-w-[780px] pb-4 space-y-2">
                 <div className="grid grid-cols-[40px_2fr_1fr_1fr_1.5fr_1.2fr_0.5fr] gap-3 px-3 py-2.5 mb-2 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 dark:border-slate-800">
                   <div className="flex justify-center">
-                    <button 
+                    <button
                       onClick={() => toggleSelectAll('terceirizados')}
-                      className={`w-4 h-4 rounded border transition-colors flex items-center justify-center ${
-                        selectedTerceirizadoIds.length === currentProduct.terceirizados.length && currentProduct.terceirizados.length > 0
+                      className={`w-4 h-4 rounded border transition-colors flex items-center justify-center ${selectedTerceirizadoIds.length === currentProduct.terceirizados.length && currentProduct.terceirizados.length > 0
                           ? 'bg-orange-600 border-orange-600'
                           : 'bg-white border-slate-300'
-                      }`}
+                        }`}
                     >
                       {selectedTerceirizadoIds.length === currentProduct.terceirizados.length && currentProduct.terceirizados.length > 0 && (
                         <Check className="w-3 h-3 text-white" />
@@ -2168,13 +2223,12 @@ const App: React.FC = () => {
                 {currentProduct.terceirizados.map((t) => (
                   <div key={t.id} className={`grid grid-cols-[40px_2fr_1fr_1fr_1.5fr_1.2fr_0.5fr] gap-3 p-2 bg-white dark:bg-slate-900 border ${selectedTerceirizadoIds.includes(t.id) ? 'border-orange-500 bg-orange-50/20 shadow-sm relative z-10' : 'border-slate-200 dark:border-slate-800'} rounded-xl items-center shadow-sm hover:border-orange-400 transition-all`}>
                     <div className="flex justify-center group-hover:scale-110 transition-transform">
-                      <button 
+                      <button
                         onClick={() => toggleSelectItem('terceirizados', t.id)}
-                        className={`w-4 h-4 rounded border transition-all flex items-center justify-center ${
-                          selectedTerceirizadoIds.includes(t.id)
+                        className={`w-4 h-4 rounded border transition-all flex items-center justify-center ${selectedTerceirizadoIds.includes(t.id)
                             ? 'bg-orange-600 border-orange-600 shadow-sm'
                             : 'bg-white border-slate-300'
-                        }`}
+                          }`}
                       >
                         {selectedTerceirizadoIds.includes(t.id) && <Check className="w-3 h-3 text-white" />}
                       </button>
@@ -2182,7 +2236,7 @@ const App: React.FC = () => {
                     <div className="relative group">
                       <AutocompleteInput
                         value={t.nome}
-                        suggestions={db.library.terceirizados}
+                        suggestions={db.library.terceirizados.filter(s => !currentProduct.terceirizados.some(i => i.nome === s.nome && i.id !== t.id))}
                         placeholder="Ex: Corte..."
                         className={`${inputBase} !bg-transparent truncate pr-16`}
                         onChange={(val) => updateCurrentProduct({ terceirizados: currentProduct.terceirizados.map(i => i.id === t.id ? { ...i, nome: val } : i) })}
@@ -2223,32 +2277,32 @@ const App: React.FC = () => {
                         )}
                       </div>
                     </div>
-                     <div className="relative group/field">
-                       <AutocompleteInput
-                         id={`unid-terc-desktop-${t.id}`}
-                         value={t.unidade}
-                         suggestions={db.library.unidadesMedida}
-                         placeholder="Un..."
-                         hidePrice={true}
-                         className={`${inputBase} text-center uppercase text-[10px] !bg-transparent pr-7`}
-                         onChange={(val) => updateCurrentProduct({ terceirizados: currentProduct.terceirizados.map(i => i.id === t.id ? { ...i, unidade: val.toUpperCase() } : i) })}
-                         onSelect={(item) => updateCurrentProduct({
-                           terceirizados: currentProduct.terceirizados.map(i => i.id === t.id ? { ...i, unidade: item.nome.toUpperCase() } : i)
-                         })}
-                       />
-                       <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/field:opacity-100 transition-all z-10 flex gap-0.5">
-                         <button
-                           onClick={() => {
-                             setActiveLibraryTarget({ id: t.id, type: 'unidadesMedida' });
-                             setTimeout(() => setShowDatabase(true), 10);
-                           }}
-                           title="Buscar na Biblioteca de Unidades"
-                           className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-500"
-                         >
-                           <Database className="w-3.5 h-3.5" />
-                         </button>
-                       </div>
-                     </div>
+                    <div className="relative group/field">
+                      <AutocompleteInput
+                        id={`unid-terc-desktop-${t.id}`}
+                        value={t.unidade}
+                        suggestions={db.library.unidadesMedida}
+                        placeholder="Un..."
+                        hidePrice={true}
+                        className={`${inputBase} text-center uppercase text-[10px] !bg-transparent pr-7`}
+                        onChange={(val) => updateCurrentProduct({ terceirizados: currentProduct.terceirizados.map(i => i.id === t.id ? { ...i, unidade: val.toUpperCase() } : i) })}
+                        onSelect={(item) => updateCurrentProduct({
+                          terceirizados: currentProduct.terceirizados.map(i => i.id === t.id ? { ...i, unidade: item.nome.toUpperCase() } : i)
+                        })}
+                      />
+                      <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/field:opacity-100 transition-all z-10 flex gap-0.5">
+                        <button
+                          onClick={() => {
+                            setActiveLibraryTarget({ id: t.id, type: 'unidadesMedida' });
+                            setTimeout(() => setShowDatabase(true), 10);
+                          }}
+                          title="Buscar na Biblioteca de Unidades"
+                          className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-500"
+                        >
+                          <Database className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
                     <input type="text" value={getDisplayValue(t.quantidade, t.id, 'tq')} title="Quantidade" onBlur={() => setEditingValue(null)} onChange={(e) => handleNumericChange(t.id, 'tq', e.target.value, (v) => updateCurrentProduct({ terceirizados: currentProduct.terceirizados.map(i => i.id === t.id ? { ...i, quantidade: v } : i) }))} className={`${inputBase} text-center font-mono`} />
                     <div className="relative">
                       <input type="text" value={getDisplayValue(t.valorUnitario, t.id, 'tv')} onBlur={() => setEditingValue(null)} onChange={(e) => handleNumericChange(t.id, 'tv', e.target.value, (v) => updateCurrentProduct({ terceirizados: currentProduct.terceirizados.map(i => i.id === t.id ? { ...i, valorUnitario: v } : i) }))} className={`${inputBase} text-right font-mono pr-10`} />
@@ -2263,7 +2317,7 @@ const App: React.FC = () => {
                       >
                         <MessageSquare className="w-4 h-4" />
                       </button>
-                      <button onClick={() => setCopiedItem({ type: 'terceirizados', data: t })} title="Copiar Serviço" className="text-slate-300 hover:text-blue-500 p-1.5"><Copy className="w-4 h-4" /></button>
+                      <button onClick={() => handleCopyToClipboard('terceirizados', t)} title="Copiar Serviço" className="text-slate-300 hover:text-blue-500 p-1.5"><Copy className="w-4 h-4" /></button>
                       <button onClick={() => updateCurrentProduct({ terceirizados: currentProduct.terceirizados.filter(i => i.id !== t.id) })} title="Excluir Serviço" aria-label="Excluir Serviço" className="text-slate-300 hover:text-red-500 p-1.5"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </div>
@@ -2297,27 +2351,12 @@ const App: React.FC = () => {
                 <div className="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-slate-800 pb-2">
                   <h4 className="text-xs font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">Fixos Mensais</h4>
                   <div className="flex gap-2 print:hidden">
-                    <button onClick={() => setCopiedSection({ type: 'custosFixos', data: currentProduct.custosFixos })} className="flex items-center gap-1.5 px-2 py-1 text-[9px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 hover:bg-purple-50 dark:hover:bg-purple-900/30 hover:text-purple-500 rounded-md transition-colors">
-                      <Copy className="w-3 h-3" /> Copiar
+                    <button
+                      onClick={() => handlePasteFromClipboard('custosFixos')}
+                      className="flex items-center gap-1.5 px-2 py-1 text-[9px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-900/10 hover:bg-blue-100 dark:hover:bg-blue-900/20 rounded-md transition-colors border border-blue-200 dark:border-blue-800"
+                    >
+                      <ClipboardPaste className="w-3 h-3" /> Colar
                     </button>
-                    {copiedSection?.type === 'custosFixos' && (
-                      <button onClick={() => {
-                        if (confirm('Deseja substituir a lista atual pela lista copiada?')) {
-                          const newItems = copiedSection.data.map(i => ({ ...i, id: Math.random().toString(36) }));
-                          updateCurrentProduct({ custosFixos: newItems });
-                        }
-                      }} className="flex items-center gap-1.5 px-2 py-1 text-[9px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:text-emerald-500 rounded-md transition-colors">
-                        <ClipboardPaste className="w-3 h-3" /> Colar
-                      </button>
-                    )}
-                    {copiedItem?.type === 'custosFixos' && (
-                      <button onClick={() => {
-                        const newItem = { ...copiedItem.data, id: Math.random().toString(36) };
-                        updateCurrentProduct({ custosFixos: [...currentProduct.custosFixos, newItem] });
-                      }} className="flex items-center gap-1.5 px-2 py-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 rounded-md transition-colors border border-emerald-200 dark:border-emerald-800">
-                        <ClipboardPaste className="w-3 h-3" /> Colar Custo
-                      </button>
-                    )}
                   </div>
                 </div>
                 {currentProduct.custosFixos.map(cf => (
@@ -2328,7 +2367,7 @@ const App: React.FC = () => {
                         <AutocompleteInput
                           id={`custo-fixo-${cf.id}`}
                           value={cf.nome}
-                          suggestions={db.library.custosFixos}
+                          suggestions={db.library.custosFixos.filter(s => !currentProduct.custosFixos.some(i => i.nome === s.nome && i.id !== cf.id))}
                           placeholder="Ex: Aluguel..."
                           className={`${inputBase} !bg-transparent !py-2 pr-10`}
                           onChange={(val) => updateCurrentProduct({ custosFixos: currentProduct.custosFixos.map(i => i.id === cf.id ? { ...i, nome: val } : i) })}
@@ -2370,7 +2409,7 @@ const App: React.FC = () => {
                       </div>
                       <div className="flex items-end gap-1">
                         <button
-                          onClick={() => setCopiedItem({ type: 'custosFixos', data: cf })}
+                          onClick={() => handleCopyToClipboard('custosFixos', cf)}
                           title="Copiar Custo Fixo"
                           className="p-2 text-slate-300 hover:text-blue-500 transition-colors print:hidden"
                         >
@@ -2414,27 +2453,12 @@ const App: React.FC = () => {
                 <div className="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-slate-800 pb-2">
                   <h4 className="text-xs font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">Variáveis Mensais</h4>
                   <div className="flex gap-2 print:hidden">
-                    <button onClick={() => setCopiedSection({ type: 'custosIndiretos', data: currentProduct.custosIndiretos })} className="flex items-center gap-1.5 px-2 py-1 text-[9px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 hover:bg-purple-50 dark:hover:bg-purple-900/30 hover:text-purple-500 rounded-md transition-colors">
-                      <Copy className="w-3 h-3" /> Copiar
+                    <button
+                      onClick={() => handlePasteFromClipboard('custosIndiretos')}
+                      className="flex items-center gap-1.5 px-2 py-1 text-[9px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-900/10 hover:bg-blue-100 dark:hover:bg-blue-900/20 rounded-md transition-colors border border-blue-200 dark:border-blue-800"
+                    >
+                      <ClipboardPaste className="w-3 h-3" /> Colar
                     </button>
-                    {copiedSection?.type === 'custosIndiretos' && (
-                      <button onClick={() => {
-                        if (confirm('Deseja substituir a lista atual pela lista copiada?')) {
-                          const newItems = copiedSection.data.map(i => ({ ...i, id: Math.random().toString(36) }));
-                          updateCurrentProduct({ custosIndiretos: newItems });
-                        }
-                      }} className="flex items-center gap-1.5 px-2 py-1 text-[9px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:text-emerald-500 rounded-md transition-colors">
-                        <ClipboardPaste className="w-3 h-3" /> Colar
-                      </button>
-                    )}
-                    {copiedItem?.type === 'custosIndiretos' && (
-                      <button onClick={() => {
-                        const newItem = { ...copiedItem.data, id: Math.random().toString(36) };
-                        updateCurrentProduct({ custosIndiretos: [...currentProduct.custosIndiretos, newItem] });
-                      }} className="flex items-center gap-1.5 px-2 py-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 rounded-md transition-colors border border-emerald-200 dark:border-emerald-800">
-                        <ClipboardPaste className="w-3 h-3" /> Colar Custo
-                      </button>
-                    )}
                   </div>
                 </div>
                 {currentProduct.custosIndiretos.map(ci => (
@@ -2445,7 +2469,7 @@ const App: React.FC = () => {
                         <AutocompleteInput
                           id={`custo-indireto-${ci.id}`}
                           value={ci.nome}
-                          suggestions={db.library.custosIndiretos}
+                          suggestions={db.library.custosIndiretos.filter(s => !currentProduct.custosIndiretos.some(i => i.nome === s.nome && i.id !== ci.id))}
                           placeholder="Ex: Manutenção..."
                           className={`${inputBase} !bg-transparent !py-2 pr-10`}
                           onChange={(val) => updateCurrentProduct({ custosIndiretos: currentProduct.custosIndiretos.map(i => i.id === ci.id ? { ...i, nome: val } : i) })}
@@ -2487,7 +2511,7 @@ const App: React.FC = () => {
                       </div>
                       <div className="flex items-end gap-1">
                         <button
-                          onClick={() => setCopiedItem({ type: 'custosIndiretos', data: ci })}
+                          onClick={() => handleCopyToClipboard('custosIndiretos', ci)}
                           title="Copiar Custo Variável"
                           className="p-2 text-slate-300 hover:text-blue-500 transition-colors print:hidden"
                         >
@@ -3055,10 +3079,12 @@ const App: React.FC = () => {
           units={db.settings.unidadesMedida || DEFAULT_UNITS}
           existingItemsNames={[
             ...currentProduct.insumos.map(i => i.nome),
+            ...currentProduct.insumos.map(i => i.material || ''),
+            ...currentProduct.insumos.map(i => i.peca || ''),
             ...currentProduct.terceirizados.map(i => i.nome),
             ...currentProduct.custosFixos.map(i => i.nome),
             ...currentProduct.custosIndiretos.map(i => i.nome)
-          ]}
+          ].filter(Boolean)}
           initialTab={activeLibraryTarget?.type || undefined}
           onClose={() => { setShowDatabase(false); setActiveLibraryTarget(null); }}
           onSelectItem={handleSelectItem}
@@ -3182,123 +3208,123 @@ const App: React.FC = () => {
               ))}
 
 
-            <div className="mt-8 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col">
-              <button
-                onClick={() => setShowExportOptions(!showExportOptions)}
-                className="flex items-center justify-between w-full p-4 bg-slate-50 dark:bg-slate-800/80 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shadow-sm border border-slate-200 dark:border-slate-700 active:scale-[0.98]"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
-                    <Share className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              <div className="mt-8 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col">
+                <button
+                  onClick={() => setShowExportOptions(!showExportOptions)}
+                  className="flex items-center justify-between w-full p-4 bg-slate-50 dark:bg-slate-800/80 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shadow-sm border border-slate-200 dark:border-slate-700 active:scale-[0.98]"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
+                      <Share className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div className="flex flex-col items-start">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
+                        Salvar & Compartilhar
+                      </span>
+                      <span className="text-[9px] font-bold text-slate-400">
+                        PDF, Excel, Backups
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex flex-col items-start">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
-                      Salvar & Compartilhar
-                    </span>
-                    <span className="text-[9px] font-bold text-slate-400">
-                      PDF, Excel, Backups
-                    </span>
+                  <ChevronDown
+                    className={`w-5 h-5 text-slate-400 transition-transform duration-300 ease-in-out ${showExportOptions ? 'rotate-180 text-blue-500' : ''}`}
+                  />
+                </button>
+
+                <div
+                  className={`overflow-hidden transition-all duration-300 ease-in-out flex flex-col ${showExportOptions ? 'max-h-[800px] opacity-100 mt-6' : 'max-h-0 opacity-0'}`}
+                >
+                  {/* Indicador de Conta Ativa solicitado pelo usuário */}
+                  <div className="mb-6 p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-800/50 flex flex-col items-center">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                      <span className="text-[9px] font-black text-blue-500 uppercase tracking-widest">Sincronizado com:</span>
+                    </div>
+                    <span className="text-sm font-black text-slate-800 dark:text-white">{user.email}</span>
                   </div>
-                </div>
-                <ChevronDown
-                  className={`w-5 h-5 text-slate-400 transition-transform duration-300 ease-in-out ${showExportOptions ? 'rotate-180 text-blue-500' : ''}`}
-                />
-              </button>
 
-              <div
-                className={`overflow-hidden transition-all duration-300 ease-in-out flex flex-col ${showExportOptions ? 'max-h-[800px] opacity-100 mt-6' : 'max-h-0 opacity-0'}`}
-              >
-                {/* Indicador de Conta Ativa solicitado pelo usuário */}
-                <div className="mb-6 p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-800/50 flex flex-col items-center">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                    <span className="text-[9px] font-black text-blue-500 uppercase tracking-widest">Sincronizado com:</span>
-                  </div>
-                  <span className="text-sm font-black text-slate-800 dark:text-white">{user.email}</span>
-                </div>
-
-                <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Exportar Atual: <span className="text-blue-500 truncate inline-block align-bottom max-w-[150px]">{currentProduct.name || 'Produto'}</span></h3>
-                <div className="grid grid-cols-4 gap-2 mb-8">
-                  <button
-                    onClick={() => shareTextReport(
-                      summary, currentProduct.name, currentProduct.type, currentProduct.markup?.selectedImpostos || [], db.library.impostos || [], currentProduct.markup?.selectedComissoes || [], db.library.comissoes || [], currentProduct.markup?.selectedFretes || [], db.library.fretes || []
-                    )}
-                    title="Copiar/Partilhar Resumo"
-                    className="flex flex-col items-center justify-center p-2.5 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all group shadow-sm border border-slate-100 dark:border-slate-700"
-                  >
-                    <Share className="w-4 h-4 text-blue-500 mb-1" />
-                    <span className="text-[7px] font-black uppercase text-slate-500 group-hover:text-blue-600 text-center leading-none mt-1">Resumo</span>
-                  </button>
-                  <button
-                    onClick={() => downloadPDF(
-                      currentProduct.insumos || [], summary, currentProduct.name, currentProduct.terceirizados || [], currentProduct.type, currentProduct.markup?.selectedImpostos || [], db.library.impostos || [], currentProduct.markup?.selectedComissoes || [], db.library.comissoes || [], currentProduct.markup?.selectedFretes || [], db.library.fretes || []
-                    )}
-                    title="Baixar PDF"
-                    className="flex flex-col items-center justify-center p-2.5 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-red-50 dark:hover:bg-red-900/30 transition-all group shadow-sm border border-slate-100 dark:border-slate-700"
-                  >
-                    <Download className="w-4 h-4 text-red-500 mb-1" />
-                    <span className="text-[7px] font-black uppercase text-slate-500 group-hover:text-red-600 text-center leading-none mt-1">Baixar PDF</span>
-                  </button>
-                  <button
-                    onClick={() => sharePDF(
-                      currentProduct.insumos || [], summary, currentProduct.name, currentProduct.terceirizados || [], currentProduct.type, currentProduct.markup?.selectedImpostos || [], db.library.impostos || [], currentProduct.markup?.selectedComissoes || [], db.library.comissoes || [], currentProduct.markup?.selectedFretes || [], db.library.fretes || []
-                    )}
-                    title="Partilhar PDF"
-                    className="flex flex-col items-center justify-center p-2.5 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-all group shadow-sm border border-slate-100 dark:border-slate-700"
-                  >
-                    <Upload className="w-4 h-4 text-amber-500 mb-1" />
-                    <span className="text-[7px] font-black uppercase text-slate-500 group-hover:text-amber-600 text-center leading-none mt-1">Enviar PDF</span>
-                  </button>
-                  <button
-                    onClick={() => exportToXLS(
-                      currentProduct.insumos || [], summary, currentProduct.name, currentProduct.terceirizados || [], currentProduct.type, currentProduct.markup?.selectedImpostos || [], db.library.impostos || [], currentProduct.markup?.selectedComissoes || [], db.library.comissoes || [], currentProduct.markup?.selectedFretes || [], db.library.fretes || []
-                    )}
-                    title="Baixar Excel/XLSX"
-                    className="flex flex-col items-center justify-center p-2.5 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all group shadow-sm border border-slate-100 dark:border-slate-700"
-                  >
-                    <FileSpreadsheet className="w-4 h-4 text-emerald-500 mb-1" />
-                    <span className="text-[7px] font-black uppercase text-slate-500 group-hover:text-emerald-600 text-center leading-none mt-1">Planilha</span>
-                  </button>
-                </div>
-
-                <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Backup e Segurança</h3>
-
-                <div className="grid grid-cols-3 gap-2 mb-3">
-                  <button onClick={handleExportBackup} title="Exportar Arquivo (JSON)" className="flex flex-col items-center justify-center p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all group">
-                    <Download className="w-4 h-4 text-blue-500 mb-1" />
-                    <span className="text-[8px] font-black uppercase text-slate-500 group-hover:text-blue-600">Exportar</span>
-                  </button>
-                  <button onClick={handleShareBackup} title="Compartilhar Arquivo (JSON)" className="flex flex-col items-center justify-center p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all group">
-                    <Share className="w-4 h-4 text-blue-500 mb-1" />
-                    <span className="text-[8px] font-black uppercase text-slate-500 group-hover:text-blue-600">Partilhar</span>
-                  </button>
-                  <button onClick={handleCopyBackup} title="Copiar Código de Backup (Texto)" className="flex flex-col items-center justify-center p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all group">
-                    <ClipboardPaste className="w-4 h-4 text-blue-500 mb-1" />
-                    <span className="text-[8px] font-black uppercase text-slate-500 group-hover:text-blue-600">Copiar</span>
-                  </button>
-                </div>
-
-                <div className="space-y-2">
-                  <button onClick={() => fileInputRef.current?.click()} className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all flex items-center justify-center gap-2">
-                    <Upload className="w-4 h-4 text-blue-500" />
-                    <span className="text-[8px] font-black uppercase text-slate-500">Restaurar do Arquivo</span>
-                  </button>
-
-                  <div className="pt-2">
-                    <button 
-                      onClick={handleLogout} 
-                      className="w-full p-3 bg-red-50 dark:bg-red-900/10 rounded-2xl border border-red-100 dark:border-red-900/20 hover:bg-red-100 dark:hover:bg-red-800/20 transition-all flex items-center justify-center gap-2 group shadow-sm shadow-red-500/5 active:scale-[0.98]"
+                  <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Exportar Atual: <span className="text-blue-500 truncate inline-block align-bottom max-w-[150px]">{currentProduct.name || 'Produto'}</span></h3>
+                  <div className="grid grid-cols-4 gap-2 mb-8">
+                    <button
+                      onClick={() => shareTextReport(
+                        summary, currentProduct.name, currentProduct.type, currentProduct.markup?.selectedImpostos || [], db.library.impostos || [], currentProduct.markup?.selectedComissoes || [], db.library.comissoes || [], currentProduct.markup?.selectedFretes || [], db.library.fretes || []
+                      )}
+                      title="Copiar/Partilhar Resumo"
+                      className="flex flex-col items-center justify-center p-2.5 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all group shadow-sm border border-slate-100 dark:border-slate-700"
                     >
-                      <LogOut className="w-4 h-4 text-red-500 group-hover:scale-110 transition-transform" />
-                      <span className="text-[8px] font-black uppercase text-red-600 tracking-widest">Sair da Conta (Logout)</span>
+                      <Share className="w-4 h-4 text-blue-500 mb-1" />
+                      <span className="text-[7px] font-black uppercase text-slate-500 group-hover:text-blue-600 text-center leading-none mt-1">Resumo</span>
                     </button>
+                    <button
+                      onClick={() => downloadPDF(
+                        currentProduct.insumos || [], summary, currentProduct.name, currentProduct.terceirizados || [], currentProduct.type, currentProduct.markup?.selectedImpostos || [], db.library.impostos || [], currentProduct.markup?.selectedComissoes || [], db.library.comissoes || [], currentProduct.markup?.selectedFretes || [], db.library.fretes || []
+                      )}
+                      title="Baixar PDF"
+                      className="flex flex-col items-center justify-center p-2.5 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-red-50 dark:hover:bg-red-900/30 transition-all group shadow-sm border border-slate-100 dark:border-slate-700"
+                    >
+                      <Download className="w-4 h-4 text-red-500 mb-1" />
+                      <span className="text-[7px] font-black uppercase text-slate-500 group-hover:text-red-600 text-center leading-none mt-1">Baixar PDF</span>
+                    </button>
+                    <button
+                      onClick={() => sharePDF(
+                        currentProduct.insumos || [], summary, currentProduct.name, currentProduct.terceirizados || [], currentProduct.type, currentProduct.markup?.selectedImpostos || [], db.library.impostos || [], currentProduct.markup?.selectedComissoes || [], db.library.comissoes || [], currentProduct.markup?.selectedFretes || [], db.library.fretes || []
+                      )}
+                      title="Partilhar PDF"
+                      className="flex flex-col items-center justify-center p-2.5 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-all group shadow-sm border border-slate-100 dark:border-slate-700"
+                    >
+                      <Upload className="w-4 h-4 text-amber-500 mb-1" />
+                      <span className="text-[7px] font-black uppercase text-slate-500 group-hover:text-amber-600 text-center leading-none mt-1">Enviar PDF</span>
+                    </button>
+                    <button
+                      onClick={() => exportToXLS(
+                        currentProduct.insumos || [], summary, currentProduct.name, currentProduct.terceirizados || [], currentProduct.type, currentProduct.markup?.selectedImpostos || [], db.library.impostos || [], currentProduct.markup?.selectedComissoes || [], db.library.comissoes || [], currentProduct.markup?.selectedFretes || [], db.library.fretes || []
+                      )}
+                      title="Baixar Excel/XLSX"
+                      className="flex flex-col items-center justify-center p-2.5 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all group shadow-sm border border-slate-100 dark:border-slate-700"
+                    >
+                      <FileSpreadsheet className="w-4 h-4 text-emerald-500 mb-1" />
+                      <span className="text-[7px] font-black uppercase text-slate-500 group-hover:text-emerald-600 text-center leading-none mt-1">Planilha</span>
+                    </button>
+                  </div>
+
+                  <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Backup e Segurança</h3>
+
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    <button onClick={handleExportBackup} title="Exportar Arquivo (JSON)" className="flex flex-col items-center justify-center p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all group">
+                      <Download className="w-4 h-4 text-blue-500 mb-1" />
+                      <span className="text-[8px] font-black uppercase text-slate-500 group-hover:text-blue-600">Exportar</span>
+                    </button>
+                    <button onClick={handleShareBackup} title="Compartilhar Arquivo (JSON)" className="flex flex-col items-center justify-center p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all group">
+                      <Share className="w-4 h-4 text-blue-500 mb-1" />
+                      <span className="text-[8px] font-black uppercase text-slate-500 group-hover:text-blue-600">Partilhar</span>
+                    </button>
+                    <button onClick={handleCopyBackup} title="Copiar Código de Backup (Texto)" className="flex flex-col items-center justify-center p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all group">
+                      <ClipboardPaste className="w-4 h-4 text-blue-500 mb-1" />
+                      <span className="text-[8px] font-black uppercase text-slate-500 group-hover:text-blue-600">Copiar</span>
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    <button onClick={() => fileInputRef.current?.click()} className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all flex items-center justify-center gap-2">
+                      <Upload className="w-4 h-4 text-blue-500" />
+                      <span className="text-[8px] font-black uppercase text-slate-500">Restaurar do Arquivo</span>
+                    </button>
+
+                    <div className="pt-2">
+                      <button
+                        onClick={handleLogout}
+                        className="w-full p-3 bg-red-50 dark:bg-red-900/10 rounded-2xl border border-red-100 dark:border-red-900/20 hover:bg-red-100 dark:hover:bg-red-800/20 transition-all flex items-center justify-center gap-2 group shadow-sm shadow-red-500/5 active:scale-[0.98]"
+                      >
+                        <LogOut className="w-4 h-4 text-red-500 group-hover:scale-110 transition-transform" />
+                        <span className="text-[8px] font-black uppercase text-red-600 tracking-widest">Sair da Conta (Logout)</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
       )}
 
       <input
@@ -3401,14 +3427,14 @@ const MaterialPriceComparison: React.FC<{
   prices: MaterialPriceRecord[];
   libraryInsumos?: Insumo[];
   suppliers: Supplier[];
-  units: string[];
+  units: typeof DEFAULT_UNITS;
   onAddPrice: (price: Omit<MaterialPriceRecord, 'id' | 'data'>) => void;
   onUpdatePrice: (price: MaterialPriceRecord) => void;
   onDeletePrice: (id: string) => void;
   onAddSupplier: (supplier: Omit<Supplier, 'id'>) => void;
   onUpdateSupplier: (supplier: Supplier) => void;
   onDeleteSupplier: (id: string) => void;
-  onUpdateUnits: (units: string[]) => void;
+  onUpdateUnits: (units: typeof DEFAULT_UNITS) => void;
   onClose: () => void;
 }> = ({ prices, libraryInsumos = [], suppliers, units, onAddPrice, onUpdatePrice, onDeletePrice, onAddSupplier, onUpdateSupplier, onDeleteSupplier, onUpdateUnits, onClose }) => {
   const [activeTab, setActiveTab] = useState<'cadastro_precos' | 'historico_precos' | 'suppliers' | 'analysis'>('cadastro_precos');
@@ -3492,8 +3518,8 @@ const MaterialPriceComparison: React.FC<{
               key={tab.id}
               onClick={() => { setActiveTab(tab.id as any); setFilter(''); }}
               className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-4 text-[9px] sm:text-[10px] font-black uppercase tracking-tight sm:tracking-widest transition-all border-b-2 ${activeTab === tab.id
-                  ? 'border-blue-500 text-blue-600 bg-blue-50/30 dark:bg-blue-900/10'
-                  : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                ? 'border-blue-500 text-blue-600 bg-blue-50/30 dark:bg-blue-900/10'
+                : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
                 }`}
             >
               {tab.icon}
@@ -3597,13 +3623,13 @@ const MaterialPriceComparison: React.FC<{
                           <Calculator className="w-3.5 h-3.5" />
                         </button>
                         <select
-                          value={editingPrice ? editingPrice.unidade || units[0] : newPrice.unidade}
+                          value={editingPrice ? editingPrice.unidade || (units[0]?.nome || '') : newPrice.unidade}
                           onChange={e => editingPrice ? setEditingPrice({ ...editingPrice, unidade: e.target.value }) : setNewPrice({ ...newPrice, unidade: e.target.value })}
-                          className="w-20 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2 py-2.5 text-[10px] font-black uppercase outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                          className="w-28 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2 py-2.5 text-[10px] font-black uppercase outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                           title="Unidade"
                         >
                           {units.map(u => (
-                            <option key={u} value={u}>{u}</option>
+                            <option key={u.id || u.nome} value={u.nome}>{u.nome}</option>
                           ))}
                         </select>
                       </div>
@@ -3696,10 +3722,10 @@ const MaterialPriceComparison: React.FC<{
                     </div>
                     <div className="flex flex-wrap gap-2 mb-4">
                       {units.map(unit => (
-                        <div key={unit} className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 pl-3 pr-1 py-1 rounded-lg shadow-sm">
-                          <span className="text-[10px] font-bold uppercase">{unit}</span>
+                        <div key={unit.id || unit.nome} className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 pl-3 pr-1 py-1 rounded-lg shadow-sm">
+                          <span className="text-[10px] font-bold uppercase">{unit.nome}</span>
                           <button
-                            onClick={() => onUpdateUnits(units.filter(u => u !== unit))}
+                            onClick={() => onUpdateUnits(units.filter(u => u.id !== unit.id))}
                             className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-500 rounded-md transition-all"
                             title="Remover unidade"
                           >
@@ -3715,8 +3741,8 @@ const MaterialPriceComparison: React.FC<{
                         onChange={e => setNewUnitName(e.target.value)}
                         onKeyDown={e => {
                           if (e.key === 'Enter' && newUnitName.trim()) {
-                            if (!units.includes(newUnitName.trim())) {
-                              onUpdateUnits([...units, newUnitName.trim()]);
+                            if (!units.some((u: any) => u.nome.toLowerCase() === newUnitName.trim().toLowerCase())) {
+                              onUpdateUnits([...units, { id: Math.random().toString(36), nome: newUnitName.trim(), fator: 1 }] as any);
                               setNewUnitName('');
                             }
                           }
@@ -3726,8 +3752,8 @@ const MaterialPriceComparison: React.FC<{
                       />
                       <button
                         onClick={() => {
-                          if (newUnitName.trim() && !units.includes(newUnitName.trim())) {
-                            onUpdateUnits([...units, newUnitName.trim()]);
+                          if (newUnitName.trim() && !units.some((u: any) => u.nome.toLowerCase() === newUnitName.trim().toLowerCase())) {
+                            onUpdateUnits([...units, { id: Math.random().toString(36), nome: newUnitName.trim(), fator: 1 }] as any);
                             setNewUnitName('');
                           }
                         }}
@@ -4049,20 +4075,20 @@ const MaterialPriceComparison: React.FC<{
 
           {activeTab === 'analysis' && (
             <div className="p-4 md:p-8 h-full flex flex-col">
-                <div className="max-w-md mb-8 shrink-0">
-                  <label className="text-[10px] font-black text-slate-400 uppercase block mb-2 px-1">Selecione o Material para Análise</label>
-                  <select
-                    value={analysisMaterial}
-                    onChange={e => setAnalysisMaterial(e.target.value)}
-                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 text-sm font-bold shadow-sm outline-none focus:ring-2 focus:ring-blue-500"
-                    title="Selecionar material para análise"
-                  >
-                    <option value="">Escolha um material...</option>
-                    {uniqueMaterials.map(m => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                </div>
+              <div className="max-w-md mb-8 shrink-0">
+                <label className="text-[10px] font-black text-slate-400 uppercase block mb-2 px-1">Selecione o Material para Análise</label>
+                <select
+                  value={analysisMaterial}
+                  onChange={e => setAnalysisMaterial(e.target.value)}
+                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 text-sm font-bold shadow-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  title="Selecionar material para análise"
+                >
+                  <option value="">Escolha um material...</option>
+                  {uniqueMaterials.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
 
-                <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0 pb-10">
+              <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0 pb-10">
                 {analysisMaterial ? (
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">

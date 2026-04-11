@@ -143,10 +143,12 @@ export const calculateSummary = (
   };
 };
 
-export const formatCurrency = (value: number) => {
+export const formatCurrency = (value: number, decimals: number = 2) => {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
   }).format(value).replace(/\s/g, ' ');
 };
 

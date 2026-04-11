@@ -282,9 +282,9 @@ export const generatePDFBlob = (
     doc.setFontSize(9);
     doc.setTextColor(255, 255, 255);
     doc.text('Item / Descrição', 18, currentY + 6.5);
-    doc.text('Qtd', 100, currentY + 6.5, { align: 'center' });
-    doc.text('Un', 115, currentY + 6.5, { align: 'center' });
-    doc.text('V. Unit', 140, currentY + 6.5, { align: 'right' });
+    doc.text('Qtd', 95, currentY + 6.5, { align: 'center' });
+    doc.text('Un', 108, currentY + 6.5, { align: 'left' });
+    doc.text('V. Unit', 150, currentY + 6.5, { align: 'right' });
     doc.text('Subtotal', pageWidth - 18, currentY + 6.5, { align: 'right' });
 
     currentY += 10;
@@ -306,9 +306,9 @@ export const generatePDFBlob = (
       }
 
       doc.text((i.nome || '-').replace(/\u00A0/g, ' '), 18, currentY + 5.5);
-      doc.text(formatDecimal(i.quantidade || 0), 100, currentY + 5.5, { align: 'center' });
-      doc.text((i.unidade || '-').replace(/\u00A0/g, ' '), 115, currentY + 5.5, { align: 'center' });
-      doc.text(formatCurrency(i.valorUnitario || 0), 140, currentY + 5.5, { align: 'right' });
+      doc.text(formatDecimal(i.quantidade || 0), 95, currentY + 5.5, { align: 'center' });
+      doc.text((i.unidade || '-').replace(/\u00A0/g, ' '), 108, currentY + 5.5, { align: 'left' });
+      doc.text(formatCurrency(i.valorUnitario || 0), 150, currentY + 5.5, { align: 'right' });
       doc.text(formatCurrency((i.quantidade || 0) * (i.valorUnitario || 0)), pageWidth - 18, currentY + 5.5, { align: 'right' });
 
       currentY += 8;
@@ -633,4 +633,21 @@ export const copyToClipboard = async (text: string, successMessage: string = 'Co
 
 export const copyBackupToClipboard = async (data: string) => {
   await copyToClipboard(data, 'Código de Backup copiado! Cole-o em um local seguro (bloco de notas, email, etc).');
+};
+
+export const readFromClipboard = async (): Promise<string | null> => {
+  try {
+    if (Capacitor.isNativePlatform()) {
+      const result = await Clipboard.read();
+      return result.value || null;
+    } else {
+      if (navigator.clipboard) {
+        return await navigator.clipboard.readText();
+      }
+      return null;
+    }
+  } catch (error) {
+    console.error('Erro ao ler do clipboard:', error);
+    return null;
+  }
 };
