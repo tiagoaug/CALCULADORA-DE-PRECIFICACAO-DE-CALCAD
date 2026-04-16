@@ -33,10 +33,15 @@ import {
   Calendar,
   Phone,
   LogOut,
-  ChevronRight
+  ChevronRight,
+  AlertCircle,
+  Mail,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  AlertTriangle
 } from 'lucide-react';
 import { ProductData, AppDatabase, LibraryData, Insumo, MaterialPriceRecord, Sola, Supplier, UnidadeMedida } from './types';
-import { calculateSummary, formatCurrency, calculateSolaAverageCost, findUnitFactor } from './utils/calculations';
+import { calculateSummary, formatCurrency, calculateSolaAverageCost, findUnitFactor, formatNumber } from './utils/calculations';
 import {
   downloadPDF,
   generatePDFBlob,
@@ -575,6 +580,7 @@ const App: React.FC = () => {
 
   const [activeLibraryTarget, setActiveLibraryTarget] = useState<{ id: string, type: string } | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [copiedItem, setCopiedItem] = useState<{ type: string; data: any } | null>(null);
 
 
 
@@ -1226,30 +1232,17 @@ const App: React.FC = () => {
     }
   };
 
-  const handleNumericChange = (id: string, field: string, rawVal: string, updateFn: (numValue: number) => void) => {
-    let normalizedVal = rawVal;
+  const handleNumericChange = (id: string, field: string, value: string, updateFn: (val: number) => void) => {
+    setEditingValue({ id, field, value });
+    const normalizedValue = value.replace(',', '.');
+    const numValue = parseFloat(normalizedValue);
 
-    // Limitar campo manual de preço de venda a 2 casas decimais
-    if (field === 'manual') {
-      if (normalizedVal.includes(',')) {
-        const parts = normalizedVal.split(',');
-        if (parts[1].length > 2) normalizedVal = parts[0] + ',' + parts[1].substring(0, 2);
-      } else if (normalizedVal.includes('.')) {
-        const parts = normalizedVal.split('.');
-        if (parts[1].length > 2) normalizedVal = parts[0] + '.' + parts[1].substring(0, 2);
-      }
+    if (!isNaN(numValue)) {
+      // f: fixo, i: indireto (se não for do markup 'm'), ff: frete fixo, purchase: preço compra
+      const isPrice = ['v', 'tv', 'purchase', 'manual', 'f', 'ff'].includes(field) || (field === 'i' && id !== 'm');
+      const roundedValue = isPrice ? Math.round(numValue * 100) / 100 : Math.round(numValue * 10000) / 10000;
+      updateFn(roundedValue);
     }
-
-    const normalized = normalizedVal.replace(',', '.');
-    let parsed = parseFloat(normalized);
-
-    // Limitar a 4 casas decimais para campos de quantidade ou valor unitário
-    if (['q', 'tq', 'u', 'd', 'v', 'tv'].includes(field) && !isNaN(parsed)) {
-      parsed = Math.round(parsed * 10000) / 10000;
-    }
-
-    setEditingValue({ id, field, val: normalizedVal });
-    updateFn(isNaN(parsed) ? 0 : parsed);
   };
 
   const handleBulkCopy = (type: 'insumos' | 'terceirizados' | 'custosFixos' | 'custosIndiretos') => {
@@ -1337,16 +1330,13 @@ const App: React.FC = () => {
     }
   };
 
-  const getDisplayValue = (val: number, id: string, field: string): string => {
-    if (editingValue?.id === id && editingValue?.field === field) return editingValue.val;
-    if (val === 0) return '';
-
-    // Para campos de quantidade e valor unitário, garantir no máximo 4 casas decimais na exibição
-    if (['q', 'tq', 'u', 'd', 'v', 'tv'].includes(field)) {
-      return (Math.round(val * 10000) / 10000).toString().replace('.', ',');
+  const getDisplayValue = (value: number, id: string, field: string) => {
+    if (editingValue && editingValue.id === id && editingValue.field === field) {
+      return editingValue.value;
     }
-
-    return val.toString().replace('.', ',');
+    // Determina se o campo é um valor monetário (2 casas) ou quantidade (4 casas)
+    const isPrice = ['v', 'tv', 'purchase', 'manual', 'f', 'ff'].includes(field) || (field === 'i' && id !== 'm');
+    return formatNumber(value, isPrice ? 2 : 4);
   };
 
   const inputBase = "w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-2.5 text-[12px] font-bold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-slate-800 dark:text-slate-100";
@@ -1436,7 +1426,7 @@ const App: React.FC = () => {
       </div>
 
       <main className="max-w-[1440px] mx-auto md:px-6 px-0 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 print:p-0 print:gap-4">
-        <div className="lg:col-span-8 space-y-6 print:space-y-4">
+        <div className="lg:col-span-9 space-y-6 print:space-y-4">
 
           <Section title="1. Materiais e Peças" icon={<Package className="text-emerald-500 w-5 h-5" />} expanded={expandedSection === 'insumos'} onToggle={() => toggleSection('insumos')}>
 
@@ -1776,10 +1766,11 @@ const App: React.FC = () => {
                 {/* DESKTOP VIEW */}
                 <div className="hidden md:block overflow-x-auto custom-scrollbar -mx-2 px-2">
                   <div className="min-w-[780px] pb-4">
-                    <div className="grid grid-cols-[40px_1.5fr_1.5fr_0.8fr_0.8fr_1.2fr_1.2fr_0.5fr] gap-3 px-3 py-2.5 mb-2 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 dark:border-slate-800">
+                    <div className="grid grid-cols-[40px_1.2fr_1.5fr_0.6fr_0.9fr_1.2fr_1fr_0.5fr] gap-3 px-3 py-2.5 mb-2 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 dark:border-slate-800">
                       <div className="flex justify-center">
                         <input
                           type="checkbox"
+                          title="Selecionar Todos os Materiais"
                           checked={selectedInsumoIds.length === currentProduct.insumos.length && currentProduct.insumos.length > 0}
                           onChange={() => toggleSelectAll('insumos')}
                           className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
@@ -1789,7 +1780,7 @@ const App: React.FC = () => {
                     </div>
                     <div className="space-y-2 p-1">
                       {currentProduct.insumos.map((insumo) => (
-                        <div key={insumo.id} className={`grid grid-cols-[40px_1.5fr_1.5fr_0.8fr_0.8fr_1.2fr_1.2fr_0.5fr] gap-3 p-2 border rounded-xl items-center transition-all shadow-sm group ${selectedInsumoIds.includes(insumo.id) ? 'bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-400 dark:border-emerald-700' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-blue-400'}`}>
+                        <div key={insumo.id} className={`grid grid-cols-[40px_1.2fr_1.5fr_0.6fr_0.9fr_1.2fr_1fr_0.5fr] gap-3 p-2 border rounded-xl items-center transition-all shadow-sm group ${selectedInsumoIds.includes(insumo.id) ? 'bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-400 dark:border-emerald-700' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-blue-400'}`}>
                           <div className="flex justify-center">
                             <input
                               type="checkbox"
@@ -2041,8 +2032,8 @@ const App: React.FC = () => {
                     <button
                       onClick={() => toggleSelectItem('terceirizados', t.id)}
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${selectedTerceirizadoIds.includes(t.id)
-                          ? 'bg-orange-600 text-white shadow-md'
-                          : 'bg-slate-100 text-slate-400 dark:bg-slate-800'
+                        ? 'bg-orange-600 text-white shadow-md'
+                        : 'bg-slate-100 text-slate-400 dark:bg-slate-800'
                         }`}
                     >
                       <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${selectedTerceirizadoIds.includes(t.id) ? 'border-transparent bg-white' : 'border-slate-400'
@@ -2204,13 +2195,13 @@ const App: React.FC = () => {
 
             <div className="hidden md:block overflow-x-auto custom-scrollbar -mx-2 px-2">
               <div className="min-w-[780px] pb-4 space-y-2">
-                <div className="grid grid-cols-[40px_2fr_1fr_1fr_1.5fr_1.2fr_0.5fr] gap-3 px-3 py-2.5 mb-2 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 dark:border-slate-800">
+                <div className="grid grid-cols-[40px_1.8fr_0.8fr_0.8fr_1.2fr_1fr_0.5fr] gap-3 px-3 py-2.5 mb-2 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 dark:border-slate-800">
                   <div className="flex justify-center">
                     <button
                       onClick={() => toggleSelectAll('terceirizados')}
                       className={`w-4 h-4 rounded border transition-colors flex items-center justify-center ${selectedTerceirizadoIds.length === currentProduct.terceirizados.length && currentProduct.terceirizados.length > 0
-                          ? 'bg-orange-600 border-orange-600'
-                          : 'bg-white border-slate-300'
+                        ? 'bg-orange-600 border-orange-600'
+                        : 'bg-white border-slate-300'
                         }`}
                     >
                       {selectedTerceirizadoIds.length === currentProduct.terceirizados.length && currentProduct.terceirizados.length > 0 && (
@@ -2221,13 +2212,13 @@ const App: React.FC = () => {
                   <div className="pl-1">Serviço</div><div className="text-center">Unidade</div><div className="text-center">Quantidade</div><div className="text-center">V. Unitário</div><div className="text-right">V. Total</div><div className="text-center">Ações</div>
                 </div>
                 {currentProduct.terceirizados.map((t) => (
-                  <div key={t.id} className={`grid grid-cols-[40px_2fr_1fr_1fr_1.5fr_1.2fr_0.5fr] gap-3 p-2 bg-white dark:bg-slate-900 border ${selectedTerceirizadoIds.includes(t.id) ? 'border-orange-500 bg-orange-50/20 shadow-sm relative z-10' : 'border-slate-200 dark:border-slate-800'} rounded-xl items-center shadow-sm hover:border-orange-400 transition-all`}>
+                  <div key={t.id} className={`grid grid-cols-[40px_1.8fr_0.8fr_0.8fr_1.2fr_1fr_0.5fr] gap-3 p-2 bg-white dark:bg-slate-900 border ${selectedTerceirizadoIds.includes(t.id) ? 'border-orange-500 bg-orange-50/20 shadow-sm relative z-10' : 'border-slate-200 dark:border-slate-800'} rounded-xl items-center shadow-sm hover:border-orange-400 transition-all`}>
                     <div className="flex justify-center group-hover:scale-110 transition-transform">
                       <button
                         onClick={() => toggleSelectItem('terceirizados', t.id)}
                         className={`w-4 h-4 rounded border transition-all flex items-center justify-center ${selectedTerceirizadoIds.includes(t.id)
-                            ? 'bg-orange-600 border-orange-600 shadow-sm'
-                            : 'bg-white border-slate-300'
+                          ? 'bg-orange-600 border-orange-600 shadow-sm'
+                          : 'bg-white border-slate-300'
                           }`}
                       >
                         {selectedTerceirizadoIds.includes(t.id) && <Check className="w-3 h-3 text-white" />}
@@ -2353,14 +2344,56 @@ const App: React.FC = () => {
                   <div className="flex gap-2 print:hidden">
                     <button
                       onClick={() => handlePasteFromClipboard('custosFixos')}
+                      title="Colar da área de transferência"
                       className="flex items-center gap-1.5 px-2 py-1 text-[9px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-900/10 hover:bg-blue-100 dark:hover:bg-blue-900/20 rounded-md transition-colors border border-blue-200 dark:border-blue-800"
                     >
                       <ClipboardPaste className="w-3 h-3" /> Colar
                     </button>
                   </div>
                 </div>
+
+                {/* Bulk Selection Toolbar for Fixed Costs */}
+                {selectedCustoFixoIds.length > 0 && (
+                  <div className="sticky top-20 z-[45] flex items-center justify-between bg-emerald-600 text-white px-4 py-2 rounded-xl shadow-lg mb-4 animate-in fade-in slide-in-from-top-4 duration-300 border border-emerald-500/50">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <input
+                        type="checkbox"
+                        title="Selecionar Todos os Custos Fixos"
+                        checked={selectedCustoFixoIds.length === currentProduct.custosFixos.length && currentProduct.custosFixos.length > 0}
+                        onChange={() => toggleSelectAll('custosFixos')}
+                        className="w-5 h-5 rounded border-white/30 bg-white/20 checked:bg-white checked:border-white text-emerald-600 focus:ring-0 focus:ring-offset-0 transition-all cursor-pointer accent-white"
+                      />
+                      <span className="text-[10px] font-black uppercase tracking-wider truncate">
+                        {selectedCustoFixoIds.length} selecionados
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => handleBulkCopy('custosFixos')} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 active:scale-95 rounded-lg text-[10px] font-bold uppercase transition-all">
+                        <Copy className="w-3.5 h-3.5" /> <span className="hidden xs:inline">Copiar</span>
+                      </button>
+                      <button onClick={() => handleBulkDelete('custosFixos')} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 hover:bg-red-600 active:scale-95 rounded-lg text-[10px] font-bold uppercase transition-all shadow-sm">
+                        <Trash2 className="w-3.5 h-3.5" /> <span className="hidden xs:inline">Excluir</span>
+                      </button>
+                      <button onClick={() => setSelectedCustoFixoIds([])} title="Limpar Seleção" className="p-1.5 hover:bg-white/10 rounded-full transition-colors">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
                 {currentProduct.custosFixos.map(cf => (
-                  <div key={cf.id} className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm">
+                  <div key={cf.id} className={`relative bg-white dark:bg-slate-900 border transition-all p-4 rounded-2xl shadow-sm ${selectedCustoFixoIds.includes(cf.id) ? 'bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-400 dark:border-emerald-700' : 'border-slate-200 dark:border-slate-800 hover:border-blue-400'}`}>
+                    <div className="flex items-center justify-between mb-3 border-b border-slate-100 dark:border-slate-800/50 pb-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id={`cf-select-${cf.id}`}
+                          checked={selectedCustoFixoIds.includes(cf.id)}
+                          onChange={() => toggleSelectItem('custosFixos', cf.id)}
+                          className="w-5 h-5 rounded border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-emerald-600 focus:ring-emerald-500 transition-all cursor-pointer accent-emerald-600"
+                        />
+                        <label htmlFor={`cf-select-${cf.id}`} className="text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-pointer">Selecionar</label>
+                      </div>
+                    </div>
                     <div className="grid grid-cols-[1fr_auto] gap-3 mb-3">
                       <div className="flex-1 relative group">
                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1 block">Descrição do Custo Fixo</label>
@@ -2447,7 +2480,7 @@ const App: React.FC = () => {
                     </div>
                   </div>
                 ))}
-                <button onClick={() => updateCurrentProduct({ custosFixos: [...currentProduct.custosFixos, { id: Math.random().toString(36), nome: '', valor: 0 }] })} className="w-full py-2.5 text-[9px] font-black text-blue-500 uppercase border border-dashed border-blue-200 rounded-xl hover:bg-blue-50/50 transition-all">+ Novo Fixo</button>
+                <button onClick={() => updateCurrentProduct({ custosFixos: [...currentProduct.custosFixos, { id: Math.random().toString(36), nome: '', valor: 0 }] })} title="Adicionar Novo Custo Fixo" className="w-full py-2.5 text-[9px] font-black text-blue-500 uppercase border border-dashed border-blue-200 rounded-xl hover:bg-blue-50/50 transition-all">+ Novo Fixo</button>
               </div>
               <div className="space-y-3">
                 <div className="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-slate-800 pb-2">
@@ -2455,14 +2488,56 @@ const App: React.FC = () => {
                   <div className="flex gap-2 print:hidden">
                     <button
                       onClick={() => handlePasteFromClipboard('custosIndiretos')}
+                      title="Colar da área de transferência"
                       className="flex items-center gap-1.5 px-2 py-1 text-[9px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-900/10 hover:bg-blue-100 dark:hover:bg-blue-900/20 rounded-md transition-colors border border-blue-200 dark:border-blue-800"
                     >
                       <ClipboardPaste className="w-3 h-3" /> Colar
                     </button>
                   </div>
                 </div>
+
+                {/* Bulk Selection Toolbar for Indirect Costs */}
+                {selectedCustoIndiretoIds.length > 0 && (
+                  <div className="sticky top-20 z-[45] flex items-center justify-between bg-emerald-600 text-white px-4 py-2 rounded-xl shadow-lg mb-4 animate-in fade-in slide-in-from-top-4 duration-300 border border-emerald-500/50">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <input
+                        type="checkbox"
+                        title="Selecionar Todos os Custos Variáveis"
+                        checked={selectedCustoIndiretoIds.length === currentProduct.custosIndiretos.length && currentProduct.custosIndiretos.length > 0}
+                        onChange={() => toggleSelectAll('custosIndiretos')}
+                        className="w-5 h-5 rounded border-white/30 bg-white/20 checked:bg-white checked:border-white text-emerald-600 focus:ring-0 focus:ring-offset-0 transition-all cursor-pointer accent-white"
+                      />
+                      <span className="text-[10px] font-black uppercase tracking-wider truncate">
+                        {selectedCustoIndiretoIds.length} selecionados
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => handleBulkCopy('custosIndiretos')} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 active:scale-95 rounded-lg text-[10px] font-bold uppercase transition-all">
+                        <Copy className="w-3.5 h-3.5" /> <span className="hidden xs:inline">Copiar</span>
+                      </button>
+                      <button onClick={() => handleBulkDelete('custosIndiretos')} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 hover:bg-red-600 active:scale-95 rounded-lg text-[10px] font-bold uppercase transition-all shadow-sm">
+                        <Trash2 className="w-3.5 h-3.5" /> <span className="hidden xs:inline">Excluir</span>
+                      </button>
+                      <button onClick={() => setSelectedCustoIndiretoIds([])} title="Limpar Seleção" className="p-1.5 hover:bg-white/10 rounded-full transition-colors">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
                 {currentProduct.custosIndiretos.map(ci => (
-                  <div key={ci.id} className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm">
+                  <div key={ci.id} className={`relative bg-white dark:bg-slate-900 border transition-all p-4 rounded-2xl shadow-sm ${selectedCustoIndiretoIds.includes(ci.id) ? 'bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-400 dark:border-emerald-700' : 'border-slate-200 dark:border-slate-800 hover:border-blue-400'}`}>
+                    <div className="flex items-center justify-between mb-3 border-b border-slate-100 dark:border-slate-800/50 pb-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id={`ci-select-${ci.id}`}
+                          checked={selectedCustoIndiretoIds.includes(ci.id)}
+                          onChange={() => toggleSelectItem('custosIndiretos', ci.id)}
+                          className="w-5 h-5 rounded border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-emerald-600 focus:ring-emerald-500 transition-all cursor-pointer accent-emerald-600"
+                        />
+                        <label htmlFor={`ci-select-${ci.id}`} className="text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-pointer">Selecionar</label>
+                      </div>
+                    </div>
                     <div className="grid grid-cols-[1fr_auto] gap-3 mb-3">
                       <div className="flex-1 relative group">
                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1 block">Descrição do Custo Variável</label>
@@ -2747,8 +2822,8 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        <div className="lg:col-span-4 space-y-6">
-          <div className="bg-slate-900 rounded-[2rem] p-8 text-white shadow-2xl relative overflow-hidden border border-slate-800">
+        <div className="lg:col-span-3 space-y-6">
+          <div className="bg-slate-900 rounded-[2rem] p-6 lg:p-6 text-white shadow-2xl relative overflow-hidden border border-slate-800">
             <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/20 blur-3xl rounded-full"></div>
             <h3 className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em] mb-6">Preço de Venda Final</h3>
             <div className="relative mb-8 bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50 backdrop-blur-sm">
@@ -2799,7 +2874,7 @@ const App: React.FC = () => {
               </div>
             </div>
           </div>
-          <div className="bg-white dark:bg-slate-900 rounded-md p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-md p-6 lg:p-6 border border-slate-200 dark:border-slate-800 shadow-sm">
             <h4 className="font-black text-[10px] uppercase tracking-[0.2em] text-slate-400 mb-6">Resumo de Custos</h4>
             <div className="space-y-4">
               {currentProduct.type === 'ready' ? (
@@ -3439,6 +3514,7 @@ const MaterialPriceComparison: React.FC<{
 }> = ({ prices, libraryInsumos = [], suppliers, units, onAddPrice, onUpdatePrice, onDeletePrice, onAddSupplier, onUpdateSupplier, onDeleteSupplier, onUpdateUnits, onClose }) => {
   const [activeTab, setActiveTab] = useState<'cadastro_precos' | 'historico_precos' | 'suppliers' | 'analysis'>('cadastro_precos');
   const [filter, setFilter] = useState('');
+  const [copiedItem, setCopiedItem] = useState<{ type: string; data: any } | null>(null);
 
   // States for Price CRUD
   const [editingPrice, setEditingPrice] = useState<MaterialPriceRecord | null>(null);

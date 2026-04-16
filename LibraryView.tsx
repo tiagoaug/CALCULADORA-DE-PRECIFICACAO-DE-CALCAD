@@ -4,7 +4,7 @@ import {
     TrendingUp, Calculator, Ruler, Download, Upload, Database, RefreshCw, Edit2, Check, XCircle,
     DollarSign, Percent, Maximize, Settings, Box, Cloud
 } from 'lucide-react';
-import { formatCurrency, calculateSolaAverageCost, findUnitFactor, calculateSolaMaterialsTotal, calculateSolaLaborTotal } from './utils/calculations';
+import { formatCurrency, calculateSolaAverageCost, findUnitFactor, calculateSolaMaterialsTotal, calculateSolaLaborTotal, formatNumber } from './utils/calculations';
 import { LibraryData, Sola, SolaMaterial, SolaLaborItem, SolaGradeItem } from './types';
 
 interface LibraryItem {
@@ -141,6 +141,29 @@ const LibraryView: React.FC<LibraryViewProps> = ({
     
     // Multi-select state
     const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+
+    const [editingValue, setEditingValue] = useState<{ id: string, field: string, val: string } | null>(null);
+
+    const getDisplayValue = (val: number, id: string, field: string): string => {
+        if (editingValue?.id === id && editingValue?.field === field) return editingValue.val;
+        if (val === 0) return '';
+
+        // Campos que devem ter sempre 2 casas decimais (Valores Unitários/Monetários)
+        const isPrice = ['v', 'tv', 'valor', 'precoAlternativo', 'aliquota'].includes(field);
+        return formatNumber(val, isPrice ? 2 : 4);
+    };
+
+    const handleNumericChange = (id: string, field: string, rawVal: string, updateFn: (numValue: number) => void) => {
+        setEditingValue({ id, field, val: rawVal });
+        const normalized = rawVal.replace(',', '.');
+        const numValue = parseFloat(normalized);
+
+        if (!isNaN(numValue)) {
+            const isPrice = ['v', 'tv', 'valor', 'precoAlternativo', 'aliquota'].includes(field);
+            const roundedValue = isPrice ? Math.round(numValue * 100) / 100 : Math.round(numValue * 10000) / 10000;
+            updateFn(roundedValue);
+        }
+    };
     
     // Sync activeTab with initialTab when it changes
     useEffect(() => {
@@ -411,6 +434,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                 <input
                                     type="text"
                                     value={newItem.nome || ''}
+                                    title={activeTab === 'pecas' ? 'Nome da Peça' : 'Nome do Item'}
                                     onChange={e => {
                                         const name = e.target.value;
                                         setNewItem({ 
@@ -453,11 +477,12 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                         <div className="relative">
                                             <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                                             <input
-                                                type="number"
-                                                step="0.0001"
-                                                value={newItem.valorUnitario || ''}
-                                                onChange={e => setNewItem({ ...newItem, valorUnitario: Number(e.target.value) })}
+                                                type="text"
+                                                inputMode="decimal"
                                                 placeholder="0,00"
+                                                value={getDisplayValue(newItem.valorUnitario || 0, 'new', 'v')}
+                                                onChange={e => handleNumericChange('new', 'v', e.target.value, (v) => setNewItem({ ...newItem, valorUnitario: v }))}
+                                                onBlur={() => setEditingValue(null)}
                                                 className={`w-full bg-white dark:bg-slate-800 border-none rounded-xl pl-9 pr-4 py-2.5 text-sm font-bold shadow-sm focus:ring-2 focus:ring-${getThemeColor(activeTab)}-500`}
                                             />
                                         </div>
@@ -466,12 +491,13 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                     <div className="flex-1 min-w-[120px]">
                                         <label className={`text-[9px] font-black text-${getThemeColor(activeTab)}-600 uppercase mb-1.5 block`}>Qtd na Embalagem</label>
                                         <input
-                                            type="number"
-                                            value={newItem.quantidadeCompra || ''}
-                                            onChange={e => {
-                                                const val = Number(e.target.value);
-                                                setNewItem({ ...newItem, quantidadeCompra: val, fator: val });
-                                            }}
+                                            type="text"
+                                            inputMode="decimal"
+                                            value={getDisplayValue(newItem.quantidadeCompra || 0, 'new', 'q_compra')}
+                                            onChange={e => handleNumericChange('new', 'q_compra', e.target.value, (v) => {
+                                                setNewItem({ ...newItem, quantidadeCompra: v, fator: v });
+                                            })}
+                                            onBlur={() => setEditingValue(null)}
                                             placeholder="Ex: 1000"
                                             className={`w-full bg-white dark:bg-slate-800 border-none rounded-xl px-4 py-2.5 text-sm font-bold shadow-sm focus:ring-2 focus:ring-${getThemeColor(activeTab)}-500`}
                                         />
@@ -494,9 +520,11 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                         </label>
                                         <div className="flex gap-2">
                                             <input
-                                                type="number"
-                                                value={newItem.fator || ''}
-                                                onChange={e => setNewItem({ ...newItem, fator: Number(e.target.value) })}
+                                                type="text"
+                                                inputMode="decimal"
+                                                value={getDisplayValue(newItem.fator || 0, 'new', 'fator')}
+                                                onChange={e => handleNumericChange('new', 'fator', e.target.value, (v) => setNewItem({ ...newItem, fator: v }))}
+                                                onBlur={() => setEditingValue(null)}
                                                 placeholder="Ex: 1000"
                                                 className={`flex-1 bg-white dark:bg-slate-800 border-none rounded-xl px-4 py-2.5 text-sm font-bold shadow-sm focus:ring-2 focus:ring-${getThemeColor(activeTab)}-500`}
                                             />
@@ -507,10 +535,11 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                         <label className={`text-[9px] font-black text-${getThemeColor(activeTab)}-600 uppercase mb-1.5 block`}>Rendimento (Pares)</label>
                                         <div className="relative">
                                             <input
-                                                type="number"
-                                                step="0.0001"
-                                                value={newItem.rendimento || ''}
-                                                onChange={e => setNewItem({ ...newItem, rendimento: Number(e.target.value) })}
+                                                type="text"
+                                                inputMode="decimal"
+                                                value={getDisplayValue(newItem.rendimento || 0, 'new', 'rendimento')}
+                                                onChange={e => handleNumericChange('new', 'rendimento', e.target.value, (v) => setNewItem({ ...newItem, rendimento: v }))}
+                                                onBlur={() => setEditingValue(null)}
                                                 placeholder=""
                                                 title="Quantos pares este item rende?"
                                                 className={`w-full bg-white dark:bg-slate-800 border-none rounded-xl pl-4 pr-10 py-2.5 text-sm font-bold shadow-sm focus:ring-2 focus:ring-${getThemeColor(activeTab)}-500`}
@@ -534,14 +563,16 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                         {(activeTab === 'impostos' || activeTab === 'comissoes') ? 'Alíquota (%)' : 'Valor'}
                                     </label>
                                     <input
-                                        type="number"
-                                        value={newItem.aliquota || newItem.valor || ''}
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={getDisplayValue(newItem.aliquota || newItem.valor || 0, 'new', (activeTab === 'impostos' || activeTab === 'comissoes') ? 'aliquota' : 'valor')}
                                         onChange={e => {
-                                            const val = Number(e.target.value);
-                                            const key = (activeTab === 'impostos' || activeTab === 'comissoes') ? 'aliquota' : 'valor';
-                                            setNewItem({ ...newItem, [key]: val });
+                                            const field = (activeTab === 'impostos' || activeTab === 'comissoes') ? 'aliquota' : 'valor';
+                                            handleNumericChange('new', field, e.target.value, (v) => setNewItem({ ...newItem, [field]: v }));
                                         }}
+                                        onBlur={() => setEditingValue(null)}
                                         placeholder="0,00"
+                                        title={(activeTab === 'impostos' || activeTab === 'comissoes') ? 'Alíquota (%)' : 'Valor'}
                                         className={`w-full bg-white dark:bg-slate-800 border-none rounded-xl px-4 py-2.5 text-sm font-bold shadow-sm focus:ring-2 focus:ring-${getThemeColor(activeTab)}-500`}
                                     />
                                 </div>
@@ -551,6 +582,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                 <div className="flex items-end">
                                     <button
                                         onClick={handleAddItem}
+                                        title="Cadastrar Item"
                                         className={`h-[42px] px-8 bg-${getThemeColor(activeTab)}-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-${getThemeColor(activeTab)}-700 transition-all shadow-lg shadow-${getThemeColor(activeTab)}-500/30 flex items-center gap-2 active:scale-95`}
                                     >
                                         <Plus className="w-4 h-4" /> Cadastrar
@@ -637,13 +669,17 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                                             <div className="flex flex-col gap-2">
                                                                 <div className="relative group">
                                                                     <input 
-                                                                        type="number" 
-                                                                        value={mat.pesoGrams || ''} 
+                                                                        type="text" 
+                                                                        inputMode="decimal"
+                                                                        value={getDisplayValue(mat.pesoGrams || 0, `sola-mat-${idx}`, 'pesoGrams')} 
                                                                         onChange={e => {
                                                                             const newMats = [...solaMaterials];
-                                                                            newMats[idx].pesoGrams = Number(e.target.value);
-                                                                            setSolaMaterials(newMats);
+                                                                            handleNumericChange(`sola-mat-${idx}`, 'pesoGrams', e.target.value, (v) => {
+                                                                                newMats[idx].pesoGrams = v;
+                                                                                setSolaMaterials(newMats);
+                                                                            });
                                                                         }}
+                                                                        onBlur={() => setEditingValue(null)}
                                                                         placeholder="Peso (g)"
                                                                         className={`w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-3 sm:px-4 py-3 text-xs font-bold text-right pr-6 sm:pr-8 shadow-sm focus:ring-2 focus:ring-${getThemeColor(activeTab)}-500/20`}
                                                                         title="Peso em gramas"
@@ -670,13 +706,17 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                                             <div className="relative group">
                                                                 <DollarSign className={`absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-${getThemeColor(activeTab)}-600/50`} />
                                                                 <input 
-                                                                    type="number" 
-                                                                    value={mat.precoAlternativo !== undefined ? mat.precoAlternativo : ''} 
+                                                                    type="text" 
+                                                                    inputMode="decimal"
+                                                                    value={getDisplayValue(mat.precoAlternativo !== undefined ? mat.precoAlternativo : 0, `sola-mat-${idx}`, 'precoAlternativo')} 
                                                                     onChange={e => {
                                                                         const newMats = [...solaMaterials];
-                                                                        newMats[idx].precoAlternativo = e.target.value === '' ? undefined : Number(e.target.value);
-                                                                        setSolaMaterials(newMats);
+                                                                        handleNumericChange(`sola-mat-${idx}`, 'precoAlternativo', e.target.value, (v) => {
+                                                                            newMats[idx].precoAlternativo = e.target.value === '' ? undefined : v;
+                                                                            setSolaMaterials(newMats);
+                                                                        });
                                                                     }}
+                                                                    onBlur={() => setEditingValue(null)}
                                                                     placeholder="Biblioteca"
                                                                     className={`w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl pl-6 pr-3 py-3 text-xs font-bold text-${getThemeColor(activeTab)}-600 shadow-sm focus:ring-2 focus:ring-${getThemeColor(activeTab)}-500/20`}
                                                                     title="Preço alternativo por Kg (sobrescreve a biblioteca)"
@@ -734,14 +774,18 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                                     </div>
                                                     <div className="flex-1 relative">
                                                         <input 
-                                                            type="number" 
+                                                            type="text" 
+                                                            inputMode="decimal"
                                                             placeholder="Peso (g)" 
-                                                            value={g.peso || ''} 
+                                                            value={getDisplayValue(g.peso || 0, g.id, 'pesoGrade')} 
                                                             onChange={e => {
                                                                 const newGrade = [...solaGrades];
-                                                                newGrade[idx].peso = Number(e.target.value);
-                                                                setSolaGrades(newGrade);
+                                                                handleNumericChange(g.id, 'pesoGrade', e.target.value, (v) => {
+                                                                    newGrade[idx].peso = v;
+                                                                    setSolaGrades(newGrade);
+                                                                });
                                                             }}
+                                                            onBlur={() => setEditingValue(null)}
                                                             className="w-full bg-white dark:bg-slate-950 sm:bg-slate-50 sm:dark:bg-slate-900 border-none rounded-lg px-2 py-1.5 text-[10px] font-bold text-right pr-6"
                                                         />
                                                         <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-400">g</span>
@@ -792,14 +836,18 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                                     <div className="flex items-center gap-2 w-full sm:w-auto">
                                                         <div className="flex-1 sm:w-24 relative">
                                                             <input 
-                                                                type="number" 
-                                                                placeholder="0.00" 
-                                                                value={l.valor || ''} 
+                                                                type="text" 
+                                                                inputMode="decimal"
+                                                                placeholder="0,00" 
+                                                                value={getDisplayValue(l.valor || 0, `sola-labor-${idx}`, 'valor')} 
                                                                 onChange={e => {
                                                                     const newLabor = [...solaLabor];
-                                                                    newLabor[idx].valor = Number(e.target.value);
-                                                                    setSolaLabor(newLabor);
+                                                                    handleNumericChange(`sola-labor-${idx}`, 'valor', e.target.value, (v) => {
+                                                                        newLabor[idx].valor = v;
+                                                                        setSolaLabor(newLabor);
+                                                                    });
                                                                 }}
+                                                                onBlur={() => setEditingValue(null)}
                                                                 className="w-full bg-white dark:bg-slate-950 sm:bg-slate-50 sm:dark:bg-slate-900 border-none rounded-lg px-2 py-1.5 text-[10px] font-bold text-right"
                                                             />
                                                         </div>
@@ -910,6 +958,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                             <input
                                  type="text"
                                 placeholder="Buscar na biblioteca local..."
+                                title="Buscar na biblioteca"
                                 value={searchTerm}
                                 onChange={e => {
                                     setSearchTerm(e.target.value);
@@ -1032,13 +1081,20 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                                                             <DollarSign className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-${themeColor}-600`} />
                                                                         )}
                                                                         <input
-                                                                            type="number"
-                                                                            step="0.0001"
+                                                                            type="text"
+                                                                            inputMode="decimal"
                                                                             className={`w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-3 text-sm font-mono font-bold text-right text-${themeColor}-600 shadow-sm outline-none`}
-                                                                            value={editForm.aliquota || editForm.valorUnitario || editForm.valor || ''}
+                                                                            value={getDisplayValue(editForm.aliquota || editForm.valorUnitario || editForm.valor || 0, editForm.id || 'edit', (activeTab === 'impostos' || activeTab === 'comissoes') ? 'aliquota' : (activeTab === 'custosFixos' || activeTab === 'custosIndiretos' || activeTab === 'fretes') ? 'valor' : 'v')}
                                                                             title="Valor do item"
                                                                             placeholder="0,00"
-                                                                            onChange={e => setEditForm({ ...editForm, [(activeTab === 'impostos' || activeTab === 'comissoes') ? 'aliquota' : (activeTab === 'custosFixos' || activeTab === 'custosIndiretos' || activeTab === 'fretes') ? 'valor' : 'valorUnitario']: Number(e.target.value) })}
+                                                                            onChange={e => {
+                                                                                const field = (activeTab === 'impostos' || activeTab === 'comissoes') ? 'aliquota' : (activeTab === 'custosFixos' || activeTab === 'custosIndiretos' || activeTab === 'fretes') ? 'valor' : 'v';
+                                                                                handleNumericChange(editForm.id || 'edit', field, e.target.value, (v) => {
+                                                                                    const updateKey = (activeTab === 'impostos' || activeTab === 'comissoes') ? 'aliquota' : (activeTab === 'custosFixos' || activeTab === 'custosIndiretos' || activeTab === 'fretes') ? 'valor' : 'valorUnitario';
+                                                                                    setEditForm({ ...editForm, [updateKey]: v });
+                                                                                });
+                                                                            }}
+                                                                            onBlur={() => setEditingValue(null)}
                                                                         />
                                                                     </div>
                                                                 </div>
@@ -1048,13 +1104,12 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                                                         <div>
                                                                             <label className="text-[10px] font-black text-slate-400 uppercase mb-1.5 block tracking-widest">Qtd na Embalagem</label>
                                                                             <input
-                                                                                type="number"
-                                                                                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 dark:text-slate-300"
-                                                                                value={editForm.quantidadeCompra || ''}
-                                                                                onChange={e => {
-                                                                                    const val = Number(e.target.value);
-                                                                                    setEditForm({ ...editForm, quantidadeCompra: val, fator: val });
-                                                                                }}
+                                                                                type="text"
+                                                                                inputMode="decimal"
+                                                                                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 dark:text-slate-300 shadow-sm outline-none focus:ring-2 focus:ring-blue-500/20"
+                                                                                value={getDisplayValue(editForm.quantidadeCompra || 0, editForm.id || 'edit', 'q')}
+                                                                                onChange={e => handleNumericChange(editForm.id || 'edit', 'q', e.target.value, (v) => setEditForm({ ...editForm, quantidadeCompra: v, fator: v }))}
+                                                                                onBlur={() => setEditingValue(null)}
                                                                                 title="Quantidade contida na embalagem comprada"
                                                                                 placeholder="Ex: 1000"
                                                                             />
@@ -1067,10 +1122,12 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                                                         <div>
                                                                             <label className="text-[10px] font-black text-slate-400 uppercase mb-1.5 block tracking-widest">Fator Conv.</label>
                                                                             <input
-                                                                                type="number"
-                                                                                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 dark:text-slate-300"
-                                                                                value={editForm.fator || ''}
-                                                                                onChange={e => setEditForm({ ...editForm, fator: Number(e.target.value) })}
+                                                                                type="text"
+                                                                                inputMode="decimal"
+                                                                                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 dark:text-slate-300 shadow-sm outline-none focus:ring-2 focus:ring-blue-500/20"
+                                                                                value={getDisplayValue(editForm.fator || 0, editForm.id || 'edit', 'fator')}
+                                                                                onChange={e => handleNumericChange(editForm.id || 'edit', 'fator', e.target.value, (v) => setEditForm({ ...editForm, fator: v }))}
+                                                                                onBlur={() => setEditingValue(null)}
                                                                                 title="Fator de conversão (Calculado pela Qtd na Embalagem)"
                                                                                 placeholder="1000"
                                                                             />
@@ -1079,11 +1136,12 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                                                             <label className="text-[10px] font-black text-slate-400 uppercase mb-1.5 block tracking-widest">Rendimento</label>
                                                                             <div className="relative">
                                                                                 <input
-                                                                                    type="number"
-                                                                                    step="0.0001"
-                                                                                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-4 pr-10 py-3 text-sm font-bold text-slate-600 dark:text-slate-300"
-                                                                                    value={editForm.rendimento || ''}
-                                                                                    onChange={e => setEditForm({ ...editForm, rendimento: Number(e.target.value) })}
+                                                                                    type="text"
+                                                                                    inputMode="decimal"
+                                                                                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-4 pr-10 py-3 text-sm font-bold text-slate-600 dark:text-slate-300 shadow-sm outline-none focus:ring-2 focus:ring-blue-500/20"
+                                                                                    value={getDisplayValue(editForm.rendimento || 0, editForm.id || 'edit', 'rendimento')}
+                                                                                    onChange={e => handleNumericChange(editForm.id || 'edit', 'rendimento', e.target.value, (v) => setEditForm({ ...editForm, rendimento: v }))}
+                                                                                    onBlur={() => setEditingValue(null)}
                                                                                     title="Rendimento em pares por unidade"
                                                                                     placeholder=""
                                                                                 />

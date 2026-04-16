@@ -152,6 +152,13 @@ export const formatCurrency = (value: number, decimals: number = 2) => {
   }).format(value).replace(/\s/g, ' ');
 };
 
+export const formatNumber = (value: number, decimals: number = 2) => {
+  return new Intl.NumberFormat('pt-BR', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(value);
+};
+
 export const calculateSolaMaterialsTotal = (sola: Sola, libraryInsumos: Insumo[], unidadesMedida: UnidadeMedida[] = []) => {
   return (sola.materiais || []).reduce((acc, mat) => {
     const libraryMat = libraryInsumos.find(m => m.id === (mat as any).materialId || m.id === mat.id);
