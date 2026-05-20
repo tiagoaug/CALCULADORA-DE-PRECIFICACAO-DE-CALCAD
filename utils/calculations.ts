@@ -160,18 +160,31 @@ export const formatNumber = (value: number, decimals: number = 2) => {
 };
 
 export const calculateSolaMaterialsTotal = (sola: Sola, libraryInsumos: Insumo[], unidadesMedida: UnidadeMedida[] = []) => {
+  // Novo modo: Mistura por Porcentagem com Rendimento Global
+  if (sola.tipo === 'porcentagem' && sola.rendimentoGlobal && sola.rendimentoGlobal > 0) {
+    const costPerKg = (sola.materiais || []).reduce((acc, mat) => {
+      const libraryMat = libraryInsumos.find(m => m.id === mat.materialId);
+      if (!libraryMat) return acc;
+      const price = Number(mat.precoAlternativo !== undefined ? mat.precoAlternativo : (libraryMat.valorUnitario || 0));
+      const perc = (mat.porcentagem || 0) / 100;
+      return acc + (price * perc);
+    }, 0);
+    return costPerKg / sola.rendimentoGlobal;
+  }
+
   return (sola.materiais || []).reduce((acc, mat) => {
     const libraryMat = libraryInsumos.find(m => m.id === (mat as any).materialId || m.id === mat.id);
     if (!libraryMat) return acc;
 
+    const price = Number(mat.precoAlternativo !== undefined ? mat.precoAlternativo : (libraryMat.valorUnitario || 0));
+
+    // Novo modo: Rendimento por Pares/Kg
+    if (mat.tipoCalculo === 'rendimento' && mat.rendimentoPares && mat.rendimentoPares > 0) {
+      return acc + (price / mat.rendimentoPares);
+    }
+
     // Lógica específica para solados: converte Kg para Gramas apenas aqui
     let factor = findUnitFactor(libraryMat.unidade || '', unidadesMedida, libraryMat.fator);
-    const unitName = (libraryMat.unidade || '').toLowerCase();
-    
-    // Se a unidade for Kg e o fator ainda for 1 (padrão), assume que o usuário quer converter para Gramas (1000)
-    // Mas se o usuário definiu um fator explicitamente (via material.fator), findUnitFactor já retornou ele.
-    
-    const price = Number(mat.precoAlternativo !== undefined ? mat.precoAlternativo : (libraryMat.valorUnitario || 0));
     const peso = Number(mat.pesoGrams || 0);
     
     return acc + ((price / factor) * peso);

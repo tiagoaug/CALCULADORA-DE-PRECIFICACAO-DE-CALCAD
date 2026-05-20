@@ -38,7 +38,9 @@ import {
   Mail,
   ArrowDownCircle,
   ArrowUpCircle,
-  AlertTriangle
+  AlertTriangle,
+  DollarSign,
+  Percent
 } from 'lucide-react';
 import { ProductData, AppDatabase, LibraryData, Insumo, MaterialPriceRecord, Sola, Supplier, UnidadeMedida } from './types';
 import { calculateSummary, formatCurrency, calculateSolaAverageCost, findUnitFactor, formatNumber } from './utils/calculations';
@@ -55,6 +57,7 @@ import {
 } from './utils/export';
 import LibraryView from './LibraryView';
 import AutocompleteInput from './AutocompleteInput';
+import QuickAddModal from './QuickAddModal';
 import { auth } from './firebase';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { firebaseService } from './firebaseService';
@@ -96,6 +99,155 @@ const DEFAULT_PRODUCT = (id: string = 'new'): ProductData => ({
   markup: { impostos: 0, comissao: 0, frete: 0, freteFixo: 0, perdas: 0, margemLucro: 30, selectedImpostos: [], selectedComissoes: [], selectedFretes: [] },
   precoVendaManual: 0
 });
+
+const PriceReadjustmentModal: React.FC<{
+  item: any;
+  type: string;
+  onConfirm: (updatedFields: any) => void;
+  onClose: () => void;
+}> = ({ item, type, onConfirm, onClose }) => {
+  const [form, setForm] = useState({
+    valor: (type === 'impostos' || type === 'comissoes' ? item.aliquota : (item.valorUnitario || item.valor || 0)).toString(),
+    unidade: item.unidade || '',
+    quantidadeCompra: (item.quantidadeCompra || 1).toString(),
+    fator: (item.fator || 1).toString(),
+    rendimento: (item.rendimento || 1).toString()
+  });
+
+  const isMaterial = type === 'insumos' || type === 'terceirizados';
+  const hasCalculation = isMaterial && parseFloat(form.quantidadeCompra) > 1;
+  const calculatedUnitPrice = hasCalculation ? (parseFloat(form.valor) || 0) / parseFloat(form.quantidadeCompra) : (parseFloat(form.valor) || 0);
+
+  return (
+    <div className="fixed inset-0 z-[5000] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md" onClick={onClose}>
+      <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-200 dark:border-slate-800 p-8 animate-in zoom-in duration-300 max-h-[90vh] overflow-y-auto custom-scrollbar" onClick={e => e.stopPropagation()}>
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-orange-500 rounded-2xl shadow-lg shadow-orange-500/20 text-white animate-pulse">
+              <TrendingUp className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black uppercase tracking-widest text-orange-500 animate-pulse">REAJUSTAR GERAL</h3>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Atualize este item em todo o sistema</p>
+            </div>
+          </div>
+          <button onClick={onClose} title="Fechar Reajuste" aria-label="Fechar Reajuste" className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400 transition-all"><X className="w-6 h-6" /></button>
+        </div>
+
+        <div className="bg-slate-50 dark:bg-slate-950/50 rounded-2xl p-6 border border-slate-100 dark:border-slate-800 mb-6">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Item Selecionado</p>
+          <p className="text-base font-black text-slate-800 dark:text-white uppercase truncate mb-6">{item.nome}</p>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-2 block">
+                {hasCalculation ? 'Novo Preço de Compra (Embalagem)' : 'Novo Preço / Alíquota'}
+              </label>
+              <div className="relative">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">
+                  {type === 'impostos' || type === 'comissoes' ? <Percent className="w-5 h-5" /> : <DollarSign className="w-5 h-5" />}
+                </div>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  autoFocus
+                  title="Novo Valor"
+                  placeholder="0,00"
+                  value={form.valor.replace('.', ',')}
+                  onChange={e => {
+                    const val = e.target.value.replace(',', '.');
+                    if (/^\d*\.?\d*$/.test(val)) setForm({ ...form, valor: val });
+                  }}
+                  className="w-full bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-2xl pl-12 pr-6 py-4 text-xl font-black font-mono text-blue-600 dark:text-blue-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all"
+                />
+              </div>
+            </div>
+
+            {isMaterial && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase mb-1.5 block">Qtd na Embalagem</label>
+                  <input
+                    type="text"
+                    value={form.quantidadeCompra}
+                    onChange={e => setForm({ ...form, quantidadeCompra: e.target.value.replace(',', '.') })}
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2 text-sm font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase mb-1.5 block">Unidade</label>
+                  <input
+                    type="text"
+                    value={form.unidade}
+                    onChange={e => setForm({ ...form, unidade: e.target.value })}
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2 text-sm font-bold uppercase"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase mb-1.5 block">Fator Conv.</label>
+                  <input
+                    type="text"
+                    value={form.fator}
+                    onChange={e => setForm({ ...form, fator: e.target.value.replace(',', '.') })}
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2 text-sm font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase mb-1.5 block">Rendimento (Par)</label>
+                  <input
+                    type="text"
+                    value={form.rendimento}
+                    onChange={e => setForm({ ...form, rendimento: e.target.value.replace(',', '.') })}
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2 text-sm font-bold"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {hasCalculation && (
+            <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-800/50">
+               <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-wider mb-2">
+                 <span className="text-slate-400">Qtd na Embalagem</span>
+                 <span className="text-slate-600 dark:text-slate-300">{form.quantidadeCompra} {form.unidade}</span>
+               </div>
+               <div className="flex justify-between items-center text-[11px] font-black uppercase tracking-wider">
+                 <span className="text-blue-500">Novo Custo Unitário</span>
+                 <span className="text-emerald-500 text-lg">{formatCurrency(calculatedUnitPrice, 4)}</span>
+               </div>
+            </div>
+          )}
+        </div>
+
+        <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30 rounded-2xl p-5 mb-8 flex gap-4 items-start">
+          <AlertTriangle className="w-6 h-6 text-amber-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-[11px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-1">Atenção!</p>
+            <p className="text-[9px] font-bold text-amber-600/80 dark:text-amber-500/80 leading-relaxed uppercase">
+              Esta alteração será gravada na biblioteca e atualizará **TODOS** os produtos que utilizam este item.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex gap-4">
+          <button onClick={onClose} className="flex-1 py-4 text-[11px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-all">Cancelar</button>
+          <button 
+            onClick={() => onConfirm({
+              valor: parseFloat(form.valor) || 0,
+              unidade: form.unidade,
+              quantidadeCompra: parseFloat(form.quantidadeCompra) || 1,
+              fator: parseFloat(form.fator) || 1,
+              rendimento: parseFloat(form.rendimento) || 1
+            })}
+            className="flex-[2] py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] shadow-xl shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+          >
+            <Check className="w-5 h-5" /> Confirmar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const InlineCalculator: React.FC<{
   onApply: (val: number) => void;
@@ -170,21 +322,36 @@ const InlineCalculator: React.FC<{
 };
 
 const ConsumptionCalculator: React.FC<{
-  onApply: (val: number) => void;
-  onClose: () => void;
+  onApply: (val: number, state: any) => void;
+  onClose: (state: any) => void;
   initialValue: number;
-}> = ({ onApply, onClose, initialValue }) => {
-  const [mode, setMode] = useState<'paper' | 'cut'>('paper');
+  initialState?: any;
+}> = ({ onApply, onClose, initialValue, initialState }) => {
+  const [mode, setMode] = useState<'paper' | 'cut'>(initialState?.mode || 'paper');
 
   // Mode 1: Papel Milimetrado
-  const [linearMeterWidth, setLinearMeterWidth] = useState('100');
-  const [side1, setSide1] = useState('');
-  const [side2, setSide2] = useState('');
-  const [piecesPerPair, setPiecesPerPair] = useState('2');
+  const [linearMeterWidth, setLinearMeterWidth] = useState(initialState?.linearMeterWidth || '100');
+  const [side1, setSide1] = useState(initialState?.side1 || '');
+  const [side2, setSide2] = useState(initialState?.side2 || '');
+  const [piecesPerPair, setPiecesPerPair] = useState(initialState?.piecesPerPair || '2');
 
   // Mode 2: Corte em material
-  const [totalMeters, setTotalMeters] = useState('');
-  const [totalPairs, setTotalPairs] = useState('');
+  const [totalMeters, setTotalMeters] = useState(initialState?.totalMeters || '');
+  const [totalPairs, setTotalPairs] = useState(initialState?.totalPairs || '');
+
+  const getState = () => ({
+    mode,
+    linearMeterWidth,
+    side1,
+    side2,
+    piecesPerPair,
+    totalMeters,
+    totalPairs
+  });
+
+  const handleClose = () => {
+    onClose(getState());
+  };
 
   const calculateMode1Linear = () => {
     const w = parseFloat(linearMeterWidth);
@@ -192,8 +359,6 @@ const ConsumptionCalculator: React.FC<{
     const s2 = parseFloat(side2);
     const p = parseFloat(piecesPerPair);
     if (w && s1 && s2 && p) {
-      // (lado x lado) dividido pelo metro linear em centimetros e multiplicar por 100
-      // Depois multiplicar pela quantidade de pecas por par
       const areaPiece = (s1 * s2) / w / 100;
       return areaPiece * p;
     }
@@ -205,7 +370,6 @@ const ConsumptionCalculator: React.FC<{
     const s2 = parseFloat(side2);
     const p = parseFloat(piecesPerPair);
     if (s1 && s2 && p) {
-      // (lado x lado) / 10000 (cm2 to m2) * pecas
       return ((s1 * s2) / 10000) * p;
     }
     return 0;
@@ -222,14 +386,14 @@ const ConsumptionCalculator: React.FC<{
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-md" onClick={onClose} />
+      <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-md" onClick={handleClose} />
       <div className="relative w-full max-w-[400px] bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 shadow-[0_30px_90px_rgba(0,0,0,0.6)] rounded-xl p-7 animate-in fade-in zoom-in duration-300">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-2.5">
             <Ruler className="w-5 h-5 text-emerald-500" />
             <span className="text-[12px] font-black text-slate-500 uppercase tracking-widest">Calculador de Consumo</span>
           </div>
-          <button onClick={onClose} title="Fechar Calculador de Consumo" aria-label="Fechar Calculador de Consumo" className="p-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400"><X className="w-5 h-5" /></button>
+          <button onClick={handleClose} title="Fechar Calculador de Consumo" aria-label="Fechar Calculador de Consumo" className="p-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400"><X className="w-5 h-5" /></button>
         </div>
 
         <div className="flex gap-2 mb-6 p-1 bg-slate-100 dark:bg-slate-950 rounded-md border border-slate-200 dark:border-slate-800">
@@ -286,7 +450,7 @@ const ConsumptionCalculator: React.FC<{
                     <Copy className="w-3.5 h-3.5" />
                   </button>
                   <button
-                    onClick={() => onApply(calculateMode1Linear())}
+                    onClick={() => onApply(calculateMode1Linear(), getState())}
                     title="Aplicar Metro Linear"
                     className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all active:scale-90"
                   >
@@ -312,7 +476,7 @@ const ConsumptionCalculator: React.FC<{
                     <Copy className="w-3.5 h-3.5" />
                   </button>
                   <button
-                    onClick={() => onApply(calculateMode1Square())}
+                    onClick={() => onApply(calculateMode1Square(), getState())}
                     title="Aplicar Metro Quadrado"
                     className="p-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-all active:scale-90"
                   >
@@ -354,7 +518,7 @@ const ConsumptionCalculator: React.FC<{
               <Copy className="w-4 h-4" /> Copiar
             </button>
             <button
-              onClick={() => onApply(calculateMode2())}
+              onClick={() => onApply(calculateMode2(), getState())}
               className="p-4 rounded-md text-[10px] font-black bg-emerald-600 text-white flex items-center justify-center gap-2 uppercase tracking-tight shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
               title="Aplicar Resultado"
             >
@@ -589,19 +753,48 @@ const App: React.FC = () => {
   const [activeConsumptionCalc, setActiveConsumptionCalc] = useState<string | null>(null);
   const [commentingItem, setCommentingItem] = useState<{ id: string, type: string, comment: string } | null>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => localStorage.getItem('theme') === 'dark' ? 'dark' : 'light');
+
+  // Sync theme to document root
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
   const [showProjectList, setShowProjectList] = useState(false);
+  const [showTools, setShowTools] = useState(false);
   const [showExportOptions, setShowExportOptions] = useState(false);
   const [showDatabase, setShowDatabase] = useState(false);
   const [showMaterialPrices, setShowMaterialPrices] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
+  const [editingClient, setEditingClient] = useState("");
+  const [projectSearch, setProjectSearch] = useState("");
+  const [expandedClients, setExpandedClients] = useState<Record<string, boolean>>({});
   const [selectedInsumoIds, setSelectedInsumoIds] = useState<string[]>([]);
   const [selectedTerceirizadoIds, setSelectedTerceirizadoIds] = useState<string[]>([]);
+  const [readjustmentItem, setReadjustmentItem] = useState<{ item: any, type: string } | null>(null);
   const [selectedCustoFixoIds, setSelectedCustoFixoIds] = useState<string[]>([]);
   const [selectedCustoIndiretoIds, setSelectedCustoIndiretoIds] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
+
+  const [showQuickAdd, setShowQuickAdd] = useState<{ type: 'insumos' | 'terceirizados' | 'pecas', initialName?: string, context?: any } | null>(null);
+
+  const getThemeColor = (type: string) => {
+    switch (type) {
+      case 'insumos': return 'emerald';
+      case 'pecas': return 'emerald';
+      case 'terceirizados': return 'orange';
+      case 'fixos': return 'purple';
+      case 'variaveis': return 'blue';
+      case 'solados': return 'indigo';
+      default: return 'blue';
+    }
+  };
 
   const toggleItemExpansion = (id: string) => {
     setExpandedItems(prev => ({ ...prev, [id]: !prev[id] }));
@@ -669,6 +862,19 @@ const App: React.FC = () => {
       })
     }));
   }, [db.lastSelectedProductId]);
+
+  const checkDuplicateInsumo = useCallback((peca: string, material: string, excludeId?: string, showAlert = true) => {
+    const isDuplicate = currentProduct.insumos.some(i =>
+      i.id !== excludeId &&
+      (i.peca || '').toLowerCase().trim() === (peca || '').toLowerCase().trim() &&
+      (i.material || '').toLowerCase().trim() === (material || '').toLowerCase().trim()
+    );
+    if (isDuplicate && showAlert) {
+      alert(`Atenção: A combinação "${peca || '(sem peça)'}" + "${material || '(sem material)'}" já existe neste produto.`);
+    }
+    return isDuplicate;
+  }, [currentProduct.insumos]);
+
 
   const handleCopyToClipboard = useCallback(async (type: string, data: any) => {
     const payload = {
@@ -779,6 +985,110 @@ const App: React.FC = () => {
     }));
   }, []);
 
+  const handlePerformReadjustment = (item: any, type: string, updatedFields: any) => {
+    setDb(prev => {
+      const newDb = { ...prev };
+      const itemName = item.nome;
+      const quantity = updatedFields.quantidadeCompra || 1;
+      const unitPrice = updatedFields.valor / quantity;
+
+      // 1. Atualizar na Biblioteca
+      const libraryList = newDb.library[type as keyof LibraryData];
+      if (Array.isArray(libraryList)) {
+        newDb.library[type as keyof LibraryData] = (libraryList as any[]).map(i => {
+          if (i.id === item.id) {
+            const updated = { ...i, ...updatedFields };
+            if (type === 'impostos' || type === 'comissoes') updated.aliquota = updatedFields.valor;
+            else if (type === 'custosFixos' || type === 'custosIndiretos' || type === 'fretes') updated.valor = updatedFields.valor;
+            else {
+              updated.valorUnitario = updatedFields.valor; // Na biblioteca, valorUnitario é o preço de compra (embalagem)
+            }
+            return updated;
+          }
+          return i;
+        });
+      }
+
+      // 2. Propagar para TODOS os produtos
+      newDb.products = newDb.products.map(product => {
+        let updated = false;
+        const newProduct = { ...product };
+
+        if (type === 'insumos') {
+          newProduct.insumos = (newProduct.insumos || []).map(ins => {
+            if (ins.material === itemName || ins.nome === itemName) {
+              updated = true;
+              return { 
+                ...ins, 
+                valorUnitario: unitPrice,
+                unidade: updatedFields.unidade || ins.unidade,
+                quantidadeCompra: updatedFields.quantidadeCompra || ins.quantidadeCompra,
+                fator: updatedFields.fator || ins.fator,
+                rendimento: updatedFields.rendimento || ins.rendimento
+              };
+            }
+            return ins;
+          });
+        } else if (type === 'terceirizados') {
+          newProduct.terceirizados = (newProduct.terceirizados || []).map(t => {
+            if (t.nome === itemName) {
+              updated = true;
+              return { 
+                ...t, 
+                valorUnitario: unitPrice,
+                unidade: updatedFields.unidade || t.unidade,
+                quantidadeCompra: updatedFields.quantidadeCompra || t.quantidadeCompra,
+                fator: updatedFields.fator || t.fator,
+                rendimento: updatedFields.rendimento || t.rendimento
+              };
+            }
+            return t;
+          });
+        } else if (type === 'custosFixos') {
+          newProduct.custosFixos = (newProduct.custosFixos || []).map(cf => {
+            if (cf.nome === itemName) {
+              updated = true;
+              return { ...cf, valor: newPrice };
+            }
+            return cf;
+          });
+        } else if (type === 'custosIndiretos') {
+          newProduct.custosIndiretos = (newProduct.custosIndiretos || []).map(ci => {
+            if (ci.nome === itemName) {
+              updated = true;
+              return { ...ci, valor: newPrice };
+            }
+            return ci;
+          });
+        } else if (type === 'impostos' && newProduct.markup?.selectedImpostos?.includes(item.id)) {
+          updated = true;
+          const total = newDb.library.impostos
+            .filter(i => newProduct.markup.selectedImpostos.includes(i.id))
+            .reduce((sum, i) => sum + i.aliquota, 0);
+          newProduct.markup = { ...newProduct.markup, impostos: total };
+        } else if (type === 'comissoes' && newProduct.markup?.selectedComissoes?.includes(item.id)) {
+          updated = true;
+          const total = newDb.library.comissoes
+            .filter(i => newProduct.markup.selectedComissoes.includes(i.id))
+            .reduce((sum, i) => sum + i.aliquota, 0);
+          newProduct.markup = { ...newProduct.markup, comissao: total };
+        } else if (type === 'fretes' && newProduct.markup?.selectedFretes?.includes(item.id)) {
+          updated = true;
+          const total = newDb.library.fretes
+            .filter(i => newProduct.markup.selectedFretes.includes(i.id))
+            .reduce((sum, i) => sum + i.valor, 0);
+          newProduct.markup = { ...newProduct.markup, freteFixo: total };
+        }
+
+        return updated ? newProduct : product;
+      });
+
+      return newDb;
+    });
+
+    setReadjustmentItem(null);
+  };
+
   const handleSaveToLibrary = useCallback((type: keyof LibraryData, name: string) => {
     const existing = db.library[type].find(item => item.nome.toLowerCase() === name.toLowerCase());
     if (existing) {
@@ -815,6 +1125,7 @@ const App: React.FC = () => {
       const id = activeLibraryTarget.id;
       switch (type) {
         case 'pecas':
+          if (checkDuplicateInsumo(item.nome, currentProduct.insumos.find(i => i.id === id)?.material || '', id)) return;
           updateCurrentProduct({
             insumos: currentProduct.insumos.map(i => i.id === id ? {
               ...i,
@@ -824,6 +1135,7 @@ const App: React.FC = () => {
           });
           break;
         case 'insumos':
+          if (checkDuplicateInsumo(currentProduct.insumos.find(i => i.id === id)?.peca || '', item.nome, id)) return;
           updateCurrentProduct({
             insumos: currentProduct.insumos.map(i => {
               if (i.id === id) {
@@ -992,6 +1304,7 @@ const App: React.FC = () => {
           });
           break;
         case 'solados':
+          if (checkDuplicateInsumo('Solado', item.nome)) return;
           const solaCost = calculateSolaAverageCost(item, db.library.insumos, db.library.unidadesMedida);
           updateCurrentProduct({
             insumos: [
@@ -1058,7 +1371,15 @@ const App: React.FC = () => {
             };
           }
         });
-        updateCurrentProduct({ insumos: [...currentProduct.insumos, ...newInsumos] });
+        const filteredNewInsumos = newInsumos.filter(ni => !checkDuplicateInsumo(ni.peca, ni.material));
+        if (filteredNewInsumos.length < newInsumos.length) {
+          if (filteredNewInsumos.length === 0) {
+            alert('Todos os itens selecionados já existem neste produto.');
+            return;
+          }
+          alert(`${newInsumos.length - filteredNewInsumos.length} itens duplicados foram ignorados.`);
+        }
+        updateCurrentProduct({ insumos: [...currentProduct.insumos, ...filteredNewInsumos] });
         break;
       case 'terceirizados':
         const newTerceirizados = items.map(item => ({
@@ -1160,6 +1481,70 @@ const App: React.FC = () => {
     reader.readAsText(file);
   };
 
+  const handleExportPDF = () => {
+    downloadPDF(
+      currentProduct.insumos,
+      summary,
+      currentProduct.name,
+      currentProduct.terceirizados,
+      currentProduct.type,
+      currentProduct.markup.selectedImpostos,
+      db.library.impostos,
+      currentProduct.markup.selectedComissoes,
+      db.library.comissoes,
+      currentProduct.markup.selectedFretes,
+      db.library.fretes
+    );
+  };
+
+  const handleSharePDF = () => {
+    const summary = calculateSummary(currentProduct, db.library, db.settings);
+    sharePDF(
+      currentProduct.insumos,
+      summary,
+      currentProduct.name,
+      currentProduct.terceirizados,
+      currentProduct.type,
+      currentProduct.markup.selectedImpostos,
+      db.library.impostos,
+      currentProduct.markup.selectedComissoes,
+      db.library.comissoes,
+      currentProduct.markup.selectedFretes,
+      db.library.fretes
+    );
+  };
+
+  const handleShareText = () => {
+    const summary = calculateSummary(currentProduct, db.library, db.settings);
+    shareTextReport(
+      summary,
+      currentProduct.name,
+      currentProduct.type,
+      currentProduct.markup.selectedImpostos,
+      db.library.impostos,
+      currentProduct.markup.selectedComissoes,
+      db.library.comissoes,
+      currentProduct.markup.selectedFretes,
+      db.library.fretes
+    );
+  };
+
+  const handleExportExcel = () => {
+    exportToXLS(
+      currentProduct.insumos,
+      summary,
+      currentProduct.name,
+      currentProduct.terceirizados,
+      currentProduct.type,
+      currentProduct.markup.selectedImpostos,
+      db.library.impostos,
+      currentProduct.markup.selectedComissoes,
+      db.library.comissoes,
+      currentProduct.markup.selectedFretes,
+      db.library.fretes
+    );
+  };
+
   const handleLogout = async () => {
     if (window.confirm("Deseja realmente sair da sua conta? Todas as alterações sincronizadas estão seguras na nuvem. Os dados locais deste dispositivo serão limpos para sua segurança.")) {
       const targetUid = user?.uid; // Store current UID before resetting state
@@ -1199,6 +1584,7 @@ const App: React.FC = () => {
     }
   };
 
+  // Movi a definição do summary para cima para ser acessível aos handlers de exportação
   const summary = useMemo(() =>
     calculateSummary(
       currentProduct.insumos || [],
@@ -1214,6 +1600,7 @@ const App: React.FC = () => {
     ),
     [currentProduct, db.library.unidadesMedida]
   );
+
 
   const handleUpdateComment = (id: string, type: string, comment: string) => {
     switch (type) {
@@ -1240,7 +1627,14 @@ const App: React.FC = () => {
     if (!isNaN(numValue)) {
       // f: fixo, i: indireto (se não for do markup 'm'), ff: frete fixo, purchase: preço compra
       const isPrice = ['v', 'tv', 'purchase', 'manual', 'f', 'ff'].includes(field) || (field === 'i' && id !== 'm');
-      const roundedValue = isPrice ? Math.round(numValue * 100) / 100 : Math.round(numValue * 10000) / 10000;
+      const isInteger = ['d', 'u'].includes(field);
+      // Item 5: Metas e Taxas (id 'm') devem ter 1 casa decimal
+      const isOneDecimal = id === 'm' && ['i', 'c', 'l', 'p', 'ff'].includes(field);
+      
+      const roundedValue = isInteger 
+        ? Math.round(numValue) 
+        : (isOneDecimal ? Math.round(numValue * 10) / 10 : (isPrice ? Math.round(numValue * 100) / 100 : Math.round(numValue * 10000) / 10000));
+        
       updateFn(roundedValue);
     }
   };
@@ -1334,9 +1728,14 @@ const App: React.FC = () => {
     if (editingValue && editingValue.id === id && editingValue.field === field) {
       return editingValue.value;
     }
-    // Determina se o campo é um valor monetário (2 casas) ou quantidade (4 casas)
+    // Determina se o campo é um valor monetário (2 casas), quantidade (4 casas) ou inteiro (0 casas)
     const isPrice = ['v', 'tv', 'purchase', 'manual', 'f', 'ff'].includes(field) || (field === 'i' && id !== 'm');
-    return formatNumber(value, isPrice ? 2 : 4);
+    const isInteger = ['d', 'u'].includes(field);
+    // Item 5: Metas e Taxas (id 'm') devem ter 1 casa decimal
+    const isOneDecimal = id === 'm' && ['i', 'c', 'l', 'p', 'ff'].includes(field);
+    
+    const decimals = isInteger ? 0 : (isOneDecimal ? 1 : (isPrice ? 2 : 4));
+    return formatNumber(value, decimals);
   };
 
   const inputBase = "w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-2.5 text-[12px] font-bold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-slate-800 dark:text-slate-100";
@@ -1359,7 +1758,7 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen pb-10 bg-slate-200 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors font-sans overflow-x-hidden md:px-0 px-2 lg:px-4">
 
-      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 md:top-2 z-50 px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md rounded-b-xl md:rounded-xl mx-[-8px] md:mx-0 print:hidden mt-0 md:mt-2" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
+      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 md:top-2 z-50 px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md rounded-b-xl md:rounded-xl mx-[-8px] md:mx-0 print:hidden mt-0 md:mt-2 pt-[max(1rem,env(safe-area-inset-top))]">
         <div className="flex items-center gap-3 w-full sm:flex-1 min-w-0">
           <div className="flex items-center gap-2 shrink-0">
             <button onClick={() => setShowProjectList(true)} title="Abrir Lista de Projetos" aria-label="Projetos" className="p-2 sm:p-2.5 shrink-0 bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl border border-slate-200 dark:border-slate-700 transition-all active:scale-95 shadow-sm">
@@ -1379,7 +1778,14 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex flex-col flex-1 min-w-0 border-l border-slate-200 dark:border-slate-700 pl-3">
-            <input value={currentProduct.name} title="Nome do Produto" aria-label="Nome do Produto" onChange={(e) => updateCurrentProduct({ name: e.target.value })} className="bg-transparent border-none font-black text-base sm:text-lg focus:ring-0 w-full min-w-0 truncate leading-tight p-0 text-slate-800 dark:text-white" placeholder="Nome do Produto" />
+            <input 
+              value={currentProduct.name || ''} 
+              title="Nome do Produto" 
+              aria-label="Nome do Produto" 
+              onChange={(e) => updateCurrentProduct({ name: e.target.value })} 
+              className="bg-transparent border-none font-black text-base sm:text-lg focus:ring-0 w-full min-w-0 truncate leading-tight p-0 text-slate-800 dark:text-white" 
+              placeholder="Nome do Produto" 
+            />
             <div className="flex items-center gap-2 mt-1.5">
               <button
                 onClick={handleManualSync}
@@ -1400,16 +1806,7 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center w-full sm:w-auto justify-between sm:justify-end gap-2 shrink-0 pt-3 sm:pt-0 border-t border-slate-100 sm:border-0 dark:border-slate-800 overflow-x-auto">
-          <div className="hidden lg:flex flex-col items-end mr-2">
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Conta ativa</span>
-            <span className="text-xs font-bold text-slate-600 dark:text-slate-300 max-w-[150px] truncate">{user.email}</span>
-          </div>
 
-          <div className="flex items-center gap-2">
-
-          </div>
-        </div>
       </header>
 
       {/* Print Only Header */}
@@ -1425,7 +1822,7 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      <main className="max-w-[1440px] mx-auto md:px-6 px-0 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 print:p-0 print:gap-4">
+      <main id="main-content-top" className="max-w-[1440px] mx-auto md:px-6 px-0 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 print:p-0 print:gap-4">
         <div className="lg:col-span-9 space-y-6 print:space-y-4">
 
           <Section title="1. Materiais e Peças" icon={<Package className="text-emerald-500 w-5 h-5" />} expanded={expandedSection === 'insumos'} onToggle={() => toggleSection('insumos')}>
@@ -1565,20 +1962,26 @@ const App: React.FC = () => {
                               placeholder="Ex: Cabedal..."
                               hidePrice={true}
                               className={`${inputBase} w-full pr-10`}
-                              onChange={(val) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, peca: val, nome: `${val}${i.material ? ' - ' + i.material : ''}` } : i) })}
-                              onSelect={(item) => updateCurrentProduct({
-                                insumos: currentProduct.insumos.map(i => i.id === insumo.id ? {
-                                  ...i,
-                                  peca: item.nome,
-                                  nome: `${item.nome}${i.material ? ' - ' + i.material : ''}`,
-                                  valorUnitario: 0 // Peça selection sets price to 0
-                                } : i)
-                              })}
+                              onChange={(val) => {
+                                if (checkDuplicateInsumo(val, insumo.material || '', insumo.id, false)) return;
+                                updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, peca: val, nome: `${val}${i.material ? ' - ' + i.material : ''}` } : i) });
+                              }}
+                              onSelect={(item) => {
+                                if (checkDuplicateInsumo(item.nome, insumo.material || '', insumo.id)) return;
+                                updateCurrentProduct({
+                                  insumos: currentProduct.insumos.map(i => i.id === insumo.id ? {
+                                    ...i,
+                                    peca: item.nome,
+                                    nome: `${item.nome}${i.material ? ' - ' + i.material : ''}`,
+                                    valorUnitario: 0 // Peça selection sets price to 0
+                                  } : i)
+                                });
+                              }}
                             />
                             <div className="absolute right-1 top-1/2 -translate-y-1/2 z-10 flex gap-0.5">
                               {(insumo.peca || '').trim().length > 2 && !db.library.pecas.find(p => p.nome.toLowerCase() === (insumo.peca || '').toLowerCase()) ? (
                                 <button
-                                  onClick={() => handleSaveToLibrary('pecas', insumo.peca)}
+                                  onClick={() => setShowQuickAdd({ type: 'pecas', initialName: insumo.peca, context: { id: insumo.id } })}
                                   title="Salvar Peça no Banco"
                                   className="p-1.5 hover:bg-amber-50 dark:hover:bg-amber-900/40 rounded-md text-amber-500 relative"
                                 >
@@ -1610,15 +2013,20 @@ const App: React.FC = () => {
                               })}
                               placeholder="Ex: Couro ou Sola..."
                               className={`${inputBase} w-full pr-10`}
-                              onChange={(val) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, material: val, nome: `${i.peca ? i.peca + ' - ' : ''}${val}` } : i) })}
+                              onChange={(val) => {
+                                if (checkDuplicateInsumo(insumo.peca || '', val, insumo.id, false)) return;
+                                updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, material: val, nome: `${i.peca ? i.peca + ' - ' : ''}${val}` } : i) });
+                              }}
                               onSelect={(item) => {
                                 const isSola = (item as any)._type === 'solados';
+                                const materialName = isSola ? `SOLA: ${item.nome}` : item.nome;
+                                if (checkDuplicateInsumo(isSola ? 'Solado' : (insumo.peca || ''), materialName, insumo.id)) return;
+
                                 const finalCost = isSola
                                   ? calculateSolaAverageCost(item as any, db.library.insumos, db.settings.unidadesMedida)
                                   : ((item.quantidadeCompra && item.quantidadeCompra > 0)
                                     ? Math.round((item.valorUnitario / item.quantidadeCompra) * 100) / 100
                                     : Math.round((item.valor_unitario || item.valorUnitario || 0) * 100) / 100);
-                                const materialName = isSola ? `SOLA: ${item.nome}` : item.nome;
                                 updateCurrentProduct({
                                   insumos: currentProduct.insumos.map(i => i.id === insumo.id ? {
                                     ...i,
@@ -1634,7 +2042,7 @@ const App: React.FC = () => {
                             <div className="absolute right-1 top-1/2 -translate-y-1/2 z-10 flex gap-0.5">
                               {(insumo.material || '').trim().length > 2 && !db.library.insumos.find(m => m.nome.toLowerCase() === (insumo.material || '').toLowerCase()) ? (
                                 <button
-                                  onClick={() => handleSaveToLibrary('insumos', insumo.material)}
+                                  onClick={() => setShowQuickAdd({ type: 'insumos', initialName: insumo.material, context: { id: insumo.id } })}
                                   title="Salvar Material no Banco"
                                   className="p-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-900/40 rounded-md text-emerald-600 relative"
                                 >
@@ -1800,20 +2208,26 @@ const App: React.FC = () => {
                               placeholder="Ex: Cabedal..."
                               hidePrice={true}
                               className={`${inputBase} !bg-transparent truncate pr-8`}
-                              onChange={(val) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, peca: val, nome: `${val}${i.material ? ' - ' + i.material : ''}` } : i) })}
-                              onSelect={(item) => updateCurrentProduct({
-                                insumos: currentProduct.insumos.map(i => i.id === insumo.id ? {
-                                  ...i,
-                                  peca: item.nome,
-                                  nome: `${item.nome}${i.material ? ' - ' + i.material : ''}`,
-                                  valorUnitario: 0 // Peça selection sets price to 0
-                                } : i)
-                              })}
+                              onChange={(val) => {
+                                if (checkDuplicateInsumo(val, insumo.material || '', insumo.id, false)) return;
+                                updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, peca: val, nome: `${val}${i.material ? ' - ' + i.material : ''}` } : i) });
+                              }}
+                              onSelect={(item) => {
+                                if (checkDuplicateInsumo(item.nome, insumo.material || '', insumo.id)) return;
+                                updateCurrentProduct({
+                                  insumos: currentProduct.insumos.map(i => i.id === insumo.id ? {
+                                    ...i,
+                                    peca: item.nome,
+                                    nome: `${item.nome}${i.material ? ' - ' + i.material : ''}`,
+                                    valorUnitario: 0 // Peça selection sets price to 0
+                                  } : i)
+                                });
+                              }}
                             />
                             <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/field:opacity-100 transition-all z-10 flex gap-0.5">
                               {(insumo.peca || '').trim().length > 2 && !db.library.pecas.find(p => p.nome.toLowerCase() === (insumo.peca || '').toLowerCase()) ? (
                                 <button
-                                  onClick={() => handleSaveToLibrary('pecas', insumo.peca)}
+                                  onClick={() => setShowQuickAdd({ type: 'pecas', initialName: insumo.peca, context: { id: insumo.id } })}
                                   title="Salvar Peça no Banco"
                                   className="p-1 hover:bg-amber-50 dark:hover:bg-amber-900/40 rounded text-amber-500 relative"
                                 >
@@ -1846,15 +2260,21 @@ const App: React.FC = () => {
                               })}
                               placeholder="Ex: Couro ou Sola..."
                               className={`${inputBase} !bg-transparent truncate pr-14`}
-                              onChange={(val) => updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, material: val, nome: `${i.peca ? i.peca + ' - ' : ''}${val}` } : i) })}
+                              onChange={(val) => {
+                                if (checkDuplicateInsumo(insumo.peca || '', val, insumo.id, false)) return;
+                                updateCurrentProduct({ insumos: currentProduct.insumos.map(i => i.id === insumo.id ? { ...i, material: val, nome: `${i.peca ? i.peca + ' - ' : ''}${val}` } : i) });
+                              }}
                               onSelect={(item) => {
                                 const isSola = (item as any)._type === 'solados';
+                                const materialName = isSola ? `SOLA: ${item.nome}` : item.nome;
+                                if (checkDuplicateInsumo(isSola ? 'Solado' : (insumo.peca || ''), materialName, insumo.id)) return;
+
                                 const finalCost = isSola
                                   ? calculateSolaAverageCost(item as any, db.library.insumos, db.settings.unidadesMedida)
                                   : ((item.quantidadeCompra && item.quantidadeCompra > 0)
                                     ? Math.round((item.valorUnitario / item.quantidadeCompra) * 100) / 100
                                     : Math.round((item.valor_unitario || item.valorUnitario || 0) * 100) / 100);
-                                const materialName = isSola ? `SOLA: ${item.nome}` : item.nome;
+
                                 updateCurrentProduct({
                                   insumos: currentProduct.insumos.map(i => i.id === insumo.id ? {
                                     ...i,
@@ -1877,7 +2297,7 @@ const App: React.FC = () => {
                               </button>
                               {(insumo.material || '').trim().length > 2 && !db.library.insumos.find(m => m.nome.toLowerCase() === (insumo.material || '').toLowerCase()) ? (
                                 <button
-                                  onClick={() => handleSaveToLibrary('insumos', insumo.material)}
+                                  onClick={() => setShowQuickAdd({ type: 'insumos', initialName: insumo.material, context: { id: insumo.id } })}
                                   title="Salvar Material no Banco"
                                   className="p-1 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded text-blue-500 relative"
                                 >
@@ -2070,7 +2490,7 @@ const App: React.FC = () => {
                         </button>
                         {t.nome.trim().length > 2 && !db.library.terceirizados.find(s => s.nome.toLowerCase() === t.nome.toLowerCase()) ? (
                           <button
-                            onClick={() => handleSaveToLibrary('terceirizados', t.nome)}
+                            onClick={() => setShowQuickAdd({ type: 'terceirizados', initialName: t.nome, context: { id: t.id } })}
                             title="Salvar no Cadastro"
                             className="p-1.5 hover:bg-amber-50 dark:hover:bg-amber-900/40 rounded-md text-amber-500 transition-all relative"
                           >
@@ -2250,7 +2670,7 @@ const App: React.FC = () => {
                         </button>
                         {t.nome.trim().length > 2 && !db.library.terceirizados.find(s => s.nome.toLowerCase() === t.nome.toLowerCase()) ? (
                           <button
-                            onClick={() => handleSaveToLibrary('terceirizados', t.nome)}
+                            onClick={() => setShowQuickAdd({ type: 'terceirizados', initialName: t.nome, context: { id: t.id } })}
                             title="Salvar no Cadastro"
                             className="p-1.5 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/40 rounded transition-all relative"
                           >
@@ -3037,14 +3457,20 @@ const App: React.FC = () => {
       {activeConsumptionCalc && (
         <ConsumptionCalculator
           initialValue={currentProduct.insumos.find(i => i.id === activeConsumptionCalc)?.quantidade || 0}
-          onApply={(val) => {
+          initialState={currentProduct.insumos.find(i => i.id === activeConsumptionCalc)?.consumptionCalcState}
+          onApply={(val, state) => {
             const roundedVal = Math.round(val * 10000) / 10000;
             updateCurrentProduct({
-              insumos: currentProduct.insumos.map(i => i.id === activeConsumptionCalc ? { ...i, quantidade: roundedVal } : i)
+              insumos: currentProduct.insumos.map(i => i.id === activeConsumptionCalc ? { ...i, quantidade: roundedVal, consumptionCalcState: state } : i)
             });
             setActiveConsumptionCalc(null);
           }}
-          onClose={() => setActiveConsumptionCalc(null)}
+          onClose={(state) => {
+            updateCurrentProduct({
+              insumos: currentProduct.insumos.map(i => i.id === activeConsumptionCalc ? { ...i, consumptionCalcState: state } : i)
+            });
+            setActiveConsumptionCalc(null);
+          }}
         />
       )}
 
@@ -3167,236 +3593,519 @@ const App: React.FC = () => {
           onAddItem={handleAddItemToLibrary}
           onDeleteItem={handleDeleteItemFromLibrary}
           onUpdateItem={handleUpdateItemInLibrary}
+          onPriceReadjustment={(item, type) => setReadjustmentItem({ item, type })}
           onUpdateUnits={(newUnits) => setDb(prev => ({ ...prev, settings: { ...prev.settings, unidadesMedida: newUnits } }))}
           onResetCloud={handleResetCloud}
           isSyncing={syncStatus === 'syncing'}
+          onShowPriceComparison={() => setShowMaterialPrices(true)}
+        />
+      )}
+
+      {showQuickAdd && (
+        <QuickAddModal 
+          type={showQuickAdd.type}
+          units={db.settings.unidadesMedida || DEFAULT_UNITS}
+          getThemeColor={getThemeColor}
+          initialName={showQuickAdd.initialName}
+          onClose={() => setShowQuickAdd(null)}
+          onSave={(item) => {
+            const type = showQuickAdd.type;
+            const context = showQuickAdd.context;
+            const itemWithId = { ...item, id: Math.random().toString(36) };
+            
+            // 1. Add to library
+            handleAddItemToLibrary(type, itemWithId);
+
+            // 2. Update product row if context exists
+            if (context && context.id) {
+              if (type === 'insumos') {
+                updateCurrentProduct({
+                  insumos: currentProduct.insumos.map(i => i.id === context.id ? { 
+                    ...i, 
+                    material: itemWithId.material || itemWithId.nome,
+                    nome: `${i.peca ? i.peca + ' - ' : ''}${itemWithId.material || itemWithId.nome}`,
+                    unidade: itemWithId.unidade,
+                    valorUnitario: itemWithId.valorUnitario,
+                    quantidade: itemWithId.fator / (itemWithId.rendimento || 1)
+                  } : i)
+                });
+              } else if (type === 'pecas') {
+                updateCurrentProduct({
+                  insumos: currentProduct.insumos.map(i => i.id === context.id ? { 
+                    ...i, 
+                    peca: itemWithId.nome,
+                    nome: `${itemWithId.nome}${i.material ? ' - ' + i.material : ''}`,
+                    unidade: itemWithId.unidade,
+                    valorUnitario: itemWithId.valorUnitario
+                  } : i)
+                });
+              } else if (type === 'terceirizados') {
+                updateCurrentProduct({
+                  terceirizados: currentProduct.terceirizados.map(i => i.id === context.id ? { 
+                    ...i, 
+                    nome: itemWithId.nome,
+                    unidade: itemWithId.unidade,
+                    valorUnitario: itemWithId.valorUnitario
+                  } : i)
+                });
+              }
+            }
+            setShowQuickAdd(null);
+          }}
         />
       )}
 
       {showProjectList && (
-        <div className="fixed inset-0 z-[1500] flex items-center justify-start">
+        <div className="fixed inset-0 z-[1500] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={() => setShowProjectList(false)} />
-          <div className="relative w-80 h-full bg-white dark:bg-slate-950 p-8 shadow-2xl animate-in slide-in-from-left duration-300 border-r border-slate-200 dark:border-slate-800 flex flex-col">
-            <div className="flex justify-between items-center mb-10">
+          <div className="relative w-full max-w-2xl h-[85vh] bg-white dark:bg-slate-950 rounded-3xl p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-300 border border-slate-200 dark:border-slate-800 flex flex-col">
+            <div className="flex justify-between items-center mb-8">
               <h2 className="text-sm font-black uppercase flex items-center gap-3"><FolderOpen className="text-amber-500 w-5 h-5" /> PROJETOS</h2>
-              <button onClick={() => setShowProjectList(false)} title="Fechar" aria-label="Fechar" className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400"><X className="w-5 h-5" /></button>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                  className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all active:scale-95"
+                  title="Alternar Modo Noturno"
+                >
+                  {theme === 'dark' ? <Sun className="w-5 h-5 text-amber-500" /> : <Moon className="w-5 h-5 text-slate-600" />}
+                </button>
+                <button onClick={() => setShowProjectList(false)} title="Fechar" aria-label="Fechar" className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-slate-400 transition-all"><X className="w-5 h-5" /></button>
+              </div>
             </div>
 
-            <button onClick={() => { const p = DEFAULT_PRODUCT(Math.random().toString(36)); setDb(prev => ({ ...prev, products: [...prev.products, p], lastSelectedProductId: p.id })); setShowProjectList(false); }} className="w-full py-4 mb-3 bg-blue-600 text-white rounded-md font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-blue-700 shadow-xl active:scale-95 transition-all"><Plus className="w-4 h-4" /> NOVO PRODUTO</button>
-            <button onClick={() => { setShowMaterialPrices(true); setShowProjectList(false); }} className="w-full py-4 mb-8 bg-slate-800 text-white rounded-md font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-slate-700 shadow-xl active:scale-95 transition-all"><TrendingUp className="w-4 h-4" /> COMPARAÇÃO DE PREÇOS</button>
-
-            <div className="flex-1 space-y-3 overflow-y-auto pr-2 custom-scrollbar">
-              {db.products.map(p => (
-                <div key={p.id} className="group flex gap-2 animate-in fade-in duration-500">
-                  <div
-                    onClick={() => {
-                      if (editingProjectId !== p.id) {
-                        setDb(prev => ({ ...prev, lastSelectedProductId: p.id }));
-                        setShowProjectList(false);
-                      }
-                    }}
-                    className={`flex-1 p-5 rounded-2xl cursor-pointer transition-all border-2 ${p.id === db.lastSelectedProductId ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30 shadow-lg shadow-blue-500/10' : 'border-slate-100 dark:border-slate-800 hover:border-slate-200'}`}
-                  >
-                    {editingProjectId === p.id ? (
-                      <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                        <input
-                          autoFocus
-                          value={editingName}
-                          title="Nome do Projeto"
-                          aria-label="Editar Nome do Projeto"
-                          onChange={(e) => setEditingName(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              setDb(prev => ({
-                                ...prev,
-                                products: prev.products.map(prod => prod.id === p.id ? { ...prod, name: editingName, lastModified: Date.now() } : prod)
-                              }));
-                              setEditingProjectId(null);
-                            } else if (e.key === 'Escape') {
-                              setEditingProjectId(null);
-                            }
-                          }}
-                          className="flex-1 bg-white dark:bg-slate-800 border border-blue-500 rounded px-2 py-1 text-xs font-black uppercase outline-none"
-                        />
-                        <button
-                          onClick={() => {
-                            setDb(prev => ({
-                              ...prev,
-                              products: prev.products.map(prod => prod.id === p.id ? { ...prod, name: editingName, lastModified: Date.now() } : prod)
-                            }));
-                            setEditingProjectId(null);
-                          }}
-                          title="Salvar"
-                          aria-label="Salvar Nome"
-                          className="p-1 text-emerald-500 hover:bg-emerald-50 rounded"
-                        >
-                          <Check className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <p className="font-black text-xs truncate uppercase tracking-tight">{p.name || 'Sem Nome'}</p>
-                        <p className="text-[9px] text-slate-400 font-bold uppercase mt-2">{new Date(p.lastModified).toLocaleDateString()}</p>
-                      </>
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-1 justify-center">
-                    <button onClick={() => { setEditingProjectId(p.id); setEditingName(p.name); }} title="Editar Nome" aria-label="Editar Nome" className="p-2 text-slate-300 hover:text-amber-500 transition-colors"><Edit className="w-4 h-4" /></button>
-                    <button onClick={() => {
-                      const duplicatedProduct = JSON.parse(JSON.stringify(p));
-                      duplicatedProduct.id = Math.random().toString(36);
-                      duplicatedProduct.name = `${p.name} (Cópia)`;
-                      duplicatedProduct.lastModified = Date.now();
-                      setDb(prev => ({ ...prev, products: [...prev.products, duplicatedProduct], lastSelectedProductId: duplicatedProduct.id }));
-                      setShowProjectList(false);
-                    }} title="Duplicar Produto" aria-label="Duplicar Produto" className="p-2 text-slate-300 hover:text-blue-500 transition-colors"><Copy className="w-4 h-4" /></button>
-                    {db.products.length > 1 && (
-                      <button
-                        onClick={async () => {
-                          if (confirm('Deseja realmente excluir este produto?')) {
-                            const id = p.id;
-                            // Update local state
-                            setDb(prev => {
-                              const next = prev.products.filter(item => item.id !== id);
-                              return { ...prev, products: next, lastSelectedProductId: next[0].id };
-                            });
-                            // Immediate cloud delete for consistency
-                            if (user) {
-                              try {
-                                await firebaseService.deleteProject(user.uid, id);
-                                console.log(`App: Project ${id} deleted from cloud.`);
-                              } catch (e) {
-                                console.error("App: Error deleting project from cloud:", e);
-                              }
-                            }
-                          }
-                        }}
-                        title="Excluir Produto"
-                        aria-label="Excluir Produto"
-                        className="p-2 text-slate-300 hover:text-red-500 transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-
-
-              <div className="mt-8 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col">
-                <button
-                  onClick={() => setShowExportOptions(!showExportOptions)}
-                  className="flex items-center justify-between w-full p-4 bg-slate-50 dark:bg-slate-800/80 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shadow-sm border border-slate-200 dark:border-slate-700 active:scale-[0.98]"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
-                      <Share className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div className="flex flex-col items-start">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
-                        Salvar & Compartilhar
-                      </span>
-                      <span className="text-[9px] font-bold text-slate-400">
-                        PDF, Excel, Backups
-                      </span>
-                    </div>
-                  </div>
-                  <ChevronDown
-                    className={`w-5 h-5 text-slate-400 transition-transform duration-300 ease-in-out ${showExportOptions ? 'rotate-180 text-blue-500' : ''}`}
-                  />
-                </button>
-
-                <div
-                  className={`overflow-hidden transition-all duration-300 ease-in-out flex flex-col ${showExportOptions ? 'max-h-[800px] opacity-100 mt-6' : 'max-h-0 opacity-0'}`}
-                >
-                  {/* Indicador de Conta Ativa solicitado pelo usuário */}
-                  <div className="mb-6 p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-800/50 flex flex-col items-center">
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                      <span className="text-[9px] font-black text-blue-500 uppercase tracking-widest">Sincronizado com:</span>
-                    </div>
-                    <span className="text-sm font-black text-slate-800 dark:text-white">{user.email}</span>
-                  </div>
-
-                  <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Exportar Atual: <span className="text-blue-500 truncate inline-block align-bottom max-w-[150px]">{currentProduct.name || 'Produto'}</span></h3>
-                  <div className="grid grid-cols-4 gap-2 mb-8">
-                    <button
-                      onClick={() => shareTextReport(
-                        summary, currentProduct.name, currentProduct.type, currentProduct.markup?.selectedImpostos || [], db.library.impostos || [], currentProduct.markup?.selectedComissoes || [], db.library.comissoes || [], currentProduct.markup?.selectedFretes || [], db.library.fretes || []
-                      )}
-                      title="Copiar/Partilhar Resumo"
-                      className="flex flex-col items-center justify-center p-2.5 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all group shadow-sm border border-slate-100 dark:border-slate-700"
-                    >
-                      <Share className="w-4 h-4 text-blue-500 mb-1" />
-                      <span className="text-[7px] font-black uppercase text-slate-500 group-hover:text-blue-600 text-center leading-none mt-1">Resumo</span>
-                    </button>
-                    <button
-                      onClick={() => downloadPDF(
-                        currentProduct.insumos || [], summary, currentProduct.name, currentProduct.terceirizados || [], currentProduct.type, currentProduct.markup?.selectedImpostos || [], db.library.impostos || [], currentProduct.markup?.selectedComissoes || [], db.library.comissoes || [], currentProduct.markup?.selectedFretes || [], db.library.fretes || []
-                      )}
-                      title="Baixar PDF"
-                      className="flex flex-col items-center justify-center p-2.5 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-red-50 dark:hover:bg-red-900/30 transition-all group shadow-sm border border-slate-100 dark:border-slate-700"
-                    >
-                      <Download className="w-4 h-4 text-red-500 mb-1" />
-                      <span className="text-[7px] font-black uppercase text-slate-500 group-hover:text-red-600 text-center leading-none mt-1">Baixar PDF</span>
-                    </button>
-                    <button
-                      onClick={() => sharePDF(
-                        currentProduct.insumos || [], summary, currentProduct.name, currentProduct.terceirizados || [], currentProduct.type, currentProduct.markup?.selectedImpostos || [], db.library.impostos || [], currentProduct.markup?.selectedComissoes || [], db.library.comissoes || [], currentProduct.markup?.selectedFretes || [], db.library.fretes || []
-                      )}
-                      title="Partilhar PDF"
-                      className="flex flex-col items-center justify-center p-2.5 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-all group shadow-sm border border-slate-100 dark:border-slate-700"
-                    >
-                      <Upload className="w-4 h-4 text-amber-500 mb-1" />
-                      <span className="text-[7px] font-black uppercase text-slate-500 group-hover:text-amber-600 text-center leading-none mt-1">Enviar PDF</span>
-                    </button>
-                    <button
-                      onClick={() => exportToXLS(
-                        currentProduct.insumos || [], summary, currentProduct.name, currentProduct.terceirizados || [], currentProduct.type, currentProduct.markup?.selectedImpostos || [], db.library.impostos || [], currentProduct.markup?.selectedComissoes || [], db.library.comissoes || [], currentProduct.markup?.selectedFretes || [], db.library.fretes || []
-                      )}
-                      title="Baixar Excel/XLSX"
-                      className="flex flex-col items-center justify-center p-2.5 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all group shadow-sm border border-slate-100 dark:border-slate-700"
-                    >
-                      <FileSpreadsheet className="w-4 h-4 text-emerald-500 mb-1" />
-                      <span className="text-[7px] font-black uppercase text-slate-500 group-hover:text-emerald-600 text-center leading-none mt-1">Planilha</span>
-                    </button>
-                  </div>
-
-                  <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Backup e Segurança</h3>
-
-                  <div className="grid grid-cols-3 gap-2 mb-3">
-                    <button onClick={handleExportBackup} title="Exportar Arquivo (JSON)" className="flex flex-col items-center justify-center p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all group">
-                      <Download className="w-4 h-4 text-blue-500 mb-1" />
-                      <span className="text-[8px] font-black uppercase text-slate-500 group-hover:text-blue-600">Exportar</span>
-                    </button>
-                    <button onClick={handleShareBackup} title="Compartilhar Arquivo (JSON)" className="flex flex-col items-center justify-center p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all group">
-                      <Share className="w-4 h-4 text-blue-500 mb-1" />
-                      <span className="text-[8px] font-black uppercase text-slate-500 group-hover:text-blue-600">Partilhar</span>
-                    </button>
-                    <button onClick={handleCopyBackup} title="Copiar Código de Backup (Texto)" className="flex flex-col items-center justify-center p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all group">
-                      <ClipboardPaste className="w-4 h-4 text-blue-500 mb-1" />
-                      <span className="text-[8px] font-black uppercase text-slate-500 group-hover:text-blue-600">Copiar</span>
-                    </button>
-                  </div>
-
-                  <div className="space-y-2">
-                    <button onClick={() => fileInputRef.current?.click()} className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all flex items-center justify-center gap-2">
-                      <Upload className="w-4 h-4 text-blue-500" />
-                      <span className="text-[8px] font-black uppercase text-slate-500">Restaurar do Arquivo</span>
-                    </button>
-
-                    <div className="pt-2">
-                      <button
-                        onClick={handleLogout}
-                        className="w-full p-3 bg-red-50 dark:bg-red-900/10 rounded-2xl border border-red-100 dark:border-red-900/20 hover:bg-red-100 dark:hover:bg-red-800/20 transition-all flex items-center justify-center gap-2 group shadow-sm shadow-red-500/5 active:scale-[0.98]"
-                      >
-                        <LogOut className="w-4 h-4 text-red-500 group-hover:scale-110 transition-transform" />
-                        <span className="text-[8px] font-black uppercase text-red-600 tracking-widest">Sair da Conta (Logout)</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
+             <div className="flex gap-2 mb-3">
+              <button onClick={() => { const p = DEFAULT_PRODUCT(Math.random().toString(36)); setDb(prev => ({ ...prev, products: [...prev.products, p], lastSelectedProductId: p.id })); setShowProjectList(false); }} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-blue-700 shadow-xl active:scale-95 transition-all"><Plus className="w-3 h-3" /> PROJETO</button>
+              <button onClick={() => {
+                const name = prompt("Nome do novo cliente:");
+                if (name) {
+                  setDb(prev => ({
+                    ...prev,
+                    clients: [...(prev.clients || []), { id: Math.random().toString(36), name }]
+                  }));
+                }
+              }} className="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-emerald-700 shadow-xl active:scale-95 transition-all"><Users className="w-3 h-3" /> CLIENTE</button>
+             </div>
+            
+            <div className="mb-4">
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Pesquisar projetos ou clientes..."
+                  value={projectSearch}
+                  onChange={(e) => setProjectSearch(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-2 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                />
               </div>
+            </div>
+
+            <div className="flex-1 space-y-4 overflow-y-auto pr-2 custom-scrollbar pb-10">
+              {(() => {
+                const searchLower = projectSearch.toLowerCase();
+                const explicitClients = db.clients || [];
+                const implicitClientNames = [...new Set(db.products.map(p => p.client).filter(c => !!c && !explicitClients.find(cl => cl.name === c)))];
+                const allClients = [
+                  ...explicitClients,
+                  ...implicitClientNames.map(name => ({ id: name as string, name: name as string }))
+                ];
+
+                const unassignedProducts = db.products.filter(p => !p.client && p.name?.toLowerCase().includes(searchLower));
+
+                return (
+                  <>
+                    {allClients.map(client => {
+                      const clientProducts = db.products.filter(p => p.client === client.name);
+                      const matchesSearch = client.name.toLowerCase().includes(searchLower) || clientProducts.some(p => p.name?.toLowerCase().includes(searchLower));
+                      
+                      if (!matchesSearch && clientProducts.length === 0 && searchLower !== '') return null;
+
+                      const isExpanded = expandedClients[client.id] !== false;
+
+                      return (
+                        <div key={client.id} className="mb-2 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+                          <div 
+                            className="flex items-center justify-between p-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-all"
+                            onClick={() => setExpandedClients(prev => ({ ...prev, [client.id]: !isExpanded }))}
+                            title={isExpanded ? "Minimizar cliente" : "Expandir cliente"}
+                          >
+                            <div className="flex items-center gap-2">
+                              {isExpanded ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
+                              <FolderOpen className={`w-4 h-4 text-emerald-500 transition-transform duration-300 ${isExpanded ? 'rotate-0' : '-rotate-12'}`} />
+                              <span className="text-xs font-black uppercase tracking-widest text-slate-700 dark:text-slate-300">{client.name}</span>
+                              <span className="text-[10px] font-bold text-slate-400 bg-white dark:bg-slate-800 px-2 py-0.5 rounded-full">{clientProducts.length}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                               <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const newName = prompt("Editar nome do cliente:", client.name);
+                                  if (newName && newName !== client.name) {
+                                    setDb(prev => ({
+                                      ...prev,
+                                      clients: (prev.clients || []).map(c => c.id === client.id ? { ...c, name: newName } : c),
+                                      products: prev.products.map(p => p.client === client.name ? { ...p, client: newName } : p)
+                                    }));
+                                  }
+                                }}
+                                className="p-1.5 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-lg transition-all"
+                                title="Renomear Cliente"
+                               >
+                                 <Edit className="w-4 h-4" />
+                               </button>
+                               <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const p = DEFAULT_PRODUCT(Math.random().toString(36));
+                                  p.client = client.name;
+                                  setDb(prev => ({ ...prev, products: [...prev.products, p], lastSelectedProductId: p.id }));
+                                  setExpandedClients(prev => ({ ...prev, [client.id]: true }));
+                                  setShowProjectList(false);
+                                }}
+                                className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-all"
+                                title="Novo Projeto neste Cliente"
+                               >
+                                 <Plus className="w-4 h-4" />
+                               </button>
+                            </div>
+                          </div>
+                          
+                          {isExpanded && (
+                            <div className="p-2 pt-0 space-y-2">
+                              {clientProducts.filter(p => p.name?.toLowerCase().includes(searchLower)).map(p => (
+                                <div key={p.id} className={`group relative flex flex-col animate-in fade-in duration-500 p-4 rounded-2xl cursor-pointer transition-all border-2 ${p.id === db.lastSelectedProductId ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30 shadow-lg shadow-blue-500/10' : 'border-slate-100 dark:border-slate-800 hover:border-slate-200'}`}
+                                  onClick={() => {
+                                    if (editingProjectId !== p.id) {
+                                      setDb(prev => ({ ...prev, lastSelectedProductId: p.id }));
+                                      setShowProjectList(false);
+                                    }
+                                  }}>
+                                  {editingProjectId === p.id ? (
+                                    <div className="flex flex-col gap-2" onClick={e => e.stopPropagation()}>
+                                      <input
+                                        autoFocus
+                                        value={editingName}
+                                        placeholder="Nome do Projeto"
+                                        title="Nome do Projeto"
+                                        onChange={(e) => setEditingName(e.target.value)}
+                                        className="flex-1 bg-white dark:bg-slate-800 border border-blue-500 rounded px-2 py-1 text-xs font-black uppercase outline-none"
+                                      />
+                                      <select
+                                        value={editingClient}
+                                        title="Ligar a Cliente"
+                                        onChange={(e) => setEditingClient(e.target.value)}
+                                        className="flex-1 bg-white dark:bg-slate-800 border border-emerald-500 rounded px-2 py-1 text-xs font-black uppercase outline-none"
+                                      >
+                                        <option value="">Sem Cliente</option>
+                                        {(db.clients || []).map(c => (
+                                          <option key={c.id} value={c.name}>{c.name}</option>
+                                        ))}
+                                      </select>
+                                      <button
+                                        onClick={() => {
+                                          setDb(prev => ({
+                                            ...prev,
+                                            products: prev.products.map(prod => prod.id === p.id ? { ...prod, name: editingName, client: editingClient, lastModified: Date.now() } : prod)
+                                          }));
+                                          setEditingProjectId(null);
+                                        }}
+                                        className="mt-1 p-1.5 bg-emerald-500 text-white rounded text-[10px] font-black uppercase flex items-center justify-center gap-1 hover:bg-emerald-600"
+                                      >
+                                        <Check className="w-3 h-3" /> Salvar
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <div className="flex justify-between items-start mb-2">
+                                        <p className="font-black text-xs truncate uppercase tracking-tight pr-2">{p.name || 'Sem Nome'}</p>
+                                        {p.client && (
+                                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 whitespace-nowrap">
+                                            {p.client}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <p className="text-[9px] text-slate-400 font-bold uppercase mb-3">{new Date(p.lastModified).toLocaleDateString()}</p>
+                                      <div className="flex items-center justify-between mt-auto pt-2 border-t border-slate-100 dark:border-slate-800/60">
+                                        <div className="flex gap-1">
+                                          <button onClick={(e) => { e.stopPropagation(); setEditingProjectId(p.id); setEditingName(p.name); setEditingClient(p.client || ''); }} title="Editar Projeto/Ligar Cliente" className="p-1.5 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded transition-all"><Edit className="w-3.5 h-3.5" /></button>
+                                          <button onClick={(e) => {
+                                            e.stopPropagation();
+                                            const duplicatedProduct = JSON.parse(JSON.stringify(p));
+                                            duplicatedProduct.id = Math.random().toString(36);
+                                            duplicatedProduct.name = `${p.name} (Cópia)`;
+                                            duplicatedProduct.lastModified = Date.now();
+                                            setDb(prev => ({ ...prev, products: [...prev.products, duplicatedProduct], lastSelectedProductId: duplicatedProduct.id }));
+                                            setShowProjectList(false);
+                                          }} title="Duplicar Produto" className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-all"><Copy className="w-3.5 h-3.5" /></button>
+                                          <button onClick={async (e) => {
+                                            e.stopPropagation();
+                                            try {
+                                              const summary = calculateSummary(
+                                                p.insumos || [],
+                                                p.custosFixos || [],
+                                                p.custosIndiretos || [],
+                                                p.production || { diasTrabalhados: 0, producaoDiaria: 0 },
+                                                p.markup || { impostos: 0, perdas: 0, margemLucro: 0 },
+                                                p.terceirizados || [],
+                                                p.precoVendaManual || 0,
+                                                p.type || 'detailed',
+                                                p.purchasePrice || 0,
+                                                db.library.unidadesMedida || []
+                                              );
+                                              await downloadPDF(
+                                                p.insumos || [],
+                                                summary,
+                                                p.name || 'Produto',
+                                                p.terceirizados || [],
+                                                p.type || 'detailed',
+                                                p.markup?.selectedImpostos || [],
+                                                db.library.impostos || [],
+                                                p.markup?.selectedComissoes || [],
+                                                db.library.comissoes || [],
+                                                p.markup?.selectedFretes || [],
+                                                db.library.fretes || []
+                                              );
+                                            } catch(err) {
+                                              console.error(err);
+                                              alert("Erro ao gerar PDF.");
+                                            }
+                                          }} title="Exportar PDF" className="p-1.5 text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded transition-all flex items-center gap-1"><FileSpreadsheet className="w-3.5 h-3.5" /></button>
+                                        </div>
+                                        {db.products.length > 1 && (
+                                          <button
+                                            onClick={async (e) => {
+                                              e.stopPropagation();
+                                              if (window.confirm(`Tem certeza que deseja excluir o projeto "${p.name}"? Esta ação não pode ser desfeita.`)) {
+                                                const id = p.id;
+                                                setDb(prev => {
+                                                  const next = prev.products.filter(item => item.id !== id);
+                                                  return { ...prev, products: next, lastSelectedProductId: next[0].id };
+                                                });
+                                                if (user) {
+                                                  try {
+                                                    await firebaseService.deleteProject(user.uid, id);
+                                                  } catch (err) {
+                                                    console.error("App: Error deleting project from cloud:", err);
+                                                  }
+                                                }
+                                              }
+                                            }}
+                                            title="Excluir Produto"
+                                            className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded transition-all"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
+                                        )}
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              ))}
+                              {clientProducts.length === 0 && (
+                                <div className="text-center py-4 text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                                  Nenhum projeto
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {unassignedProducts.length > 0 && (
+                      <div className="mb-2 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+                        <div className="flex items-center justify-between p-3">
+                          <div className="flex items-center gap-2">
+                            <FolderOpen className="w-4 h-4 text-slate-400" />
+                            <span className="text-xs font-black uppercase tracking-widest text-slate-500">Sem Cliente</span>
+                            <span className="text-[10px] font-bold text-slate-400 bg-white dark:bg-slate-800 px-2 py-0.5 rounded-full">{unassignedProducts.length}</span>
+                          </div>
+                        </div>
+                        <div className="p-2 space-y-2">
+                          {unassignedProducts.map(p => (
+                            <div key={p.id} className={`group relative flex flex-col animate-in fade-in duration-500 p-4 rounded-2xl cursor-pointer transition-all border-2 ${p.id === db.lastSelectedProductId ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30 shadow-lg shadow-blue-500/10' : 'border-slate-100 dark:border-slate-800 hover:border-slate-200'}`}
+                                onClick={() => {
+                                  if (editingProjectId !== p.id) {
+                                    setDb(prev => ({ ...prev, lastSelectedProductId: p.id }));
+                                    setShowProjectList(false);
+                                  }
+                                }}>
+                                {editingProjectId === p.id ? (
+                                  <div className="flex flex-col gap-2" onClick={e => e.stopPropagation()}>
+                                    <input
+                                      autoFocus
+                                      value={editingName}
+                                      placeholder="Nome do Projeto"
+                                      title="Nome do Projeto"
+                                      onChange={(e) => setEditingName(e.target.value)}
+                                      className="flex-1 bg-white dark:bg-slate-800 border border-blue-500 rounded px-2 py-1 text-xs font-black uppercase outline-none"
+                                    />
+                                    <select
+                                      value={editingClient}
+                                      title="Ligar a Cliente"
+                                      onChange={(e) => setEditingClient(e.target.value)}
+                                      className="flex-1 bg-white dark:bg-slate-800 border border-emerald-500 rounded px-2 py-1 text-xs font-black uppercase outline-none"
+                                    >
+                                      <option value="">Sem Cliente</option>
+                                      {(db.clients || []).map(c => (
+                                        <option key={c.id} value={c.name}>{c.name}</option>
+                                      ))}
+                                    </select>
+                                    <button
+                                      onClick={() => {
+                                        setDb(prev => ({
+                                          ...prev,
+                                          products: prev.products.map(prod => prod.id === p.id ? { ...prod, name: editingName, client: editingClient, lastModified: Date.now() } : prod)
+                                        }));
+                                        setEditingProjectId(null);
+                                      }}
+                                      className="mt-1 p-1.5 bg-emerald-500 text-white rounded text-[10px] font-black uppercase flex items-center justify-center gap-1 hover:bg-emerald-600"
+                                    >
+                                      <Check className="w-3 h-3" /> Salvar
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <div className="flex justify-between items-start mb-2">
+                                      <p className="font-black text-xs truncate uppercase tracking-tight pr-2">{p.name || 'Sem Nome'}</p>
+                                    </div>
+                                    <p className="text-[9px] text-slate-400 font-bold uppercase mb-3">{new Date(p.lastModified).toLocaleDateString()}</p>
+                                    <div className="flex items-center justify-between mt-auto pt-2 border-t border-slate-100 dark:border-slate-800/60">
+                                      <div className="flex gap-1">
+                                        <button onClick={(e) => { e.stopPropagation(); setEditingProjectId(p.id); setEditingName(p.name); setEditingClient(p.client || ''); }} title="Editar Projeto/Ligar Cliente" className="p-1.5 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded transition-all"><Edit className="w-3.5 h-3.5" /></button>
+                                        <button onClick={(e) => {
+                                          e.stopPropagation();
+                                          const duplicatedProduct = JSON.parse(JSON.stringify(p));
+                                          duplicatedProduct.id = Math.random().toString(36);
+                                          duplicatedProduct.name = `${p.name} (Cópia)`;
+                                          duplicatedProduct.lastModified = Date.now();
+                                          setDb(prev => ({ ...prev, products: [...prev.products, duplicatedProduct], lastSelectedProductId: duplicatedProduct.id }));
+                                          setShowProjectList(false);
+                                        }} title="Duplicar Produto" className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-all"><Copy className="w-3.5 h-3.5" /></button>
+                                        <button onClick={async (e) => {
+                                          e.stopPropagation();
+                                          try {
+                                            const summary = calculateSummary(
+                                              p.insumos || [],
+                                              p.custosFixos || [],
+                                              p.custosIndiretos || [],
+                                              p.production || { diasTrabalhados: 0, producaoDiaria: 0 },
+                                              p.markup || { impostos: 0, perdas: 0, margemLucro: 0 },
+                                              p.terceirizados || [],
+                                              p.precoVendaManual || 0,
+                                              p.type || 'detailed',
+                                              p.purchasePrice || 0,
+                                              db.library.unidadesMedida || []
+                                            );
+                                            await downloadPDF(
+                                              p.insumos || [],
+                                              summary,
+                                              p.name || 'Produto',
+                                              p.terceirizados || [],
+                                              p.type || 'detailed',
+                                              p.markup?.selectedImpostos || [],
+                                              db.library.impostos || [],
+                                              p.markup?.selectedComissoes || [],
+                                              db.library.comissoes || [],
+                                              p.markup?.selectedFretes || [],
+                                              db.library.fretes || []
+                                            );
+                                          } catch(err) {
+                                            console.error(err);
+                                            alert("Erro ao gerar PDF.");
+                                          }
+                                        }} title="Exportar PDF" className="p-1.5 text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded transition-all flex items-center gap-1"><FileSpreadsheet className="w-3.5 h-3.5" /></button>
+                                      </div>
+                                      {db.products.length > 1 && (
+                                        <button
+                                          onClick={async (e) => {
+                                            e.stopPropagation();
+                                            if (window.confirm(`Tem certeza que deseja excluir o projeto "${p.name}"? Esta ação não pode ser desfeita.`)) {
+                                              const id = p.id;
+                                              setDb(prev => {
+                                                const next = prev.products.filter(item => item.id !== id);
+                                                return { ...prev, products: next, lastSelectedProductId: next[0].id };
+                                              });
+                                              if (user) {
+                                                try {
+                                                  await firebaseService.deleteProject(user.uid, id);
+                                                } catch (err) {
+                                                  console.error("App: Error deleting project from cloud:", err);
+                                                }
+                                              }
+                                            }
+                                          }}
+                                          title="Excluir Produto"
+                                          className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded transition-all"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+
+            {/* Accordion Ferramentas */}
+            <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
+              <button 
+                onClick={() => setShowTools(!showTools)}
+                className="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <Settings className={`w-4 h-4 ${showTools ? 'text-blue-500 animate-spin-slow' : 'text-slate-400'}`} />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400">Opções & Backup</span>
+                </div>
+                <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${showTools ? 'rotate-180 text-blue-500' : ''}`} />
+              </button>
+
+              {showTools && (
+                <div className="space-y-4 mt-4 animate-in slide-in-from-top-2 duration-300">
+                  {/* Sync Status moved here */}
+                  <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 flex items-center gap-4 shadow-sm">
+                    <div className="relative">
+                      <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-black text-sm uppercase">
+                        {user.email?.charAt(0)}
+                      </div>
+                      <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white dark:border-slate-900 flex items-center justify-center ${syncStatus === 'synced' ? 'bg-emerald-500' : syncStatus === 'syncing' ? 'bg-blue-500' : 'bg-red-500'}`}>
+                        {syncStatus === 'synced' ? <Check className="w-2.5 h-2.5 text-white" /> : <RefreshCw className="w-2.5 h-2.5 text-white animate-spin" />}
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-black text-blue-500 uppercase tracking-tighter truncate">{user.email}</p>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                        {syncStatus === 'synced' ? 'Sincronizado' : syncStatus === 'syncing' ? 'Sincronizando...' : 'Erro na Nuvem'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button onClick={handleExportPDF} className="py-3 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-slate-600 dark:text-slate-400 rounded-xl border border-slate-200 dark:border-slate-800 transition-all flex flex-col items-center justify-center gap-1 group shadow-sm">
+                      <Download className="w-4 h-4 group-hover:text-blue-500" />
+                      <span className="text-[8px] font-black uppercase">Exportar</span>
+                    </button>
+                    <button onClick={handleExportExcel} className="py-3 bg-white dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-slate-600 dark:text-slate-400 rounded-xl border border-slate-200 dark:border-slate-800 transition-all flex flex-col items-center justify-center gap-1 group shadow-sm">
+                      <FileSpreadsheet className="w-4 h-4 group-hover:text-emerald-500" />
+                      <span className="text-[8px] font-black uppercase">Excel</span>
+                    </button>
+                    <button onClick={handleExportBackup} className="py-3 bg-white dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-amber-900/20 text-slate-600 dark:text-slate-400 rounded-xl border border-slate-200 dark:border-slate-800 transition-all flex flex-col items-center justify-center gap-1 group shadow-sm">
+                      <Cloud className="w-4 h-4 group-hover:text-amber-500" />
+                      <span className="text-[8px] font-black uppercase">Backup</span>
+                    </button>
+                    <button onClick={() => fileInputRef.current?.click()} className="py-3 bg-white dark:bg-slate-800 hover:bg-purple-50 dark:hover:bg-purple-900/20 text-slate-600 dark:text-slate-400 rounded-xl border border-slate-200 dark:border-slate-800 transition-all flex flex-col items-center justify-center gap-1 group shadow-sm">
+                      <Upload className="w-4 h-4 group-hover:text-purple-500" />
+                      <span className="text-[8px] font-black uppercase">Restaurar</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -3468,12 +4177,21 @@ const App: React.FC = () => {
           onClose={() => setShowMaterialPrices(false)}
         />
       )}
+
+      {readjustmentItem && (
+        <PriceReadjustmentModal
+          item={readjustmentItem.item}
+          type={readjustmentItem.type}
+          onClose={() => setReadjustmentItem(null)}
+          onConfirm={(newPrice) => handlePerformReadjustment(readjustmentItem.item, readjustmentItem.type, newPrice)}
+        />
+      )}
     </div>
   );
 };
 
 const Section: React.FC<{ title: string; icon: React.ReactNode; children: React.ReactNode; expanded: boolean; onToggle: () => void; }> = ({ title, icon, children, expanded, onToggle }) => (
-  <div className={`rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all duration-300 overflow-hidden print:border-none print:shadow-none print:bg-transparent ${expanded ? 'bg-slate-200 dark:bg-slate-800 shadow-md border-slate-300 dark:border-slate-700' : 'bg-white dark:bg-slate-900'}`}>
+  <div className={`rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all duration-300 overflow-hidden scroll-mt-24 print:border-none print:shadow-none print:bg-transparent ${expanded ? 'bg-slate-200 dark:bg-slate-800 shadow-md border-slate-300 dark:border-slate-700' : 'bg-white dark:bg-slate-900'}`}>
     <button onClick={onToggle} className={`w-full md:px-8 px-4 md:py-6 py-4 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors ${expanded ? 'bg-slate-300/40 dark:bg-slate-800/80' : ''} print:hidden`}>
       <div className="flex items-center gap-5">
         <div className={`p-3 rounded-xl shadow-sm transition-colors ${expanded ? 'bg-white dark:bg-slate-900' : 'bg-slate-100 dark:bg-slate-800'}`}>
@@ -3493,7 +4211,33 @@ const Section: React.FC<{ title: string; icon: React.ReactNode; children: React.
       <h3 className="font-black text-lg uppercase tracking-wider text-slate-900">{title}</h3>
     </div>
     <div className={`transition-all duration-500 ease-in-out ${expanded ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'} overflow-visible print:max-h-max print:opacity-100 print:block`}>
-      <div className={`md:px-8 px-4 md:pb-10 pb-6 pt-4 border-t print:p-0 print:border-none ${expanded ? 'bg-slate-200/60 dark:bg-slate-900/40 border-slate-300 dark:border-slate-700' : 'bg-slate-50/30 dark:bg-slate-950/20 border-slate-100 dark:border-slate-800/50'}`}>{children}</div>
+      <div className={`md:px-8 px-4 md:pb-10 pb-6 pt-4 border-t print:p-0 print:border-none ${expanded ? 'bg-slate-200/60 dark:bg-slate-900/40 border-slate-300 dark:border-slate-700' : 'bg-slate-50/30 dark:bg-slate-950/20 border-slate-100 dark:border-slate-800/50'}`}>
+        {children}
+        {expanded && (
+          <div className="mt-8 flex justify-center print:hidden">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                const container = e.currentTarget.closest('.rounded-2xl');
+                if (container) {
+                  onToggle();
+                  // Pequeno atraso para garantir que a transição de fechamento começou
+                  setTimeout(() => {
+                    const topElement = document.getElementById('main-content-top');
+                    if (topElement) {
+                      topElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                  }, 100);
+                }
+              }}
+              className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-black text-[11px] uppercase tracking-[0.2em] rounded-2xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 hover:text-blue-500 transition-all shadow-sm active:scale-95 group"
+            >
+              <ChevronDown className="w-4 h-4 rotate-180 group-hover:-translate-y-1 transition-transform" />
+              Recolher Seção
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   </div>
 );
@@ -3514,6 +4258,7 @@ const MaterialPriceComparison: React.FC<{
 }> = ({ prices, libraryInsumos = [], suppliers, units, onAddPrice, onUpdatePrice, onDeletePrice, onAddSupplier, onUpdateSupplier, onDeleteSupplier, onUpdateUnits, onClose }) => {
   const [activeTab, setActiveTab] = useState<'cadastro_precos' | 'historico_precos' | 'suppliers' | 'analysis'>('cadastro_precos');
   const [filter, setFilter] = useState('');
+  const [supplierFilter, setSupplierFilter] = useState('');
   const [copiedItem, setCopiedItem] = useState<{ type: string; data: any } | null>(null);
 
   // States for Price CRUD
@@ -3534,14 +4279,17 @@ const MaterialPriceComparison: React.FC<{
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [newSupplier, setNewSupplier] = useState({ nome: '', telefone: '', email: '' });
   const [showSupplierForm, setShowSupplierForm] = useState(false);
+  const [showHistoryAccordion, setShowHistoryAccordion] = useState(false);
 
   // Filtered Data
   const filteredPrices = useMemo(() => {
-    return (prices || []).filter(p =>
-      (p.material || '').toLowerCase().includes(filter.toLowerCase()) ||
-      (p.fornecedor || '').toLowerCase().includes(filter.toLowerCase())
-    ).sort((a, b) => b.data - a.data);
-  }, [prices, filter]);
+    return (prices || []).filter(p => {
+      const matchesSearch = (p.material || '').toLowerCase().includes(filter.toLowerCase()) ||
+                          (p.fornecedor || '').toLowerCase().includes(filter.toLowerCase());
+      const matchesSupplier = !supplierFilter || p.fornecedor === supplierFilter;
+      return matchesSearch && matchesSupplier;
+    }).sort((a, b) => b.data - a.data);
+  }, [prices, filter, supplierFilter]);
 
   const filteredSuppliers = useMemo(() => {
     return (suppliers || []).filter(s =>
@@ -3551,8 +4299,14 @@ const MaterialPriceComparison: React.FC<{
 
   // Analysis State
   const [analysisMaterial, setAnalysisMaterial] = useState('');
+  const [analysisSearch, setAnalysisSearch] = useState('');
   const uniqueMaterials = useMemo(() => {
     const set = new Set((prices || []).map(p => p.material));
+    return Array.from(set).sort();
+  }, [prices]);
+
+  const uniqueSuppliersInHistory = useMemo(() => {
+    const set = new Set((prices || []).filter(p => p.fornecedor).map(p => p.fornecedor));
     return Array.from(set).sort();
   }, [prices]);
 
@@ -3664,22 +4418,27 @@ const MaterialPriceComparison: React.FC<{
                   </div>
                   <div className="lg:col-span-2">
                     <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5 px-1">Fornecedor</label>
-                    <select
-                      value={editingPrice ? editingPrice.fornecedor : newPrice.fornecedor}
-                      onChange={e => editingPrice ? setEditingPrice({ ...editingPrice, fornecedor: e.target.value }) : setNewPrice({ ...newPrice, fornecedor: e.target.value })}
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                      title="Selecionar fornecedor"
-                    >
-                      <option value="">Selecione...</option>
-                      {suppliers.map(s => (
-                        <option key={s.id} value={s.nome}>{s.nome}</option>
-                      ))}
-                      {!suppliers.find(s => s.nome === (editingPrice?.fornecedor || newPrice.fornecedor)) && (editingPrice?.fornecedor || newPrice.fornecedor) && (
-                        <option value={editingPrice?.fornecedor || newPrice.fornecedor}>{editingPrice?.fornecedor || newPrice.fornecedor} (Não Cadastrado)</option>
-                      )}
-                    </select>
+                    <div className="relative group/supplier">
+                      <AutocompleteInput
+                        value={editingPrice ? editingPrice.fornecedor : newPrice.fornecedor}
+                        suggestions={suppliers}
+                        hidePrice={true}
+                        onChange={(val) => {
+                          if (editingPrice) setEditingPrice({ ...editingPrice, fornecedor: val });
+                          else setNewPrice({ ...newPrice, fornecedor: val });
+                        }}
+                        onSelect={(item) => {
+                          if (editingPrice) setEditingPrice({ ...editingPrice, fornecedor: item.nome });
+                          else setNewPrice({ ...newPrice, fornecedor: item.nome });
+                        }}
+                        placeholder="Ex: Curtume Silva"
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                        <Users className="w-4 h-4 text-blue-500/50" />
+                      </div>
+                    </div>
                   </div>
-                  <div className="lg:col-span-3">
+                  <div className="lg:col-span-4">
                     <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5 px-1">Preço</label>
                     <div className="flex gap-1.5 items-center">
                       <div className="flex-1 flex gap-2 relative">
@@ -3688,7 +4447,7 @@ const MaterialPriceComparison: React.FC<{
                           value={editingPrice ? editingPrice.preco : newPrice.preco}
                           onChange={e => editingPrice ? setEditingPrice({ ...editingPrice, preco: parseFloat(e.target.value) }) : setNewPrice({ ...newPrice, preco: e.target.value })}
                           placeholder="0,00"
-                          className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none min-w-0"
+                          className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none min-w-0 font-mono font-bold"
                         />
                         <button
                           onClick={() => setShowPriceCalc(!showPriceCalc)}
@@ -3701,7 +4460,7 @@ const MaterialPriceComparison: React.FC<{
                         <select
                           value={editingPrice ? editingPrice.unidade || (units[0]?.nome || '') : newPrice.unidade}
                           onChange={e => editingPrice ? setEditingPrice({ ...editingPrice, unidade: e.target.value }) : setNewPrice({ ...newPrice, unidade: e.target.value })}
-                          className="w-28 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2 py-2.5 text-[10px] font-black uppercase outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                          className="w-24 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2 py-2.5 text-[9px] font-black uppercase outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                           title="Unidade"
                         >
                           {units.map(u => (
@@ -3718,28 +4477,20 @@ const MaterialPriceComparison: React.FC<{
                       </button>
                     </div>
                   </div>
-                  <div className="lg:col-span-2">
-                    <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5 px-1">Largura (m)</label>
-                    <div className="flex gap-2">
+                  <div className="lg:col-span-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase block mb-1.5 px-1">Larg. (m)</label>
+                    <div className="flex gap-1">
                       <input
                         type="number"
                         step="0.01"
                         value={editingPrice ? editingPrice.largura || '' : newPrice.largura}
                         onChange={e => editingPrice ? setEditingPrice({ ...editingPrice, largura: parseFloat(e.target.value) }) : setNewPrice({ ...newPrice, largura: e.target.value })}
-                        placeholder="Ex: 1.40"
-                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                        placeholder="1.40"
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono font-bold"
                       />
-                      <button
-                        onClick={() => setShowConverter(!showConverter)}
-                        className={`p-2.5 rounded-xl transition-all ${showConverter ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
-                        title="Conversor M² ➜ ML"
-                      >
-                        <RefreshCw className="w-4 h-4" />
-                      </button>
                     </div>
                   </div>
-                  <div className="flex flex-col gap-2 lg:col-span-2">
-                    <label className="text-[9px] font-black text-slate-400 uppercase block px-1">Ações</label>
+                  <div className="lg:col-span-2">
                     <div className="flex gap-2">
                       {editingPrice ? (
                         <>
@@ -3750,13 +4501,13 @@ const MaterialPriceComparison: React.FC<{
                                 setEditingPrice(null);
                               }
                             }}
-                            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase tracking-widest py-3 rounded-xl shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase tracking-widest py-3 rounded-xl shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center justify-center gap-1"
                           >
                             <Check className="w-4 h-4" /> Salvar
                           </button>
                           <button
                             onClick={() => setEditingPrice(null)}
-                            className="px-4 bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-300 rounded-xl hover:bg-slate-300 transition-all font-black text-[10px]"
+                            className="px-3 bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-300 rounded-xl hover:bg-slate-300 transition-all font-black text-[10px]"
                             title="Cancelar"
                           >
                             <X className="w-4 h-4" />
@@ -3899,6 +4650,110 @@ const MaterialPriceComparison: React.FC<{
                   )}
                 </div>
               </div>
+
+              {/* Histórico Accordion na parte inferior */}
+              <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-8 custom-scrollbar bg-slate-50/50 dark:bg-slate-900/30">
+                <div className="max-w-5xl mx-auto mt-4">
+                  <button
+                    onClick={() => setShowHistoryAccordion(!showHistoryAccordion)}
+                    className="w-full flex items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-750 transition-all shadow-sm border border-slate-200 dark:border-slate-700 group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl transition-colors ${showHistoryAccordion ? 'bg-blue-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>
+                        <TrendingUp className="w-4 h-4" />
+                      </div>
+                      <div className="text-left">
+                        <span className="text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Histórico de Preços Recentes</span>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">Clique para expandir e consultar registros</p>
+                      </div>
+                    </div>
+                    <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${showHistoryAccordion ? 'rotate-180 text-blue-500' : ''}`} />
+                  </button>
+
+                  {showHistoryAccordion && (
+                    <div className="mt-4 animate-in slide-in-from-top-2 duration-300">
+                      <div className="flex flex-col md:flex-row gap-4 mb-4">
+                        <div className="relative flex-1">
+                          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                          <input
+                            type="text"
+                            value={filter}
+                            onChange={e => setFilter(e.target.value)}
+                            placeholder="Filtrar por material..."
+                            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl pl-11 pr-4 py-3.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
+                          />
+                        </div>
+                        <div className="relative w-full md:w-64">
+                          <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                          <select
+                            value={supplierFilter}
+                            onChange={e => setSupplierFilter(e.target.value)}
+                            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl pl-11 pr-4 py-3.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none shadow-sm appearance-none"
+                            title="Filtrar por fornecedor"
+                          >
+                            <option value="">Todos Fornecedores</option>
+                            {uniqueSuppliersInHistory.map(s => (
+                              <option key={s} value={s}>{s}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden shadow-sm">
+                        {/* Desktop Grid */}
+                        <div className="hidden md:block">
+                          <div className="grid grid-cols-[1.5fr_1.2fr_1fr_0.8fr_0.7fr] gap-4 px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+                            <div>Material</div>
+                            <div>Fornecedor</div>
+                            <div>Preço</div>
+                            <div>Data</div>
+                            <div className="text-right">Ações</div>
+                          </div>
+                          <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+                            {filteredPrices.map(p => (
+                              <div key={p.id} className="grid grid-cols-[1.5fr_1.2fr_1fr_0.8fr_0.7fr] gap-4 p-4 border-b border-slate-50 dark:border-slate-700/50 items-center hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-all">
+                                <div className="font-bold text-sm truncate uppercase" title={p.material}>{p.material}</div>
+                                <div className="text-slate-500 dark:text-slate-400 text-[11px] font-bold uppercase truncate">{p.fornecedor || '---'}</div>
+                                <div className="font-mono font-black text-blue-600 dark:text-blue-400 text-sm">
+                                  {formatCurrency(p.preco)}
+                                  <span className="text-[10px] text-slate-400 ml-1">/{p.unidade || 'Kg'}</span>
+                                </div>
+                                <div className="text-[10px] text-slate-400 font-bold uppercase">{new Date(p.data).toLocaleDateString()}</div>
+                                <div className="flex justify-end gap-1">
+                                  <button onClick={() => { setNewPrice({ material: p.material, fornecedor: p.fornecedor, preco: p.preco.toString(), unidade: p.unidade || 'Kg', largura: p.largura?.toString() || '' }); window.scrollTo({ top: 0, behavior: 'smooth' }); }} title="Copiar" className="p-2 text-slate-300 hover:text-blue-500 transition-colors"><Copy className="w-4 h-4" /></button>
+                                  <button onClick={() => { setEditingPrice(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }} title="Editar" className="p-2 text-slate-300 hover:text-amber-500 transition-colors"><Edit className="w-4 h-4" /></button>
+                                  <button onClick={() => onDeletePrice(p.id)} title="Excluir" className="p-2 text-slate-300 hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Mobile List */}
+                        <div className="md:hidden p-4 space-y-3 max-h-[500px] overflow-y-auto custom-scrollbar">
+                          {filteredPrices.map(p => (
+                            <div key={p.id} className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                              <div className="flex justify-between items-start mb-2">
+                                <h4 className="text-xs font-black text-slate-800 dark:text-white uppercase truncate pr-4">{p.material}</h4>
+                                <div className="flex gap-1">
+                                  <button onClick={() => { setNewPrice({ material: p.material, fornecedor: p.fornecedor, preco: p.preco.toString(), unidade: p.unidade || 'Kg', largura: p.largura?.toString() || '' }); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="p-1.5 text-blue-500"><Copy className="w-3.5 h-3.5" /></button>
+                                  <button onClick={() => { setEditingPrice(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="p-1.5 text-amber-500"><Edit className="w-3.5 h-3.5" /></button>
+                                </div>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <div className="font-mono font-black text-blue-600 dark:text-blue-400 text-sm">
+                                  {formatCurrency(p.preco)}<span className="text-[9px] text-slate-400 ml-0.5">/{p.unidade}</span>
+                                </div>
+                                <span className="text-[9px] font-bold text-slate-400 uppercase">{new Date(p.data).toLocaleDateString()}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </>
           )}
 
@@ -3906,51 +4761,61 @@ const MaterialPriceComparison: React.FC<{
             <>
               {/* Lista Preços */}
               <div className="p-4 md:p-8 md:pb-4 shrink-0 bg-slate-50/50 dark:bg-slate-900/50">
-                <div className="relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="text"
-                    value={filter}
-                    onChange={e => setFilter(e.target.value)}
-                    placeholder="Filtrar por material ou fornecedor..."
-                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl pl-11 pr-4 py-3.5 text-sm md:text-base font-bold focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
-                  />
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      value={filter}
+                      onChange={e => setFilter(e.target.value)}
+                      placeholder="Filtrar por material..."
+                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl pl-11 pr-4 py-3.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
+                    />
+                  </div>
+                  <div className="relative w-full md:w-64">
+                    <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <select
+                      value={supplierFilter}
+                      onChange={e => setSupplierFilter(e.target.value)}
+                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl pl-11 pr-4 py-3.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none shadow-sm appearance-none"
+                      title="Filtrar por fornecedor"
+                    >
+                      <option value="">Todos Fornecedores</option>
+                      {uniqueSuppliersInHistory.map(s => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
 
               <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-8 custom-scrollbar">
                 <div className="hidden md:block">
-                  <table className="w-full text-left border-separate border-spacing-y-3">
-                    <thead>
-                      <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                        <th className="px-6 py-2">Material</th>
-                        <th className="px-6 py-2">Fornecedor</th>
-                        <th className="px-6 py-2">Preço</th>
-                        <th className="px-6 py-2">Data</th>
-                        <th className="px-6 py-2 text-right">Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredPrices.map(p => (
-                        <tr key={p.id} className="bg-white dark:bg-slate-800 shadow-sm rounded-2xl group border border-slate-100 dark:border-slate-700/50">
-                          <td className="px-6 py-4 rounded-l-2xl font-bold text-sm">{p.material}</td>
-                          <td className="px-6 py-4 text-slate-500 dark:text-slate-400 text-sm">{p.fornecedor || '---'}</td>
-                          <td className="px-6 py-4 font-mono font-black text-blue-600 dark:text-blue-400">
-                            {formatCurrency(p.preco)}
-                            <span className="text-[10px] text-slate-400 ml-1">/{p.unidade || 'Kg'}</span>
-                          </td>
-                          <td className="px-6 py-4 text-[10px] text-slate-400 font-bold uppercase">{new Date(p.data).toLocaleDateString()}</td>
-                          <td className="px-6 py-4 rounded-r-2xl text-right">
-                            <div className="flex justify-end gap-1">
-                              <button onClick={() => { setNewPrice({ material: p.material, fornecedor: p.fornecedor, preco: p.preco.toString(), unidade: p.unidade || 'Kg', largura: p.largura?.toString() || '' }); setActiveTab('cadastro_precos'); }} title="Copiar Dados" className="p-2 text-slate-300 hover:text-blue-500 transition-colors"><Copy className="w-4 h-4" /></button>
-                              <button onClick={() => { setEditingPrice(p); setActiveTab('cadastro_precos'); }} title="Editar Registro" className="p-2 text-slate-300 hover:text-amber-500 transition-colors"><Edit className="w-4 h-4" /></button>
-                              <button onClick={() => onDeletePrice(p.id)} title="Excluir Registro" className="p-2 text-slate-300 hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <div className="grid grid-cols-[1.5fr_1.2fr_1fr_0.8fr_0.7fr] gap-4 px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 dark:border-slate-800">
+                    <div>Material</div>
+                    <div>Fornecedor</div>
+                    <div>Preço</div>
+                    <div>Data</div>
+                    <div className="text-right">Ações</div>
+                  </div>
+                  <div className="space-y-3 mt-3">
+                    {filteredPrices.map(p => (
+                      <div key={p.id} className="grid grid-cols-[1.5fr_1.2fr_1fr_0.8fr_0.7fr] gap-4 p-4 bg-white dark:bg-slate-800 shadow-sm rounded-2xl items-center border border-slate-100 dark:border-slate-700/50 hover:border-blue-300 transition-all">
+                        <div className="font-bold text-sm truncate uppercase" title={p.material}>{p.material}</div>
+                        <div className="text-slate-500 dark:text-slate-400 text-[11px] font-bold uppercase truncate">{p.fornecedor || '---'}</div>
+                        <div className="font-mono font-black text-blue-600 dark:text-blue-400 text-sm">
+                          {formatCurrency(p.preco)}
+                          <span className="text-[10px] text-slate-400 ml-1">/{p.unidade || 'Kg'}</span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-bold uppercase">{new Date(p.data).toLocaleDateString()}</div>
+                        <div className="flex justify-end gap-1">
+                          <button onClick={() => { setNewPrice({ material: p.material, fornecedor: p.fornecedor, preco: p.preco.toString(), unidade: p.unidade || 'Kg', largura: p.largura?.toString() || '' }); setActiveTab('cadastro_precos'); }} title="Copiar Dados" className="p-2 text-slate-300 hover:text-blue-500 transition-colors"><Copy className="w-4 h-4" /></button>
+                          <button onClick={() => { setEditingPrice(p); setActiveTab('cadastro_precos'); }} title="Editar Registro" className="p-2 text-slate-300 hover:text-amber-500 transition-colors"><Edit className="w-4 h-4" /></button>
+                          <button onClick={() => onDeletePrice(p.id)} title="Excluir Registro" className="p-2 text-slate-300 hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="md:hidden space-y-3">
@@ -4153,15 +5018,21 @@ const MaterialPriceComparison: React.FC<{
             <div className="p-4 md:p-8 h-full flex flex-col">
               <div className="max-w-md mb-8 shrink-0">
                 <label className="text-[10px] font-black text-slate-400 uppercase block mb-2 px-1">Selecione o Material para Análise</label>
-                <select
-                  value={analysisMaterial}
-                  onChange={e => setAnalysisMaterial(e.target.value)}
-                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 text-sm font-bold shadow-sm outline-none focus:ring-2 focus:ring-blue-500"
-                  title="Selecionar material para análise"
-                >
-                  <option value="">Escolha um material...</option>
-                  {uniqueMaterials.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
+                <AutocompleteInput
+                  value={analysisSearch || analysisMaterial}
+                  suggestions={uniqueMaterials.map(m => ({ id: m, nome: m }))}
+                  onChange={(val) => {
+                    setAnalysisSearch(val);
+                    if (val === '') setAnalysisMaterial('');
+                  }}
+                  onSelect={(item) => {
+                    setAnalysisMaterial(item.nome);
+                    setAnalysisSearch(item.nome);
+                  }}
+                  placeholder="Pesquisar material para análise..."
+                  hidePrice={true}
+                  className="py-4 px-6 text-sm font-bold rounded-2xl bg-white dark:bg-slate-800"
+                />
               </div>
 
               <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0 pb-10">

@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { formatCurrency, calculateSolaAverageCost, findUnitFactor, calculateSolaMaterialsTotal, calculateSolaLaborTotal, formatNumber } from './utils/calculations';
 import { LibraryData, Sola, SolaMaterial, SolaLaborItem, SolaGradeItem } from './types';
+import AutocompleteInput from './AutocompleteInput';
+import QuickAddModal from './QuickAddModal';
 
 interface LibraryItem {
     id: string;
@@ -35,6 +37,8 @@ interface LibraryViewProps {
     onResetCloud?: () => void;
     isSyncing?: boolean;
     initialTab?: keyof LibraryData | null;
+    onPriceReadjustment?: (item: any, type: string) => void;
+    onShowPriceComparison?: () => void;
 }
 
 const InlineCalculator: React.FC<{
@@ -95,15 +99,15 @@ const InlineCalculator: React.FC<{
                     <div className="text-4xl font-black text-slate-900 dark:text-white truncate font-mono tracking-tighter">{display.replace('.', ',')}</div>
                 </div>
                 <div className="grid grid-cols-4 gap-3">
-                    {['7', '8', '9', '/'].map(btn => <button key={btn} onClick={() => isNaN(Number(btn)) ? performOperation(btn) : inputDigit(btn)} className="p-4 rounded-2xl text-lg font-bold bg-slate-50 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-90 transition-all">{btn}</button>)}
-                    {['4', '5', '6', '*'].map(btn => <button key={btn} onClick={() => isNaN(Number(btn)) ? performOperation(btn) : inputDigit(btn)} className="p-4 rounded-2xl text-lg font-bold bg-slate-50 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-90 transition-all">{btn}</button>)}
-                    {['1', '2', '3', '-'].map(btn => <button key={btn} onClick={() => isNaN(Number(btn)) ? performOperation(btn) : inputDigit(btn)} className="p-4 rounded-2xl text-lg font-bold bg-slate-50 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-90 transition-all">{btn}</button>)}
-                    <button onClick={clear} className="p-4 rounded-2xl text-lg font-bold bg-red-100 text-red-600 active:scale-90 transition-all">C</button>
-                    <button onClick={() => inputDigit('0')} className="p-4 rounded-2xl text-lg font-bold bg-slate-50 dark:bg-slate-800 active:scale-90 transition-all">0</button>
-                    <button onClick={inputDot} className="p-4 rounded-2xl text-lg font-bold bg-slate-50 dark:bg-slate-800 active:scale-90 transition-all">,</button>
-                    <button onClick={() => performOperation('+')} className={`p-4 rounded-2xl text-lg font-bold bg-${color}-100 text-${color}-600 active:scale-90 transition-all`}>+</button>
-                    <button onClick={() => performOperation('=')} className="col-span-2 p-4 rounded-2xl text-xl font-black bg-slate-200 dark:bg-slate-700 active:scale-95 transition-all">=</button>
-                    <button onClick={() => onApply(parseFloat(display))} className={`col-span-2 p-4 rounded-2xl text-xs font-black bg-${color}-600 text-white flex items-center justify-center gap-2 uppercase tracking-widest shadow-lg active:scale-95 transition-all`}><Check className="w-5 h-5" /> Aplicar</button>
+                    {['7', '8', '9', '/'].map(btn => <button key={btn} title={`Tecla ${btn}`} aria-label={`Tecla ${btn}`} onClick={() => isNaN(Number(btn)) ? performOperation(btn) : inputDigit(btn)} className="p-4 rounded-2xl text-lg font-bold bg-slate-50 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-90 transition-all">{btn}</button>)}
+                    {['4', '5', '6', '*'].map(btn => <button key={btn} title={`Tecla ${btn}`} aria-label={`Tecla ${btn}`} onClick={() => isNaN(Number(btn)) ? performOperation(btn) : inputDigit(btn)} className="p-4 rounded-2xl text-lg font-bold bg-slate-50 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-90 transition-all">{btn}</button>)}
+                    {['1', '2', '3', '-'].map(btn => <button key={btn} title={`Tecla ${btn}`} aria-label={`Tecla ${btn}`} onClick={() => isNaN(Number(btn)) ? performOperation(btn) : inputDigit(btn)} className="p-4 rounded-2xl text-lg font-bold bg-slate-50 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-90 transition-all">{btn}</button>)}
+                    <button onClick={clear} title="Limpar" aria-label="Limpar" className="p-4 rounded-2xl text-lg font-bold bg-red-100 text-red-600 active:scale-90 transition-all">C</button>
+                    <button onClick={() => inputDigit('0')} title="Tecla 0" aria-label="Tecla 0" className="p-4 rounded-2xl text-lg font-bold bg-slate-50 dark:bg-slate-800 active:scale-90 transition-all">0</button>
+                    <button onClick={inputDot} title="Tecla Vírgula" aria-label="Tecla Vírgula" className="p-4 rounded-2xl text-lg font-bold bg-slate-50 dark:bg-slate-800 active:scale-90 transition-all">,</button>
+                    <button onClick={() => performOperation('+')} title="Tecla Mais" aria-label="Tecla Mais" className={`p-4 rounded-2xl text-lg font-bold bg-${color}-100 text-${color}-600 active:scale-90 transition-all`}>+</button>
+                    <button onClick={() => performOperation('=')} title="Resultado" aria-label="Resultado" className="col-span-2 p-4 rounded-2xl text-xl font-black bg-slate-200 dark:bg-slate-700 active:scale-95 transition-all">=</button>
+                    <button onClick={() => onApply(parseFloat(display))} title="Aplicar Valor" aria-label="Aplicar Valor" className={`col-span-2 p-4 rounded-2xl text-xs font-black bg-${color}-600 text-white flex items-center justify-center gap-2 uppercase tracking-widest shadow-lg active:scale-95 transition-all`}><Check className="w-5 h-5" /> Aplicar</button>
                 </div>
             </div>
         </div>
@@ -123,7 +127,9 @@ const LibraryView: React.FC<LibraryViewProps> = ({
     onUpdateUnits, 
     onResetCloud,
     isSyncing,
-    initialTab 
+    initialTab,
+    onPriceReadjustment,
+    onShowPriceComparison
 }) => {
     const [activeTab, setActiveTab] = useState<keyof LibraryData>(initialTab || 'insumos');
     const [showDetails, setShowDetails] = useState(!!initialTab);
@@ -138,15 +144,20 @@ const LibraryView: React.FC<LibraryViewProps> = ({
     const [solaGrades, setSolaGrades] = useState<SolaGradeItem[]>([]);
     const [solaLabor, setSolaLabor] = useState<SolaLaborItem[]>([]);
     const [solaFornecedor, setSolaFornecedor] = useState('');
+    const [solaTipo, setSolaTipo] = useState<'simples' | 'mistura' | 'porcentagem'>('simples');
+    const [solaRendimentoGlobal, setSolaRendimentoGlobal] = useState<number>(0);
     
     // Multi-select state
     const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+
+    const [searchTerms, setSearchTerms] = useState<Record<string, string>>({});
+    const [showQuickAdd, setShowQuickAdd] = useState<{ type: 'insumos' | 'terceirizados' | 'pecas', context: any, initialName?: string } | null>(null);
 
     const [editingValue, setEditingValue] = useState<{ id: string, field: string, val: string } | null>(null);
 
     const getDisplayValue = (val: number, id: string, field: string): string => {
         if (editingValue?.id === id && editingValue?.field === field) return editingValue.val;
-        if (val === 0) return '';
+        if (val === 0) return (field === 'porcentagem' || field === 'rendimentoGlobal') ? '0' : '';
 
         // Campos que devem ter sempre 2 casas decimais (Valores Unitários/Monetários)
         const isPrice = ['v', 'tv', 'valor', 'precoAlternativo', 'aliquota'].includes(field);
@@ -159,7 +170,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({
         const numValue = parseFloat(normalized);
 
         if (!isNaN(numValue)) {
-            const isPrice = ['v', 'tv', 'valor', 'precoAlternativo', 'aliquota'].includes(field);
+            const isPrice = ['v', 'tv', 'valor', 'precoAlternativo', 'aliquota', 'rendimentoPares', 'porcentagem'].includes(field);
             const roundedValue = isPrice ? Math.round(numValue * 100) / 100 : Math.round(numValue * 10000) / 10000;
             updateFn(roundedValue);
         }
@@ -198,6 +209,8 @@ const LibraryView: React.FC<LibraryViewProps> = ({
             setSolaMaterials([...sola.materiais]);
             setSolaGrades([...sola.grade]);
             setSolaLabor([...sola.maoDeObra]);
+            setSolaTipo(sola.tipo || 'simples');
+            setSolaRendimentoGlobal(sola.rendimentoGlobal || 0);
             setNewItem({ 
                 nome: sola.nome,
                 valor: sola.valor,
@@ -218,8 +231,11 @@ const LibraryView: React.FC<LibraryViewProps> = ({
         setSolaMaterials([]);
         setSolaGrades([]);
         setSolaLabor([]);
+        setSolaTipo('simples');
+        setSolaRendimentoGlobal(0);
         setNewItem({});
         setSelectedItemIds([]);
+        setSearchTerms({});
     };
 
     const handleSaveEdit = () => {
@@ -359,18 +375,20 @@ const LibraryView: React.FC<LibraryViewProps> = ({
 
     const currentSolaForCalculation = useMemo(() => ({
         ...newItem,
+        tipo: solaTipo,
+        rendimentoGlobal: solaRendimentoGlobal,
         materiais: solaMaterials,
         maoDeObra: solaLabor,
         grade: solaGrades,
         fornecedor: solaFornecedor
-    } as Sola), [newItem, solaMaterials, solaLabor, solaGrades, solaFornecedor]);
+    } as Sola), [newItem, solaTipo, solaRendimentoGlobal, solaMaterials, solaLabor, solaGrades, solaFornecedor]);
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onClick={onClose} />
             <div className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-slate-200 dark:border-slate-800">
 
-                <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
+                <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div className="flex items-center gap-4">
                         {showDetails && (
                             <button 
@@ -381,21 +399,42 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                 <X className="w-5 h-5" />
                             </button>
                         )}
-                        <div className={`p-3 rounded-2xl ${getTabColor(showDetails ? activeTab : 'insumos')} shadow-sm`}>
-                            {showDetails ? getTabIcon(activeTab, "w-8 h-8") : <Database className="w-8 h-8" fill="currentColor" fillOpacity={0.2} />}
+                        <div className={`p-3 rounded-2xl ${getTabColor(showDetails ? activeTab : 'insumos')} shadow-sm shrink-0`}>
+                            {showDetails ? getTabIcon(activeTab, "w-6 h-6 sm:w-8 sm:h-8") : <Database className="w-6 h-6 sm:w-8 sm:h-8" fill="currentColor" fillOpacity={0.2} />}
                         </div>
                         <div>
-                            <h2 className="text-xl font-black text-slate-800 dark:text-white uppercase">
+                            <h2 className="text-lg sm:text-xl font-black text-slate-800 dark:text-white uppercase leading-tight">
                                 {showDetails ? getTabLabel(activeTab) : "Biblioteca de Custos"}
                             </h2>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                            <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                                 {showDetails ? `Gerencie seus itens de ${getTabLabel(activeTab).toLowerCase()}` : "Selecione uma categoria para gerenciar"}
                             </p>
                         </div>
                     </div>
-                    <button onClick={onClose} title="Fechar Biblioteca" className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400">
-                        <X className="w-6 h-6" />
-                    </button>
+                    <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                        {onShowPriceComparison && (
+                            <button
+                                onClick={onShowPriceComparison}
+                                title="Comparação de Preços"
+                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-md transition-all active:scale-95"
+                            >
+                                <TrendingUp className="w-4 h-4" />
+                                <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Comparar Preços</span>
+                            </button>
+                        )}
+                        <button 
+                            onClick={() => window.location.reload()}
+                            title="Atualizar Sistema"
+                            className="flex items-center gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl border border-slate-200 dark:border-slate-700 transition-all active:scale-95 shadow-sm"
+                        >
+                            <RefreshCw className="w-4 h-4" />
+                            <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Atualizar</span>
+                        </button>
+                        <button onClick={onClose} title="Sair da Biblioteca" className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl hover:bg-red-100 transition-all active:scale-95 border border-red-100 dark:border-red-900/30">
+                            <X className="w-5 h-5" />
+                            <span className="text-[10px] font-black uppercase tracking-widest hidden xs:inline">Sair</span>
+                        </button>
+                    </div>
                 </div>
 
                 {!showDetails ? (
@@ -479,6 +518,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                             <input
                                                 type="text"
                                                 inputMode="decimal"
+                                                title="Preço de Compra"
                                                 placeholder="0,00"
                                                 value={getDisplayValue(newItem.valorUnitario || 0, 'new', 'v')}
                                                 onChange={e => handleNumericChange('new', 'v', e.target.value, (v) => setNewItem({ ...newItem, valorUnitario: v }))}
@@ -493,6 +533,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                         <input
                                             type="text"
                                             inputMode="decimal"
+                                            title="Quantidade na Embalagem"
                                             value={getDisplayValue(newItem.quantidadeCompra || 0, 'new', 'q_compra')}
                                             onChange={e => handleNumericChange('new', 'q_compra', e.target.value, (v) => {
                                                 setNewItem({ ...newItem, quantidadeCompra: v, fator: v });
@@ -522,6 +563,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                             <input
                                                 type="text"
                                                 inputMode="decimal"
+                                                title="Fator de Conversão"
                                                 value={getDisplayValue(newItem.fator || 0, 'new', 'fator')}
                                                 onChange={e => handleNumericChange('new', 'fator', e.target.value, (v) => setNewItem({ ...newItem, fator: v }))}
                                                 onBlur={() => setEditingValue(null)}
@@ -565,6 +607,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                     <input
                                         type="text"
                                         inputMode="decimal"
+                                        title={(activeTab === 'impostos' || activeTab === 'comissoes') ? 'Alíquota (%)' : 'Valor'}
                                         value={getDisplayValue(newItem.aliquota || newItem.valor || 0, 'new', (activeTab === 'impostos' || activeTab === 'comissoes') ? 'aliquota' : 'valor')}
                                         onChange={e => {
                                             const field = (activeTab === 'impostos' || activeTab === 'comissoes') ? 'aliquota' : 'valor';
@@ -572,7 +615,6 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                         }}
                                         onBlur={() => setEditingValue(null)}
                                         placeholder="0,00"
-                                        title={(activeTab === 'impostos' || activeTab === 'comissoes') ? 'Alíquota (%)' : 'Valor'}
                                         className={`w-full bg-white dark:bg-slate-800 border-none rounded-xl px-4 py-2.5 text-sm font-bold shadow-sm focus:ring-2 focus:ring-${getThemeColor(activeTab)}-500`}
                                     />
                                 </div>
@@ -609,13 +651,42 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                 </div>
 
                                  {/* Materiais Blend */}
-                                <div className={`bg-white dark:bg-slate-800/50 p-4 sm:p-6 rounded-2xl border border-dashed border-${getThemeColor(activeTab)}-200 dark:border-${getThemeColor(activeTab)}-800`}>
-                                    <div className="flex justify-between items-center mb-4">
-                                        <h4 className={`text-[10px] font-black uppercase tracking-widest text-${getThemeColor(activeTab)}-600`}>Composição de Materiais (g)</h4>
+                                <div className={`p-4 sm:p-6 rounded-2xl border-2 border-dashed border-${getThemeColor(activeTab)}-200 dark:border-${getThemeColor(activeTab)}-800 bg-white/50 dark:bg-slate-800/30`}>
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                                        <div className="flex flex-col gap-1">
+                                            <h4 className={`text-[10px] font-black uppercase tracking-widest text-${getThemeColor(activeTab)}-600`}>Composição de Materiais (g)</h4>
+                                            <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl w-fit">
+                                                <button 
+                                                    onClick={() => {
+                                                        setSolaTipo('simples');
+                                                        if (solaMaterials.length > 1) {
+                                                            setSolaMaterials([solaMaterials[0]]);
+                                                        } else if (solaMaterials.length === 0) {
+                                                            setSolaMaterials([{ id: Math.random().toString(36), materialId: '', pesoGrams: 0 }]);
+                                                        }
+                                                    }}
+                                                    className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${solaTipo === 'simples' ? `bg-white dark:bg-slate-800 text-${getThemeColor(activeTab)}-600 shadow-sm` : 'text-slate-400 hover:text-slate-600'}`}
+                                                >
+                                                    Simples
+                                                </button>
+                                                <button 
+                                                    onClick={() => setSolaTipo('mistura')}
+                                                    className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${solaTipo === 'mistura' ? `bg-white dark:bg-slate-800 text-${getThemeColor(activeTab)}-600 shadow-sm` : 'text-slate-400 hover:text-slate-600'}`}
+                                                >
+                                                    Mistura
+                                                </button>
+                                                <button 
+                                                    onClick={() => setSolaTipo('porcentagem')}
+                                                    className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${solaTipo === 'porcentagem' ? `bg-white dark:bg-slate-800 text-${getThemeColor(activeTab)}-600 shadow-sm` : 'text-slate-400 hover:text-slate-600'}`}
+                                                >
+                                                    % Porcentagem
+                                                </button>
+                                            </div>
+                                        </div>
                                         <button 
                                             onClick={() => {
-                                                const materialId = library.insumos[0]?.id || '';
-                                                if (materialId) setSolaMaterials([...solaMaterials, { id: Math.random().toString(36), materialId, pesoGrams: 0 }]);
+                                                if (solaTipo === 'simples') setSolaTipo('mistura');
+                                                setSolaMaterials([...solaMaterials, { id: Math.random().toString(36), materialId: '', pesoGrams: 0, porcentagem: 0 }]);
                                             }}
                                             title="Adicionar material à composição"
                                             className={`p-1.5 bg-${getThemeColor(activeTab)}-100 dark:bg-${getThemeColor(activeTab)}-900/40 text-${getThemeColor(activeTab)}-600 rounded-lg hover:bg-${getThemeColor(activeTab)}-200 transition-colors`}
@@ -623,36 +694,85 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                             <Plus className="w-4 h-4" />
                                         </button>
                                     </div>
+
+                                    {solaTipo === 'porcentagem' && (
+                                        <div className="mb-6 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl border border-indigo-100 dark:border-indigo-800 flex flex-col gap-3 animate-in slide-in-from-top-2 duration-300">
+                                            <div className="flex justify-between items-center">
+                                                <h5 className="text-[9px] font-black uppercase tracking-widest text-indigo-600">Configuração de Mistura Global</h5>
+                                                <div className={`px-2 py-1 rounded-md text-[8px] font-black uppercase tracking-wider ${solaMaterials.reduce((sum, m) => sum + (m.porcentagem || 0), 0) === 100 ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600'}`}>
+                                                    Total: {solaMaterials.reduce((sum, m) => sum + (m.porcentagem || 0), 0)}%
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col gap-1.5">
+                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Rendimento Global da Mistura</span>
+                                                <div className="relative group max-w-[200px]">
+                                                    <input 
+                                                        type="text" 
+                                                        inputMode="decimal"
+                                                        value={getDisplayValue(solaRendimentoGlobal || 0, 'sola-rend-global', 'rendimentoGlobal')} 
+                                                        onChange={e => handleNumericChange('sola-rend-global', 'rendimentoGlobal', e.target.value, setSolaRendimentoGlobal)}
+                                                        onBlur={() => setEditingValue(null)}
+                                                        placeholder=""
+                                                        className={`w-full bg-white dark:bg-slate-900 border-none rounded-2xl px-3 py-3 text-xs font-bold text-right pr-24 shadow-sm focus:ring-2 focus:ring-indigo-500/20`}
+                                                    />
+                                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[8px] font-black text-slate-400 pointer-events-none">PARES/KG</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <div className="space-y-3">
                                         {solaMaterials.map((mat, idx) => {
                                             const selectedMat = library.insumos.find(i => i.id === mat.materialId);
                                             const effectivePrice = mat.precoAlternativo !== undefined ? mat.precoAlternativo : (selectedMat?.valorUnitario || 0);
                                             const factor = selectedMat ? findUnitFactor(selectedMat.unidade, library.unidadesMedida) : 1;
-                                            const matCost = (mat.pesoGrams / (factor || 1)) * effectivePrice;
+                                            
+                                            const matCost = solaTipo === 'porcentagem'
+                                                ? (solaRendimentoGlobal > 0 ? (effectivePrice * (mat.porcentagem || 0) / 100) / solaRendimentoGlobal : 0)
+                                                : mat.tipoCalculo === 'rendimento'
+                                                    ? (mat.rendimentoPares && mat.rendimentoPares > 0 ? effectivePrice / mat.rendimentoPares : 0)
+                                                    : (mat.pesoGrams / (factor || 1)) * effectivePrice;
+
                                             const averageWeight = solaGrades.length > 0 
                                                 ? solaGrades.reduce((acc, curr) => acc + (curr.peso || 0), 0) / solaGrades.length 
                                                 : 0;
+                                            
+                                            const currentSearch = searchTerms[`sola-mat-${idx}`] !== undefined ? searchTerms[`sola-mat-${idx}`] : (selectedMat?.nome || '');
+                                            const isNewMaterial = currentSearch.length > 0 && !library.insumos.some(i => i.nome.toLowerCase() === currentSearch.toLowerCase());
                                             
                                             return (
                                                 <div key={mat.id} className={`flex flex-col gap-4 bg-white dark:bg-slate-950 border-l-4 border-${getThemeColor(activeTab)}-500 shadow-sm p-4 rounded-xl w-full transition-all hover:shadow-md mb-2`}>
                                                     <div className="flex items-center justify-between gap-3 pb-2 border-b border-slate-100 dark:border-slate-800">
                                                         <div className="flex-1 flex flex-col gap-1">
-                                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Material</span>
-                                                            <select 
-                                                                value={mat.materialId}
-                                                                onChange={e => {
-                                                                    const newMats = [...solaMaterials];
-                                                                    newMats[idx].materialId = e.target.value;
-                                                                    setSolaMaterials(newMats);
-                                                                }}
-                                                                title="Selecionar material"
-                                                                className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-xl px-3 py-2 text-xs font-bold"
-                                                            >
-                                                                <option value="">Selecione um material</option>
-                                                                {library.insumos.map(i => (
-                                                                    <option key={i.id} value={i.id}>{i.nome} ({formatCurrency(i.valorUnitario)}/Kg)</option>
-                                                                ))}
-                                                            </select>
+                                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Material (Sugestão de Lista)</span>
+                                                            <div className="relative group/search">
+                                                                <AutocompleteInput 
+                                                                    value={currentSearch}
+                                                                    suggestions={library.insumos}
+                                                                    placeholder="Digite para buscar material..."
+                                                                    onSelect={(item) => {
+                                                                        const newMats = [...solaMaterials];
+                                                                        newMats[idx].materialId = item.id;
+                                                                        setSolaMaterials(newMats);
+                                                                        setSearchTerms(prev => ({ ...prev, [`sola-mat-${idx}`]: item.nome }));
+                                                                    }}
+                                                                    onFocus={(e) => e.target.select()}
+                                                                    onChange={(val) => {
+                                                                        setSearchTerms(prev => ({ ...prev, [`sola-mat-${idx}`]: val }));
+                                                                    }}
+                                                                    className="!bg-slate-50 dark:!bg-slate-900 border-none rounded-xl"
+                                                                />
+                                                                {isNewMaterial && (
+                                                                    <button 
+                                                                        onClick={() => setShowQuickAdd({ type: 'insumos', context: { idx }, initialName: currentSearch })}
+                                                                        title={`Cadastrar "${currentSearch}" na biblioteca`}
+                                                                        className={`absolute right-10 top-1/2 -translate-y-1/2 p-2 bg-white dark:bg-slate-800 text-${getThemeColor(activeTab)}-600 rounded-xl shadow-lg border border-${getThemeColor(activeTab)}-200 dark:border-${getThemeColor(activeTab)}-800 transition-all active:scale-95 flex items-center gap-1.5 z-10 animate-in fade-in zoom-in slide-in-from-right-2`}
+                                                                    >
+                                                                        <Database className="w-3.5 h-3.5" />
+                                                                        <span className="text-[8px] font-black uppercase">Novo</span>
+                                                                    </button>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                         <button 
                                                             onClick={() => setSolaMaterials(solaMaterials.filter((_, i) => i !== idx))} 
@@ -663,43 +783,148 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                                         </button>
                                                     </div>
 
+                                                    <div className="flex flex-wrap gap-2 mb-2">
+                                                        {solaTipo !== 'porcentagem' ? (
+                                                            <>
+                                                                <button 
+                                                                    onClick={() => {
+                                                                        const newMats = [...solaMaterials];
+                                                                        newMats[idx].tipoCalculo = 'peso';
+                                                                        setSolaMaterials(newMats);
+                                                                        setEditingValue(null);
+                                                                    }}
+                                                                    className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${!mat.tipoCalculo || mat.tipoCalculo === 'peso' ? `bg-${getThemeColor(activeTab)}-500 text-white shadow-lg shadow-${getThemeColor(activeTab)}-500/20` : 'bg-slate-100 text-slate-400'}`}
+                                                                >
+                                                                    Peso e Média
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => {
+                                                                        const newMats = [...solaMaterials];
+                                                                        newMats[idx].tipoCalculo = 'rendimento';
+                                                                        setSolaMaterials(newMats);
+                                                                        setEditingValue(null);
+                                                                    }}
+                                                                    className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${mat.tipoCalculo === 'rendimento' ? `bg-${getThemeColor(activeTab)}-500 text-white shadow-lg shadow-${getThemeColor(activeTab)}-500/20` : 'bg-slate-100 text-slate-400'}`}
+                                                                >
+                                                                    Rendimento Pares/Kg
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            <div className="px-3 py-1.5 bg-indigo-500 text-white rounded-lg text-[8px] font-black uppercase tracking-widest shadow-lg shadow-indigo-500/20">
+                                                                Modo Porcentagem
+                                                            </div>
+                                                        )}
+                                                    </div>
+
                                                     <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 gap-4 items-end">
-                                                        <div className="flex flex-col gap-1.5">
-                                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Peso e Média</span>
-                                                            <div className="flex flex-col gap-2">
+                                                        {solaTipo === 'porcentagem' ? (
+                                                            <div key={`perc-container-${idx}`} className="flex flex-col gap-1.5 animate-in fade-in duration-200">
+                                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">% da Mistura</span>
                                                                 <div className="relative group">
                                                                     <input 
                                                                         type="text" 
                                                                         inputMode="decimal"
-                                                                        value={getDisplayValue(mat.pesoGrams || 0, `sola-mat-${idx}`, 'pesoGrams')} 
+                                                                        value={getDisplayValue(mat.porcentagem || 0, `sola-mat-perc-${idx}`, 'porcentagem')} 
                                                                         onChange={e => {
                                                                             const newMats = [...solaMaterials];
-                                                                            handleNumericChange(`sola-mat-${idx}`, 'pesoGrams', e.target.value, (v) => {
-                                                                                newMats[idx].pesoGrams = v;
+                                                                            handleNumericChange(`sola-mat-perc-${idx}`, 'porcentagem', e.target.value, (v) => {
+                                                                                const otherTotal = solaMaterials.reduce((sum, m, i) => i !== idx ? sum + (m.porcentagem || 0) : sum, 0);
+                                                                                if (otherTotal + v > 100) {
+                                                                                    newMats[idx].porcentagem = Math.max(0, 100 - otherTotal);
+                                                                                } else {
+                                                                                    newMats[idx].porcentagem = v;
+                                                                                }
                                                                                 setSolaMaterials(newMats);
                                                                             });
                                                                         }}
                                                                         onBlur={() => setEditingValue(null)}
-                                                                        placeholder="Peso (g)"
-                                                                        className={`w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-3 sm:px-4 py-3 text-xs font-bold text-right pr-6 sm:pr-8 shadow-sm focus:ring-2 focus:ring-${getThemeColor(activeTab)}-500/20`}
-                                                                        title="Peso em gramas"
+                                                                        placeholder=""
+                                                                        className={`w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-3 sm:px-4 py-3 text-xs font-bold text-right pr-14 shadow-sm focus:ring-2 focus:ring-indigo-500/20`}
                                                                     />
-                                                                    <span className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">g</span>
+                                                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">%</span>
                                                                 </div>
-                                                                <button 
-                                                                    onClick={() => {
-                                                                        const newMats = [...solaMaterials];
-                                                                        newMats[idx].pesoGrams = Number(averageWeight.toFixed(1));
-                                                                        setSolaMaterials(newMats);
-                                                                    }}
-                                                                    title={`Usar peso médio da grade (${averageWeight.toFixed(1)}g)`}
-                                                                    className="w-full py-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-xl shadow-md hover:bg-indigo-700 active:scale-95 transition-all flex items-center justify-center gap-1.5"
-                                                                >
-                                                                    <Maximize className="w-3.5 h-3.5" />
-                                                                    <span className="text-[9px] font-black uppercase tracking-wider">Peso Médio</span>
-                                                                </button>
+                                                                {(() => {
+                                                                    const otherTotal = solaMaterials.reduce((sum, m, i) => i !== idx ? sum + (m.porcentagem || 0) : sum, 0);
+                                                                    const remaining = 100 - otherTotal;
+                                                                    if (remaining > 0 && (mat.porcentagem || 0) < remaining) {
+                                                                        return (
+                                                                            <button 
+                                                                                onClick={() => {
+                                                                                    const newMats = [...solaMaterials];
+                                                                                    newMats[idx].porcentagem = remaining;
+                                                                                    setSolaMaterials(newMats);
+                                                                                }}
+                                                                                className="mt-2 py-1 px-3 bg-indigo-600 text-white rounded-lg text-[9px] font-black uppercase tracking-wider hover:bg-indigo-700 active:scale-95 transition-all flex items-center justify-center gap-1 w-fit shadow-md shadow-indigo-500/20 animate-in fade-in zoom-in"
+                                                                            >
+                                                                                <Check className="w-3 h-3" />
+                                                                                Completar ({remaining}%)
+                                                                            </button>
+                                                                        );
+                                                                    }
+                                                                    return null;
+                                                                })()}
                                                             </div>
-                                                        </div>
+                                                        ) : (!mat.tipoCalculo || mat.tipoCalculo === 'peso') ? (
+                                                            <div key={`peso-container-${idx}`} className="flex flex-col gap-1.5 animate-in fade-in duration-200">
+                                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Peso e Média</span>
+                                                                <div className="flex flex-col gap-2">
+                                                                    <div className="relative group">
+                                                                        <input 
+                                                                            type="text" 
+                                                                            inputMode="decimal"
+                                                                            value={getDisplayValue(mat.pesoGrams || 0, `sola-mat-${idx}`, 'pesoGrams')} 
+                                                                            onChange={e => {
+                                                                                const newMats = [...solaMaterials];
+                                                                                handleNumericChange(`sola-mat-${idx}`, 'pesoGrams', e.target.value, (v) => {
+                                                                                    newMats[idx].pesoGrams = v;
+                                                                                    setSolaMaterials(newMats);
+                                                                                });
+                                                                            }}
+                                                                            onBlur={() => setEditingValue(null)}
+                                                                            placeholder="Peso (g)"
+                                                                            className={`w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-3 sm:px-4 py-3 text-xs font-bold text-right pr-6 sm:pr-8 shadow-sm focus:ring-2 focus:ring-${getThemeColor(activeTab)}-500/20`}
+                                                                            title="Peso em gramas"
+                                                                        />
+                                                                        <span className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">g</span>
+                                                                    </div>
+                                                                    <button 
+                                                                        onClick={() => {
+                                                                            const newMats = [...solaMaterials];
+                                                                            newMats[idx].pesoGrams = Number(averageWeight.toFixed(1));
+                                                                            setSolaMaterials(newMats);
+                                                                        }}
+                                                                        title={`Usar peso médio da grade (${averageWeight.toFixed(1)}g)`}
+                                                                        className="w-full py-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-xl shadow-md hover:bg-indigo-700 active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                                                                    >
+                                                                        <Maximize className="w-3.5 h-3.5" />
+                                                                        <span className="text-[9px] font-black uppercase tracking-wider">Peso Médio</span>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div key={`rend-container-${idx}`} className="flex flex-col gap-1.5 animate-in fade-in duration-200">
+                                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Rendimento pares por kg</span>
+                                                                <div className="relative group">
+                                                                    <input 
+                                                                        type="text" 
+                                                                        inputMode="decimal"
+                                                                        value={getDisplayValue(mat.rendimentoPares || 0, `sola-mat-rend-${idx}`, 'rendimentoPares')} 
+                                                                        onChange={e => {
+                                                                            const newMats = [...solaMaterials];
+                                                                            handleNumericChange(`sola-mat-rend-${idx}`, 'rendimentoPares', e.target.value, (v) => {
+                                                                                newMats[idx].rendimentoPares = v;
+                                                                                setSolaMaterials(newMats);
+                                                                            });
+                                                                        }}
+                                                                        onBlur={() => setEditingValue(null)}
+                                                                        placeholder=""
+                                                                        className={`w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-3 sm:px-4 py-3 text-xs font-bold text-right pr-24 shadow-sm focus:ring-2 focus:ring-${getThemeColor(activeTab)}-500/20`}
+                                                                        title="Quantos pares produz com 1Kg"
+                                                                    />
+                                                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[8px] font-black text-slate-400 pointer-events-none">PARES/KG</span>
+                                                                </div>
+                                                            </div>
+                                                        )}
 
                                                         <div className="flex flex-col gap-1.5">
                                                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Preço Alternativo (Kg)</span>
@@ -739,6 +964,26 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                         })}
                                         {solaMaterials.length === 0 && (
                                             <p className="text-center py-4 text-[10px] text-slate-400 font-bold uppercase tracking-tight">Nenhum material adicionado</p>
+                                        )}
+                                    </div>
+
+                                    {/* Resumo da Composição */}
+                                    <div className={`mt-6 p-4 rounded-2xl bg-slate-100/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4`}>
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Materiais (por par)</span>
+                                            <div className={`text-xl font-mono font-black text-${getThemeColor(activeTab)}-600`}>
+                                                {formatCurrency(calculateSolaMaterialsTotal({ 
+                                                    materiais: solaMaterials, 
+                                                    tipo: solaTipo, 
+                                                    rendimentoGlobal: solaRendimentoGlobal 
+                                                } as any, library.insumos, library.unidadesMedida))}
+                                            </div>
+                                        </div>
+                                        {solaTipo === 'porcentagem' && (
+                                            <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${solaMaterials.reduce((sum, m) => sum + (m.porcentagem || 0), 0) > 100 ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-green-100 text-green-600'}`}>
+                                                {solaMaterials.reduce((sum, m) => sum + (m.porcentagem || 0), 0) > 100 ? '⚠️ Excesso: ' : 'Soma: '}
+                                                {solaMaterials.reduce((sum, m) => sum + (m.porcentagem || 0), 0)}% / 100%
+                                            </div>
                                         )}
                                     </div>
                                 </div>
@@ -851,6 +1096,13 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                                                 className="w-full bg-white dark:bg-slate-950 sm:bg-slate-50 sm:dark:bg-slate-900 border-none rounded-lg px-2 py-1.5 text-[10px] font-bold text-right"
                                                             />
                                                         </div>
+                                                        <button 
+                                                            onClick={() => setShowQuickAdd({ type: 'terceirizados', context: { idx } })}
+                                                            title="Cadastrar novo serviço na biblioteca"
+                                                            className="p-1.5 text-slate-400 hover:text-purple-500 transition-colors"
+                                                        >
+                                                            <Database className="w-3.5 h-3.5" />
+                                                        </button>
                                                         <button onClick={() => setSolaLabor(solaLabor.filter((_, i) => i !== idx))} title="Remover serviço" className="p-2 text-slate-300 hover:text-red-500 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                                                     </div>
                                                 </div>
@@ -877,6 +1129,8 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                                 nome: newItem.nome,
                                                 fornecedor: solaFornecedor,
                                                 valor: newItem.valorUnitario || newItem.valor,
+                                                tipo: solaTipo,
+                                                rendimentoGlobal: solaRendimentoGlobal,
                                                 materiais: solaMaterials,
                                                 grade: solaGrades,
                                                 maoDeObra: solaLabor,
@@ -915,7 +1169,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                         <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-sm border border-white/5 group hover:bg-white/20 transition-all cursor-default">
                                             <p className={`text-[9px] font-black text-${getThemeColor(activeTab)}-200 uppercase mb-1 flex items-center gap-1.5`}>
-                                                <Package className="w-3 h-3" /> Materials
+                                                <Package className="w-3 h-3" /> MATERIAIS
                                             </p>
                                             <p className="text-xl font-mono font-black tracking-tight">
                                                 {(newItem.valorUnitario || 0) > 0 
@@ -990,9 +1244,9 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 {filteredItems.map(item => {
                                     const itemType = (item as any)._type || activeTab;
-                                    const themeColor = getThemeColor(itemType as keyof LibraryData);
+                                    const isAdded = (existingItemsNames || []).some(name => name.toLowerCase() === item.nome.toLowerCase());
+                                    const themeColor = isAdded ? 'slate' : getThemeColor(itemType as keyof LibraryData);
                                     const isSola = itemType === 'solados';
-                                    const isAdded = existingItemsNames.some(name => name.toLowerCase() === item.nome.toLowerCase());
                                     const compositeId = `${itemType}:${item.id}`;
                                     const isSelected = selectedItemIds.includes(compositeId);
                                     
@@ -1000,7 +1254,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                         <div 
                                             key={compositeId} 
                                             onClick={() => !isAdded && editingId !== item.id && toggleSelectItem(itemType, item.id)}
-                                            className={`group bg-white dark:bg-slate-900 border ${editingId === item.id ? `border-${themeColor}-500 ring-2 ring-${themeColor}-500/10` : isSelected ? `border-${themeColor}-500 bg-${themeColor}-50/30 ring-1 ring-${themeColor}-500/10` : isAdded ? 'border-slate-100 dark:border-slate-800 opacity-40 grayscale' : 'border-slate-200 dark:border-slate-800'} p-4 rounded-2xl transition-all shadow-sm ${!isAdded ? `hover:shadow-md cursor-pointer hover:border-${themeColor}-200 dark:hover:border-${themeColor}-900/40` : 'pointer-events-none'}`}
+                                            className={`group bg-white dark:bg-slate-900 border ${editingId === item.id ? `border-${themeColor}-500 ring-2 ring-${themeColor}-500/10` : isSelected ? `border-${themeColor}-500 bg-${themeColor}-50/30 ring-1 ring-${themeColor}-500/10` : isAdded ? 'border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40' : 'border-slate-200 dark:border-slate-800'} p-4 rounded-2xl transition-all shadow-sm ${!isAdded ? `hover:shadow-md cursor-pointer hover:border-${themeColor}-200 dark:hover:border-${themeColor}-900/40` : ''}`}
                                         >
                                             {editingId === item.id ? (
                                                 <div className="space-y-4 bg-slate-50 dark:bg-slate-950/50 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-inner">
@@ -1210,9 +1464,20 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                                                 {isSola ? (
                                                                     <>
                                                                         <span className="text-[10px] font-bold text-slate-400 uppercase truncate max-w-[80px] sm:max-w-[120px]">{(item as any).fornecedor || 'Fab. Própria'}</span>
-                                                                        <span className={`text-[11px] font-black text-${themeColor}-600 font-mono`}>
-                                                                            {formatCurrency(calculateSolaAverageCost(item as Sola, library.insumos, library.unidadesMedida))} <span className="text-[9px] opacity-60">/ par</span>
-                                                                        </span>
+                                                                        <div 
+                                                                            className="flex flex-col items-end cursor-help group/price relative"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                if (onPriceReadjustment) {
+                                                                                    onPriceReadjustment(item, itemType);
+                                                                                }
+                                                                            }}
+                                                                        >
+                                                                            <span className={`text-[11px] font-black text-${themeColor}-600 font-mono`}>
+                                                                                {formatCurrency(calculateSolaAverageCost(item as Sola, library.insumos, library.unidadesMedida))} <span className="text-[9px] opacity-60">/ par</span>
+                                                                            </span>
+                                                                            <span className="text-[7px] font-black uppercase text-orange-500 animate-pulse opacity-100">Reajustar Geral</span>
+                                                                        </div>
                                                                     </>
                                                                 ) : (
                                                                     <>
@@ -1221,25 +1486,58 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                                                                 {item.unidade}
                                                                             </span>
                                                                         )}
-                                                                        <span className={`text-[10px] font-black text-${themeColor}-600 font-mono`}>
                                                                             {activeTab === 'unidadesMedida' 
                                                                                 ? (
                                                                                     <div className="flex items-center gap-1 opacity-70">
                                                                                         <span className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-[8px]">UNIDADE DE MEDIDA</span>
                                                                                     </div>
                                                                                 )
-                                                                                : (activeTab === 'impostos' || activeTab === 'comissoes') 
-                                                                                    ? `${item.aliquota?.toFixed(2)}%`
-                                                                                    : (item.valorUnitario && item.quantidadeCompra && item.quantidadeCompra > 1)
-                                                                                        ? (
-                                                                                            <span className="flex flex-col items-end">
-                                                                                                <span>{formatCurrency(item.valorUnitario)} <span className="text-[8px] opacity-40">c/ {item.quantidadeCompra}</span></span>
-                                                                                                <span className="text-[8px] opacity-60">Unitário: {formatCurrency(item.valorUnitario / item.quantidadeCompra, 4)}</span>
-                                                                                            </span>
-                                                                                        )
-                                                                                        : formatCurrency(item.valorUnitario || item.valor || 0)
+                                                                                : activeTab === 'pecas'
+                                                                                    ? null
+                                                                                    : (
+                                                                                        <span className={`text-[10px] font-black text-slate-500 font-mono`}>
+                                                                                            {(activeTab === 'impostos' || activeTab === 'comissoes') 
+                                                                                                ? `${item.aliquota?.toFixed(2)}%`
+                                                                                                : (item.valorUnitario && item.quantidadeCompra && item.quantidadeCompra > 1)
+                                                                                                    ? (
+                                                                                                        <div 
+                                                                                                            className="flex flex-col items-end cursor-help group/price relative"
+                                                                                                            onClick={(e) => {
+                                                                                                                e.stopPropagation();
+                                                                                                                if (onPriceReadjustment) {
+                                                                                                                    onPriceReadjustment(item, itemType);
+                                                                                                                }
+                                                                                                            }}
+                                                                                                        >
+                                                                                                            <div className="flex items-center gap-1.5">
+                                                                                                                <span className="hover:text-blue-500 transition-colors text-slate-800 dark:text-slate-200">{formatCurrency(item.valorUnitario)}</span>
+                                                                                                                <span className="text-[8px] opacity-40">c/ {item.quantidadeCompra}</span>
+                                                                                                                <TrendingUp className="w-3 h-3 opacity-0 group-hover/price:opacity-100 transition-opacity" />
+                                                                                                            </div>
+                                                                                                            <span className="text-[8px] opacity-60">Unitário: {formatCurrency(item.valorUnitario / item.quantidadeCompra, 4)}</span>
+                                                                                                            <span className="text-[7px] font-black uppercase text-orange-500 animate-pulse opacity-100">Reajustar Geral</span>
+                                                                                                        </div>
+                                                                                                    )
+                                                                                                    : (
+                                                                                                <div 
+                                                                                                    className="flex flex-col items-end cursor-help group/price relative"
+                                                                                                    onClick={(e) => {
+                                                                                                        e.stopPropagation();
+                                                                                                        if (onPriceReadjustment) {
+                                                                                                            onPriceReadjustment(item, itemType);
+                                                                                                        }
+                                                                                                    }}
+                                                                                                >
+                                                                                                    <div className="flex items-center gap-1.5">
+                                                                                                        <span className="hover:text-blue-500 transition-colors">{formatCurrency(item.valorUnitario || item.valor || 0)}</span>
+                                                                                                        <TrendingUp className="w-3 h-3 opacity-0 group-hover/price:opacity-100 transition-opacity" />
+                                                                                                    </div>
+                                                                                                    <span className="text-[7px] font-black uppercase text-orange-500 animate-pulse opacity-100">Reajustar Geral</span>
+                                                                                                </div>
+                                                                                            )}
+                                                                                        </span>
+                                                                                    )
                                                                             }
-                                                                        </span>
                                                                         {item.rendimento && item.rendimento > 1 && (activeTab === 'insumos' || activeTab === 'terceirizados') && (
                                                                             <span className="text-[8px] font-black text-green-600 bg-green-50 dark:bg-green-900/20 px-1.5 py-0.5 rounded flex items-center gap-1 whitespace-nowrap">
                                                                                 <RefreshCw className="w-2.5 h-2.5" /> RENDE {Number(item.rendimento).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} PARES
@@ -1330,6 +1628,40 @@ const LibraryView: React.FC<LibraryViewProps> = ({
                                 setEditForm({ ...editForm, rendimento: val });
                             }
                             setActiveCalc(null);
+                        }}
+                    />
+                )}
+
+                {/* Quick Add Modal */}
+                {showQuickAdd && (
+                    <QuickAddModal 
+                        type={showQuickAdd.type}
+                        units={units}
+                        onClose={() => setShowQuickAdd(null)}
+                        getThemeColor={getThemeColor}
+                        initialName={showQuickAdd.initialName}
+                        onSave={(item) => {
+                            // 1. Adicionar à biblioteca global (o App.tsx vai receber via onAddItem)
+                            // Para uso imediato, precisamos de um ID. O onAddItem no App.tsx gera um.
+                            // Vamos gerar um ID temporário aqui para vincular ao solado.
+                            const itemWithId = { ...item, id: Math.random().toString(36) };
+                            onAddItem(showQuickAdd.type, itemWithId);
+                            
+                            // 2. Se o contexto for um índice de material de solado, vincular o novo ID
+                            if (showQuickAdd.context && showQuickAdd.context.idx !== undefined) {
+                                if (showQuickAdd.type === 'insumos') {
+                                    const newMats = [...solaMaterials];
+                                    newMats[showQuickAdd.context.idx].materialId = itemWithId.id;
+                                    setSolaMaterials(newMats);
+                                    setSearchTerms(prev => ({ ...prev, [`sola-mat-${showQuickAdd.context.idx}`]: itemWithId.nome }));
+                                } else if (showQuickAdd.type === 'terceirizados') {
+                                    const newLabor = [...solaLabor];
+                                    newLabor[showQuickAdd.context.idx].nome = itemWithId.nome;
+                                    newLabor[showQuickAdd.context.idx].valor = itemWithId.valorUnitario;
+                                    setSolaLabor(newLabor);
+                                }
+                            }
+                            setShowQuickAdd(null);
                         }}
                     />
                 )}

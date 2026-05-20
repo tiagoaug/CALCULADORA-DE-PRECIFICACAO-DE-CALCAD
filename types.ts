@@ -11,6 +11,7 @@ export interface Insumo {
   fator?: number; // Fator de conversão específico para este material
   rendimento?: number; // Rendimento do material (quantos pares produz)
   comentario?: string;
+  consumptionCalcState?: any;
 }
 
 export interface CustoFixo {
@@ -59,6 +60,7 @@ export interface Imposto {
 export interface ProductData {
   id: string;
   name: string;
+  client?: string;
   lastModified: number;
   type?: 'detailed' | 'ready';
   purchasePrice?: number;
@@ -125,6 +127,9 @@ export interface SolaMaterial {
   materialId: string;
   pesoGrams: number; // Peso deste material no solado em gramas
   precoAlternativo?: number; // Preço manual que sobrescreve o da biblioteca
+  tipoCalculo?: 'peso' | 'rendimento' | 'porcentagem'; // Modo de cálculo
+  rendimentoPares?: number; // Rendimento: quantos pares produz com 1kg deste material
+  porcentagem?: number; // Porcentagem do material na mistura (0-100)
 }
 
 export interface Sola {
@@ -132,6 +137,8 @@ export interface Sola {
   nome: string;
   fornecedor: string;
   valor?: number; // Preço do solado pronto (opcional)
+  tipo?: 'simples' | 'mistura' | 'porcentagem'; // Tipo de composição
+  rendimentoGlobal?: number; // Rendimento para modo mistura por porcentagem
   materiais: SolaMaterial[]; // Lista de materiais usados
   grade: SolaGradeItem[];
   maoDeObra: SolaLaborItem[];
@@ -146,6 +153,11 @@ export interface Supplier {
   endereco?: string;
 }
 
+export interface Client {
+  id: string;
+  name: string;
+}
+
 export interface AppDatabase {
   uid?: string; // UID Pinning to prevent cross-account data leakage
   products: ProductData[];
@@ -154,6 +166,7 @@ export interface AppDatabase {
   lastSelectedProductId?: string;
   materialPrices?: MaterialPriceRecord[];
   suppliers?: Supplier[];
+  clients?: Client[];
 }
 
 export interface PriceSummary {

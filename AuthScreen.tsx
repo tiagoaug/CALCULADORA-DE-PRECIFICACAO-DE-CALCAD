@@ -151,6 +151,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                     type="email" 
                     required 
                     value={email}
+                    title="E-mail Corporativo"
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="email@empresa.com"
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-blue-500 dark:focus:border-blue-500 rounded-2xl pl-12 pr-4 py-4 text-sm outline-none transition-all shadow-inner"
@@ -177,6 +178,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                     type="password" 
                     required 
                     value={password}
+                    title="Senha de Acesso"
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-blue-500 dark:focus:border-blue-500 rounded-2xl pl-12 pr-4 py-4 text-sm outline-none transition-all shadow-inner"

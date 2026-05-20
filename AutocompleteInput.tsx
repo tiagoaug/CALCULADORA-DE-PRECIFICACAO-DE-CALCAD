@@ -19,6 +19,7 @@ interface AutocompleteInputProps {
   onSelect: (item: Suggestion) => void;
   onChange: (value: string) => void;
   hidePrice?: boolean;
+  onFocus?: (e: React.FocusEvent<HTMLInputElement>) => void;
 }
 
 const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
@@ -29,6 +30,7 @@ const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
   className,
   onSelect,
   onChange,
+  onFocus,
   hidePrice = false
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -88,7 +90,10 @@ const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
           onChange(e.target.value);
           setIsOpen(true);
         }}
-        onFocus={() => setIsOpen(true)}
+        onFocus={(e) => {
+          setIsOpen(true);
+          if (onFocus) onFocus(e);
+        }}
         placeholder={placeholder}
         title={placeholder || "Buscar item"}
         className={`w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-4 pr-12 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all ${className}`}
