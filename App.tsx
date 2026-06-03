@@ -774,6 +774,7 @@ const App: React.FC = () => {
   const [editingClient, setEditingClient] = useState("");
   const [projectSearch, setProjectSearch] = useState("");
   const [expandedClients, setExpandedClients] = useState<Record<string, boolean>>({});
+  const [clientToDelete, setClientToDelete] = useState<{ id: string; name: string } | null>(null);
   const [selectedInsumoIds, setSelectedInsumoIds] = useState<string[]>([]);
   const [selectedTerceirizadoIds, setSelectedTerceirizadoIds] = useState<string[]>([]);
   const [readjustmentItem, setReadjustmentItem] = useState<{ item: any, type: string } | null>(null);
@@ -1825,7 +1826,7 @@ const App: React.FC = () => {
       <main id="main-content-top" className="max-w-[1440px] mx-auto md:px-6 px-0 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 print:p-0 print:gap-4">
         <div className="lg:col-span-9 space-y-6 print:space-y-4">
 
-          <Section title="1. Materiais e Peças" icon={<Package className="text-emerald-500 w-5 h-5" />} expanded={expandedSection === 'insumos'} onToggle={() => toggleSection('insumos')}>
+          <Section title="1. Materiais e Peças ou Compra de Modelo" icon={<Package className="text-emerald-500 w-5 h-5" />} expanded={expandedSection === 'insumos'} onToggle={() => toggleSection('insumos')}>
 
             <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-xl mb-6 border border-slate-200 dark:border-slate-800">
               <button
@@ -1838,7 +1839,7 @@ const App: React.FC = () => {
                 onClick={() => updateCurrentProduct({ type: 'ready' })}
                 className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest transition-all rounded-lg ${currentProduct.type === 'ready' ? 'bg-white dark:bg-slate-900 text-emerald-600 shadow-sm border border-slate-100 dark:border-slate-800' : 'text-slate-400 hover:text-slate-600'}`}
               >
-                Modelo Pronto
+                Compra de Modelo
               </button>
             </div>
 
@@ -2394,7 +2395,7 @@ const App: React.FC = () => {
             )}
           </Section>
 
-          <Section title="2. Mão de Obra e Serviços" icon={<Users className="text-orange-500 w-5 h-5" />} expanded={expandedSection === 'terceirizados'} onToggle={() => toggleSection('terceirizados')}>
+          <Section title="2. Mão de Obra e Serviços" icon={<Users className="text-orange-500 w-5 h-5" />} expanded={expandedSection === 'terceirizados'} onToggle={() => toggleSection('terceirizados')} disabled={currentProduct.type === 'ready'}>
 
             <div className="flex justify-end gap-2 mb-4 print:hidden">
               <button
@@ -3091,27 +3092,107 @@ const App: React.FC = () => {
             </Section>
 
             <Section title="5. Metas e Taxas" icon={<Target className="text-indigo-500 w-5 h-5" />} expanded={expandedSection === 'markup'} onToggle={() => toggleSection('markup')}>
-              <div className="grid grid-cols-3 gap-2">
-                <div className="text-center">
-                  <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Imp %</label>
-                  <input type="text" value={getDisplayValue(currentProduct.markup?.impostos || 0, 'm', 'i')} title="Impostos %" onBlur={() => setEditingValue(null)} onChange={(e) => handleNumericChange('m', 'i', e.target.value, (v) => updateCurrentProduct({ markup: { ...(currentProduct.markup || { impostos: 0, comissao: 0, frete: 0, perdas: 0, margemLucro: 0 }), impostos: v } }))} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 text-[14px] font-black text-center font-mono focus:ring-2 focus:ring-blue-500 outline-none" />
+              <div className="space-y-3">
+
+                {/* Meta de Margem */}
+                <div className="flex items-center justify-between gap-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl px-4 py-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Meta de Lucro</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                      {(currentProduct.markup?.margemLucroMode ?? 'percent') === 'fixed'
+                        ? 'Valor fixo de lucro desejado em R$ por unidade vendida (será somado ao custo antes dos impostos)'
+                        : 'Percentual de lucro desejado sobre o preço de venda final'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => updateCurrentProduct({ markup: { ...(currentProduct.markup || { impostos: 0, comissao: 0, frete: 0, perdas: 0, margemLucro: 0 }), margemLucroMode: (currentProduct.markup?.margemLucroMode ?? 'percent') === 'percent' ? 'fixed' : 'percent', margemLucro: 0 } })}
+                      title={(currentProduct.markup?.margemLucroMode ?? 'percent') === 'percent' ? 'Clique para mudar para valor fixo R$' : 'Clique para mudar para porcentagem %'}
+                      className={`w-9 h-9 rounded-xl font-black text-[11px] transition-all active:scale-95 border-2 ${(currentProduct.markup?.margemLucroMode ?? 'percent') === 'percent' ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/20' : 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-500/20'}`}
+                    >
+                      {(currentProduct.markup?.margemLucroMode ?? 'percent') === 'percent' ? '%' : 'R$'}
+                    </button>
+                    <input
+                      type="text"
+                      value={getDisplayValue(currentProduct.markup?.margemLucro || 0, 'm', 'l')}
+                      title="Meta de Lucro"
+                      onBlur={() => setEditingValue(null)}
+                      onChange={(e) => handleNumericChange('m', 'l', e.target.value, (v) => updateCurrentProduct({ markup: { ...(currentProduct.markup || { impostos: 0, comissao: 0, frete: 0, perdas: 0, margemLucro: 0 }), margemLucro: v } }))}
+                      className="w-24 bg-white dark:bg-blue-900/40 border border-blue-300 dark:border-blue-700 rounded-xl py-2 text-[15px] font-black text-center text-blue-700 dark:text-blue-400 font-mono focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                  </div>
                 </div>
-                <div className="text-center">
-                  <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Com %</label>
-                  <input type="text" value={getDisplayValue(currentProduct.markup?.comissao || 0, 'm', 'c')} title="Comissão %" onBlur={() => setEditingValue(null)} onChange={(e) => handleNumericChange('m', 'c', e.target.value, (v) => updateCurrentProduct({ markup: { ...(currentProduct.markup || { impostos: 0, comissao: 0, frete: 0, perdas: 0, margemLucro: 0 }), comissao: v } }))} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 text-[14px] font-black text-center font-mono focus:ring-2 focus:ring-blue-500 outline-none" />
+
+                {/* Impostos */}
+                <div className="flex items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-widest">Impostos sobre Venda</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">Tributos incidentes sobre o preço de venda (ex: Simples Nacional, ICMS, ISS)</p>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <input type="text" value={getDisplayValue(currentProduct.markup?.impostos || 0, 'm', 'i')} title="Impostos %" onBlur={() => setEditingValue(null)} onChange={(e) => handleNumericChange('m', 'i', e.target.value, (v) => updateCurrentProduct({ markup: { ...(currentProduct.markup || { impostos: 0, comissao: 0, frete: 0, perdas: 0, margemLucro: 0 }), impostos: v } }))} className="w-20 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 text-[15px] font-black text-center font-mono focus:ring-2 focus:ring-blue-500 outline-none" />
+                    <span className="text-[11px] font-black text-slate-400">%</span>
+                  </div>
                 </div>
-                <div className="text-center">
-                  <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Frete R$</label>
-                  <input type="text" value={getDisplayValue(currentProduct.markup?.freteFixo || 0, 'm', 'ff')} title="Frete Fixo R$" onBlur={() => setEditingValue(null)} onChange={(e) => handleNumericChange('m', 'ff', e.target.value, (v) => updateCurrentProduct({ markup: { ...(currentProduct.markup || { impostos: 0, comissao: 0, frete: 0, freteFixo: 0, perdas: 0, margemLucro: 0 }), freteFixo: v } }))} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 text-[14px] font-black text-center font-mono focus:ring-2 focus:ring-blue-500 outline-none" />
+
+                {/* Comissão */}
+                <div className="flex items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-widest">Comissão de Venda</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">Percentual pago a representantes, vendedores ou plataformas sobre o preço de venda</p>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <input type="text" value={getDisplayValue(currentProduct.markup?.comissao || 0, 'm', 'c')} title="Comissão %" onBlur={() => setEditingValue(null)} onChange={(e) => handleNumericChange('m', 'c', e.target.value, (v) => updateCurrentProduct({ markup: { ...(currentProduct.markup || { impostos: 0, comissao: 0, frete: 0, perdas: 0, margemLucro: 0 }), comissao: v } }))} className="w-20 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 text-[15px] font-black text-center font-mono focus:ring-2 focus:ring-blue-500 outline-none" />
+                    <span className="text-[11px] font-black text-slate-400">%</span>
+                  </div>
                 </div>
-                <div className="text-center">
-                  <label className="text-[9px] font-black text-blue-500 uppercase block mb-1">Meta %</label>
-                  <input type="text" value={getDisplayValue(currentProduct.markup?.margemLucro || 0, 'm', 'l')} title="Margem de Lucro %" onBlur={() => setEditingValue(null)} onChange={(e) => handleNumericChange('m', 'l', e.target.value, (v) => updateCurrentProduct({ markup: { ...(currentProduct.markup || { impostos: 0, comissao: 0, frete: 0, perdas: 0, margemLucro: 0 }), margemLucro: v } }))} className="w-full bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-xl py-2.5 text-[14px] font-black text-center text-blue-700 dark:text-blue-400 font-mono focus:ring-2 focus:ring-blue-500 outline-none" />
+
+                {/* Frete */}
+                <div className="flex items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-widest">Frete de Entrega</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">Custo fixo de envio cobrado por unidade vendida (valor em R$)</p>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <span className="text-[11px] font-black text-slate-400">R$</span>
+                    <input type="text" value={getDisplayValue(currentProduct.markup?.freteFixo || 0, 'm', 'ff')} title="Frete Fixo R$" onBlur={() => setEditingValue(null)} onChange={(e) => handleNumericChange('m', 'ff', e.target.value, (v) => updateCurrentProduct({ markup: { ...(currentProduct.markup || { impostos: 0, comissao: 0, frete: 0, freteFixo: 0, perdas: 0, margemLucro: 0 }), freteFixo: v } }))} className="w-20 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 text-[15px] font-black text-center font-mono focus:ring-2 focus:ring-blue-500 outline-none" />
+                  </div>
                 </div>
-                <div className="text-center">
-                  <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Perda %</label>
-                  <input type="text" value={getDisplayValue(currentProduct.markup?.perdas || 0, 'm', 'p')} title="Perdas %" onBlur={() => setEditingValue(null)} onChange={(e) => handleNumericChange('m', 'p', e.target.value, (v) => updateCurrentProduct({ markup: { ...(currentProduct.markup || { impostos: 0, comissao: 0, frete: 0, perdas: 0, margemLucro: 0 }), perdas: v } }))} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 text-[14px] font-black text-center font-mono focus:ring-2 focus:ring-blue-500 outline-none" />
+
+                {/* Perda / Extravio */}
+                <div className="flex items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-widest">{currentProduct.type === 'ready' ? 'Extravio' : 'Perdas de Produção'}</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                      {(currentProduct.markup?.perdasMode ?? 'percent') === 'fixed'
+                        ? (currentProduct.type === 'ready'
+                            ? 'Valor fixo em R$ por unidade perdida por extravio, furto ou danos no transporte'
+                            : 'Valor fixo em R$ de desperdício por unidade produzida')
+                        : (currentProduct.type === 'ready'
+                            ? 'Percentual estimado de perdas por extravio, furto ou danos no transporte e estoque'
+                            : 'Percentual de desperdício de materiais e rejeitos gerados durante a fabricação')}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {/* Toggle % / R$ */}
+                    <button
+                      onClick={() => updateCurrentProduct({ markup: { ...(currentProduct.markup || { impostos: 0, comissao: 0, frete: 0, perdas: 0, margemLucro: 0 }), perdasMode: (currentProduct.markup?.perdasMode ?? 'percent') === 'percent' ? 'fixed' : 'percent', perdas: 0 } })}
+                      title={(currentProduct.markup?.perdasMode ?? 'percent') === 'percent' ? 'Clique para mudar para valor fixo R$' : 'Clique para mudar para porcentagem %'}
+                      className={`w-9 h-9 rounded-xl font-black text-[11px] transition-all active:scale-95 border-2 ${(currentProduct.markup?.perdasMode ?? 'percent') === 'percent' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-500/20' : 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-500/20'}`}
+                    >
+                      {(currentProduct.markup?.perdasMode ?? 'percent') === 'percent' ? '%' : 'R$'}
+                    </button>
+                    <input
+                      type="text"
+                      value={getDisplayValue(currentProduct.markup?.perdas || 0, 'm', 'p')}
+                      title={currentProduct.type === 'ready' ? 'Extravio' : 'Perdas'}
+                      onBlur={() => setEditingValue(null)}
+                      onChange={(e) => handleNumericChange('m', 'p', e.target.value, (v) => updateCurrentProduct({ markup: { ...(currentProduct.markup || { impostos: 0, comissao: 0, frete: 0, perdas: 0, margemLucro: 0 }), perdas: v } }))}
+                      className="w-24 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 text-[15px] font-black text-center font-mono focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                  </div>
                 </div>
+
               </div>
 
               {(db.library.impostos?.length > 0 || db.library.comissoes?.length > 0 || db.library.fretes?.length > 0) && (
@@ -3306,7 +3387,7 @@ const App: React.FC = () => {
                 </>
               )}
               <div className="flex justify-between text-xs font-medium text-slate-600 dark:text-slate-400"><span>Operacional</span><span className="font-mono">{formatCurrency(summary.custoFixoPorUnidade)}</span></div>
-              <div className="flex justify-between text-xs font-medium text-red-400"><span>Perdas de Produção</span><span className="font-mono">+{formatCurrency(summary.valorPerdaUnitario)}</span></div>
+              <div className="flex justify-between text-xs font-medium text-red-400"><span>{currentProduct.type === 'ready' ? 'Custo com Extravio ou Perca' : 'Perdas de Produção'}</span><span className="font-mono">+{formatCurrency(summary.valorPerdaUnitario)}</span></div>
               <div className="flex justify-between text-xs font-medium text-amber-500"><span>Impostos sobre Venda</span><span className="font-mono">+{formatCurrency(summary.valorImpostoUnitario)}</span></div>
               <div className="flex justify-between text-xs font-medium text-blue-500"><span>Comissões de Venda</span><span className="font-mono">+{formatCurrency(summary.valorComissaoUnitaria)}</span></div>
               <div className="flex justify-between text-xs font-medium text-emerald-500"><span>Fretes de Venda</span><span className="font-mono">+{formatCurrency(summary.valorFreteUnitario)}</span></div>
@@ -3752,7 +3833,17 @@ const App: React.FC = () => {
                                >
                                  <Edit className="w-4 h-4" />
                                </button>
-                               <button 
+                               <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setClientToDelete({ id: client.id, name: client.name });
+                                }}
+                                className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-all"
+                                title="Apagar Cliente"
+                               >
+                                 <Trash2 className="w-4 h-4" />
+                               </button>
+                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   const p = DEFAULT_PRODUCT(Math.random().toString(36));
@@ -3772,7 +3863,7 @@ const App: React.FC = () => {
                           {isExpanded && (
                             <div className="p-2 pt-0 space-y-2">
                               {clientProducts.filter(p => p.name?.toLowerCase().includes(searchLower)).map(p => (
-                                <div key={p.id} className={`group relative flex flex-col animate-in fade-in duration-500 p-4 rounded-2xl cursor-pointer transition-all border-2 ${p.id === db.lastSelectedProductId ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30 shadow-lg shadow-blue-500/10' : 'border-slate-100 dark:border-slate-800 hover:border-slate-200'}`}
+                                <div key={p.id} className={`group relative flex flex-col animate-in fade-in duration-500 p-4 rounded-2xl cursor-pointer transition-all border-2 ${p.id === db.lastSelectedProductId ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30 shadow-lg shadow-blue-500/10' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm hover:border-slate-300 hover:shadow-md'}`}
                                   onClick={() => {
                                     if (editingProjectId !== p.id) {
                                       setDb(prev => ({ ...prev, lastSelectedProductId: p.id }));
@@ -3922,7 +4013,7 @@ const App: React.FC = () => {
                         </div>
                         <div className="p-2 space-y-2">
                           {unassignedProducts.map(p => (
-                            <div key={p.id} className={`group relative flex flex-col animate-in fade-in duration-500 p-4 rounded-2xl cursor-pointer transition-all border-2 ${p.id === db.lastSelectedProductId ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30 shadow-lg shadow-blue-500/10' : 'border-slate-100 dark:border-slate-800 hover:border-slate-200'}`}
+                            <div key={p.id} className={`group relative flex flex-col animate-in fade-in duration-500 p-4 rounded-2xl cursor-pointer transition-all border-2 ${p.id === db.lastSelectedProductId ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30 shadow-lg shadow-blue-500/10' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm hover:border-slate-300 hover:shadow-md'}`}
                                 onClick={() => {
                                   if (editingProjectId !== p.id) {
                                     setDb(prev => ({ ...prev, lastSelectedProductId: p.id }));
@@ -4052,6 +4143,49 @@ const App: React.FC = () => {
                 );
               })()}
             </div>
+
+            {/* Modal de Confirmação — Apagar Cliente */}
+            {clientToDelete && (
+              <div className="absolute inset-0 z-[2000] flex items-center justify-center p-6 rounded-3xl bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-sm animate-in zoom-in-95 duration-200 overflow-hidden">
+                  <div className="p-6 flex items-start gap-4">
+                    <div className="flex-shrink-0 w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-xl flex items-center justify-center">
+                      <Trash2 className="w-5 h-5 text-red-500" />
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200 mb-1">Apagar Cliente</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Tem certeza que deseja apagar o cliente <span className="font-black text-slate-700 dark:text-slate-200">"{clientToDelete.name}"</span>?
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-2">Os projetos vinculados serão mantidos, mas ficarão sem cliente associado.</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 px-6 pb-6">
+                    <button
+                      onClick={() => setClientToDelete(null)}
+                      className="flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all active:scale-95"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={() => {
+                        setDb(prev => ({
+                          ...prev,
+                          clients: (prev.clients || []).filter(c => c.id !== clientToDelete!.id),
+                          products: prev.products.map(p =>
+                            p.client === clientToDelete!.name ? { ...p, client: '' } : p
+                          )
+                        }));
+                        setClientToDelete(null);
+                      }}
+                      className="flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest bg-red-500 text-white rounded-xl hover:bg-red-600 transition-all active:scale-95 shadow-lg shadow-red-500/20"
+                    >
+                      Apagar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Accordion Ferramentas */}
             <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
@@ -4190,16 +4324,19 @@ const App: React.FC = () => {
   );
 };
 
-const Section: React.FC<{ title: string; icon: React.ReactNode; children: React.ReactNode; expanded: boolean; onToggle: () => void; }> = ({ title, icon, children, expanded, onToggle }) => (
-  <div className={`rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all duration-300 overflow-hidden scroll-mt-24 print:border-none print:shadow-none print:bg-transparent ${expanded ? 'bg-slate-200 dark:bg-slate-800 shadow-md border-slate-300 dark:border-slate-700' : 'bg-white dark:bg-slate-900'}`}>
-    <button onClick={onToggle} className={`w-full md:px-8 px-4 md:py-6 py-4 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors ${expanded ? 'bg-slate-300/40 dark:bg-slate-800/80' : ''} print:hidden`}>
+const Section: React.FC<{ title: string; icon: React.ReactNode; children: React.ReactNode; expanded: boolean; onToggle: () => void; disabled?: boolean; }> = ({ title, icon, children, expanded, onToggle, disabled }) => (
+  <div className={`rounded-2xl border shadow-sm transition-all duration-300 overflow-hidden scroll-mt-24 print:border-none print:shadow-none print:bg-transparent ${disabled ? 'border-slate-100 dark:border-slate-800/50 opacity-50' : expanded ? 'bg-slate-200 dark:bg-slate-800 shadow-md border-slate-300 dark:border-slate-700 border-slate-200 dark:border-slate-800' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'}`}>
+    <button onClick={disabled ? undefined : onToggle} disabled={disabled} className={`w-full md:px-8 px-4 md:py-6 py-4 flex items-center justify-between transition-colors ${disabled ? 'cursor-not-allowed bg-slate-50 dark:bg-slate-900/50' : `hover:bg-slate-100 dark:hover:bg-slate-800/60 ${expanded ? 'bg-slate-300/40 dark:bg-slate-800/80' : ''}`} print:hidden`}>
       <div className="flex items-center gap-5">
-        <div className={`p-3 rounded-xl shadow-sm transition-colors ${expanded ? 'bg-white dark:bg-slate-900' : 'bg-slate-100 dark:bg-slate-800'}`}>
+        <div className={`p-3 rounded-xl shadow-sm transition-colors ${disabled ? 'bg-slate-100 dark:bg-slate-800' : expanded ? 'bg-white dark:bg-slate-900' : 'bg-slate-100 dark:bg-slate-800'}`}>
           {icon}
         </div>
-        <span className="font-black text-[13px] uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200">{title}</span>
+        <div className="flex items-center gap-3">
+          <span className="font-black text-[13px] uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200">{title}</span>
+          {disabled && <span className="text-[9px] font-black uppercase tracking-widest bg-slate-200 dark:bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full">Indisponível</span>}
+        </div>
       </div>
-      <div className={`p-2 rounded-full transition-all duration-300 ${expanded ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
+      <div className={`p-2 rounded-full transition-all duration-300 ${disabled ? 'bg-slate-100 dark:bg-slate-800 text-slate-300' : expanded ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
         <ChevronDown
           className={`w-6 h-6 transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}
           strokeWidth={3}

@@ -32,7 +32,9 @@ export interface MarkupSettings {
   frete: number;
   freteFixo: number;
   perdas: number;
+  perdasMode?: 'percent' | 'fixed';
   margemLucro: number;
+  margemLucroMode?: 'percent' | 'fixed';
   selectedImpostos?: string[];
   selectedComissoes?: string[];
   selectedFretes?: string[];

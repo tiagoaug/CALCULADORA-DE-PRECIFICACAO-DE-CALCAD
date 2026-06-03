@@ -78,8 +78,8 @@ export const calculateSummary = (
         return acc + ((curr.quantidade || 0) * valorReal);
       }, 0);
 
-  // 2. Custo de Terceirizados (Unitário)
-  const custoTerceirizados = (terceirizados || []).reduce((acc, curr) => {
+  // 2. Custo de Terceirizados (Unitário) — zerado quando tipo é 'ready' (Compra de Modelo)
+  const custoTerceirizados = type === 'ready' ? 0 : (terceirizados || []).reduce((acc, curr) => {
     const factor = findUnitFactor(curr.unidade, unidadesMedida, curr.fator);
     const valorReal = (curr.valorUnitario || 0) / (factor || 1);
     return acc + ((curr.quantidade || 0) * valorReal);
@@ -97,18 +97,25 @@ export const calculateSummary = (
   // 5. Custo Base (Soma tudo antes das perdas)
   const custoBase = custoMaterial + custoTerceirizados + custoOperacionalUnitario;
 
-  // 6. Perdas de Produção
-  const valorPerdaUnitario = custoBase * ((markup?.perdas || 0) / 100);
+  // 6. Perdas de Produção (modo % aplica sobre o custo base; modo fixo é valor R$ direto)
+  const valorPerdaUnitario = markup?.perdasMode === 'fixed'
+    ? (markup?.perdas || 0)
+    : custoBase * ((markup?.perdas || 0) / 100);
   const custoProducaoUnitario = custoBase + valorPerdaUnitario;
 
   // 7. Preço Sugerido (Baseado na MARGEM ALVO e TAXAS DE VENDA)
   const percImposto = (markup?.impostos || 0) / 100;
   const percComissao = (markup?.comissao || 0) / 100;
-  const percMargemAlvo = (markup?.margemLucro || 0) / 100;
   const freteFixo = (markup?.freteFixo || 0);
+  const margemLucroFixed = markup?.margemLucroMode === 'fixed';
 
-  const divisorMarkup = Math.max(0.1, 1 - percImposto - percComissao - percMargemAlvo);
-  const precoSugerido = (custoProducaoUnitario + freteFixo) / divisorMarkup;
+  // Modo fixo R$: lucro é valor absoluto; modo %: lucro é percentual sobre o preço
+  const divisorMarkup = margemLucroFixed
+    ? Math.max(0.1, 1 - percImposto - percComissao)
+    : Math.max(0.1, 1 - percImposto - percComissao - (markup?.margemLucro || 0) / 100);
+  const precoSugerido = margemLucroFixed
+    ? (custoProducaoUnitario + freteFixo + (markup?.margemLucro || 0)) / divisorMarkup
+    : (custoProducaoUnitario + freteFixo) / divisorMarkup;
 
   // 8. Preço Praticado (O que o usuário inseriu ou o sugerido se vazio)
   const precoPraticado = precoManual > 0 ? precoManual : precoSugerido;
